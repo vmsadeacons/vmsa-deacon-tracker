@@ -12,7 +12,7 @@ accounts, two SQL scripts, and a `git push`.
 5. Paste the entire contents of [`db/0001_init.sql`](db/0001_init.sql) and click **Run**.
 6. New query again → paste [`db/0002_seed.sql`](db/0002_seed.sql) and click **Run**.
    - Before running, edit the last line if the SystemAdmin should be someone other than `magpsaad@gmail.com`.
-7. Go to **Settings → Database → Connection string → URI**. Copy the one labeled **Transaction pooler** (port `6543`) — this is the one that works from serverless functions (Vercel). Substitute your actual database password into it.
+7. Click the **Connect** button near the top of the project dashboard (Supabase has moved this out of Settings in newer UI versions — if you don't see it there, check Project Settings → Database instead). In the dialog, switch to **Transaction pooler** (port `6543`) — this is the one that works from serverless functions (Vercel). Copy the URI and substitute in your actual database password (Supabase shows a `[YOUR-PASSWORD]` placeholder).
 
 That connection string is your `DATABASE_URL`.
 
