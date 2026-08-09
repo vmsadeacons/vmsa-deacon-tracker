@@ -33,7 +33,9 @@ export default function CheckinClient({
   const [context, setContext] = useState(initialContext);
   const [busy, setBusy] = useState(false);
   const liturgyIdRef = useRef(liturgyId);
-  liturgyIdRef.current = liturgyId;
+  useEffect(() => {
+    liturgyIdRef.current = liturgyId;
+  }, [liturgyId]);
 
   const loadLiturgy = useCallback(async (d: string, l: string, s: ServiceTypeCode) => {
     const result = await openCheckinLiturgyAction(d, l, s);

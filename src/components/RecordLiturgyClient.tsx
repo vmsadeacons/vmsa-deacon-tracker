@@ -48,7 +48,9 @@ export default function RecordLiturgyClient({
   const [context, setContext] = useState(initialContext);
   const [showMore, setShowMore] = useState(false);
   const liturgyIdRef = useRef(liturgyId);
-  liturgyIdRef.current = liturgyId;
+  useEffect(() => {
+    liturgyIdRef.current = liturgyId;
+  }, [liturgyId]);
 
   const loadLiturgy = useCallback(async (d: string, l: string, s: ServiceTypeCode) => {
     const result = await openLiturgyAction(d, l, s);
