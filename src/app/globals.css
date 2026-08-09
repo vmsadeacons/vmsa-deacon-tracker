@@ -1,26 +1,537 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --ivory: #f6f4ef;
+  --surface: #ffffff;
+  --surface-2: #efebe3;
+  --border: #ddd6c9;
+  --ink: #292420;
+  --muted: #6f675d;
+  --muted-2: #9a9184;
+
+  --wine: #7a2e3c;
+  --wine-bg: #f3e2e2;
+  --gold: #8f6b24;
+  --gold-bg: #f0e7d2;
+  --green: #2e6b45;
+  --green-bg: #ddebe0;
+  --amber: #8a5a18;
+  --amber-bg: #f2e6cf;
+
+  --font-serif: Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+* {
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  padding: 0;
+  margin: 0;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--ivory);
+  color: var(--ink);
+  font-family: var(--font-sans);
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-serif);
+  color: var(--ink);
+  margin: 0 0 0.5rem 0;
+}
+
+a {
+  color: inherit;
+}
+
+/* ---------------------------------------------------------------------- */
+/* App shell                                                              */
+/* ---------------------------------------------------------------------- */
+
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 1.25rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.sidebar-brand {
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--wine);
+  padding: 0 0.5rem;
+}
+
+.navsection-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+  padding: 0 0.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.navgroup {
+  border-left: 2px solid var(--border);
+  margin-left: 0.6rem;
+  padding-left: 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.navlink {
+  display: block;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 0.92rem;
+}
+
+.navlink:hover {
+  background: var(--surface-2);
+}
+
+.navlink.active {
+  background: var(--wine-bg);
+  color: var(--wine);
+  font-weight: 600;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 0.75rem 0.5rem 0;
+  border-top: 1px solid var(--border);
+  font-size: 0.82rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  padding: 1.5rem;
+}
+
+.topbar {
+  display: none;
+}
+
+.hamburger {
+  display: none;
+}
+
+@media (max-width: 860px) {
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.15);
+  }
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  .sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    z-index: 40;
+  }
+  .sidebar-overlay.open {
+    display: block;
+  }
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .hamburger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 1.1rem;
+  }
+  .main {
+    padding: 1rem;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Cards & layout primitives                                              */
+/* ---------------------------------------------------------------------- */
+
+.card {
+  background: var(--surface);
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(41, 36, 32, 0.08), 0 1px 2px rgba(41, 36, 32, 0.06);
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.step-header {
+  font-family: var(--font-serif);
+  font-size: 1.05rem;
+  margin-bottom: 0.9rem;
+  color: var(--ink);
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 700px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.fieldrow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+@media (max-width: 700px) {
+  .fieldrow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.field label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  min-width: 0;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Form controls                                                          */
+/* ---------------------------------------------------------------------- */
+
+input,
+select,
+textarea {
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: 2px solid var(--wine);
+  outline-offset: -1px;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Buttons                                                                */
+/* ---------------------------------------------------------------------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--wine);
+  color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #661f2c;
+}
+
+.btn-secondary {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--ink);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.btn-danger {
+  background: #fff;
+  border-color: #d8b4b4;
+  color: #a33636;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: #fbecec;
+}
+
+.btn-sm {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.8rem;
+  border-radius: 8px;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Chips (pill toggles)                                                   */
+/* ---------------------------------------------------------------------- */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.85rem;
+  cursor: pointer;
+  user-select: none;
+  line-height: 1.2;
+}
+
+.chip:hover {
+  border-color: var(--wine);
+}
+
+.chip.active {
+  background: var(--wine);
+  border-color: var(--wine);
+  color: #fff;
+}
+
+.chip.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Badges                                                                 */
+/* ---------------------------------------------------------------------- */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badge-green {
+  background: var(--green-bg);
+  color: var(--green);
+}
+
+.badge-grey {
+  background: var(--surface-2);
+  color: var(--muted);
+}
+
+.badge-gold {
+  background: var(--gold-bg);
+  color: var(--gold);
+}
+
+.badge-wine {
+  background: var(--wine-bg);
+  color: var(--wine);
+}
+
+.badge-amber {
+  background: var(--amber-bg);
+  color: var(--amber);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Tables                                                                 */
+/* ---------------------------------------------------------------------- */
+
+table.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+table.table th {
+  text-align: left;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--muted-2);
+  border-bottom: 1px solid var(--border);
+  padding: 0.5rem 0.6rem;
+  cursor: default;
+}
+
+table.table th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+table.table td {
+  padding: 0.55rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+}
+
+table.table tbody tr:hover {
+  background: var(--ivory);
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Stat tiles                                                             */
+/* ---------------------------------------------------------------------- */
+
+.stat-row {
+  display: grid !important;
+  grid-template-columns: repeat(2, 1fr) !important;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.stat-row.stat-row-4 {
+  grid-template-columns: repeat(4, 1fr) !important;
+}
+
+@media (max-width: 700px) {
+  .stat-row.stat-row-4 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+.stat-tile {
+  background: var(--surface);
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(41, 36, 32, 0.08);
+  padding: 1rem;
+  text-align: left;
+  cursor: default;
+  border: none;
+}
+
+.stat-tile.clickable {
+  cursor: pointer;
+}
+
+.stat-tile.clickable:hover {
+  outline: 2px solid var(--wine);
+}
+
+.stat-tile .stat-value {
+  font-family: var(--font-serif);
+  font-size: 1.8rem;
+  color: var(--wine);
+}
+
+.stat-tile .stat-label {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.quick-actions {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.error-text {
+  color: #a33636;
+  font-size: 0.85rem;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.25rem;
+}
+
+.tab {
+  padding: 0.6rem 1rem;
+  border: none;
+  background: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+}
+
+.tab.active {
+  color: var(--wine);
+  border-bottom-color: var(--wine);
 }

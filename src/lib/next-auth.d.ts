@@ -21,7 +21,9 @@ declare module "next-auth" {
   }
 }
 
-declare module "next-auth/jwt" {
+// next-auth/jwt just re-exports from @auth/core/jwt (`export * from`), so
+// the JWT interface must be augmented at its actual declaring module.
+declare module "@auth/core/jwt" {
   interface JWT {
     uid: string;
     role: Role;
