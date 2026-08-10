@@ -8,6 +8,7 @@ import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
 import type { LocationRow } from "@/lib/repo/locations";
 import type { DeaconInput } from "@/lib/repo/deacons";
 import { createDeaconAction, updateDeaconAction, deleteDeaconAction } from "@/app/(app)/deacons/actions";
+import { formatPhone, telHref } from "@/lib/formatPhone";
 
 type SortKey = "name" | "city" | "age_group" | "rank" | "status";
 
@@ -127,7 +128,7 @@ export default function DeaconsClient({
                       {d.status}
                     </span>
                   </td>
-                  <td>{d.phone ?? "—"}</td>
+                  <td>{d.phone ? <a href={telHref(d.phone)}>{formatPhone(d.phone)}</a> : "—"}</td>
                   <td>{d.email ?? "—"}</td>
                   <td style={{ display: "flex", gap: "0.5rem" }}>
                     <button className="btn btn-secondary btn-sm" onClick={() => setEditing(d)}>

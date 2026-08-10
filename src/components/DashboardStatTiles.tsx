@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { DeaconContact } from "@/lib/repo/dashboard";
+import { formatPhone, telHref } from "@/lib/formatPhone";
 
 function ContactList({ people }: { people: DeaconContact[] }) {
   if (people.length === 0) return <p className="muted">No one here.</p>;
@@ -18,7 +19,7 @@ function ContactList({ people }: { people: DeaconContact[] }) {
           {people.map((p) => (
             <tr key={p.id}>
               <td>{p.name}</td>
-              <td>{p.phone ? <a href={`tel:${p.phone}`}>{p.phone}</a> : <span className="muted">—</span>}</td>
+              <td>{p.phone ? <a href={telHref(p.phone)}>{formatPhone(p.phone)}</a> : <span className="muted">—</span>}</td>
             </tr>
           ))}
         </tbody>
