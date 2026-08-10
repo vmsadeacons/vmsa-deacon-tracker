@@ -15,7 +15,15 @@ import {
   deleteUserAction,
 } from "@/app/(app)/access/actions";
 
-function canModify(actorRole: Role, target: UserWithPerson): boolean {
+// Mirrors src/lib/repo/users.ts's canEditUser/canDisableOrDeleteUser — kept
+// in sync manually since one runs server-side and one just disables buttons
+// client-side (the server functions are the real enforcement).
+function canEdit(actorRole: Role, target: UserWithPerson): boolean {
+  if (target.role === "SystemAdmin" && actorRole !== "SystemAdmin") return false;
+  return true;
+}
+
+function canDisableOrDelete(actorRole: Role, target: UserWithPerson): boolean {
   if (target.is_primary_admin) return false;
   if (target.role === "SystemAdmin" && actorRole !== "SystemAdmin") return false;
   return true;
@@ -103,7 +111,8 @@ export default function AccessRolesClient({
             </thead>
             <tbody>
               {users.map((u) => {
-                const modifiable = canModify(actorRole, u);
+                const editable = canEdit(actorRole, u);
+                const removable = canDisableOrDelete(actorRole, u);
                 return (
                   <tr key={u.id}>
                     <td>{u.person_name}</td>
@@ -122,7 +131,7 @@ export default function AccessRolesClient({
                       {u.role === "Deacon" && (
                         <button
                           className="btn btn-secondary btn-sm"
-                          disabled={!modifiable}
+                          disabled={!editable}
                           onClick={() => handleResetPin(u)}
                         >
                           Reset PIN
@@ -130,21 +139,21 @@ export default function AccessRolesClient({
                       )}
                       <button
                         className="btn btn-secondary btn-sm"
-                        disabled={!modifiable}
+                        disabled={!editable}
                         onClick={() => setEditing(u)}
                       >
                         Edit
                       </button>
                       <button
                         className="btn btn-secondary btn-sm"
-                        disabled={!modifiable}
+                        disabled={!removable}
                         onClick={() => handleToggleStatus(u)}
                       >
                         {u.status === "Active" ? "Disable" : "Enable"}
                       </button>
                       <button
                         className="btn btn-danger btn-sm"
-                        disabled={!modifiable}
+                        disabled={!removable}
                         onClick={() => handleDelete(u)}
                       >
                         Delete

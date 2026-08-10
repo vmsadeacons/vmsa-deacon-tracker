@@ -5,12 +5,19 @@ import { getAppSettings } from "@/lib/repo/settings";
 import SettingsClient from "@/components/SettingsClient";
 
 export default async function SettingsPage() {
-  await requireAdmin();
+  const session = await requireAdmin();
   const [locations, activities, settings] = await Promise.all([
     listLocations(true),
     listActivities(true),
     getAppSettings(),
   ]);
 
-  return <SettingsClient locations={locations} activities={activities} settings={settings} />;
+  return (
+    <SettingsClient
+      locations={locations}
+      activities={activities}
+      settings={settings}
+      canEdit={session.user.role === "SystemAdmin"}
+    />
+  );
 }

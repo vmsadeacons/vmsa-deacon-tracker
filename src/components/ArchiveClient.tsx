@@ -12,7 +12,7 @@ const CUTOFFS = [
   { months: 36, label: "36 months" },
 ] as const;
 
-export default function ArchiveClient({ runs }: { runs: ArchiveLogRow[] }) {
+export default function ArchiveClient({ runs, canEdit }: { runs: ArchiveLogRow[]; canEdit: boolean }) {
   const router = useRouter();
   const [months, setMonths] = useState<1 | 6 | 12 | 36>(6);
   const [preview, setPreview] = useState<{ cutoffDate: string; liturgiesToMove: number; participationToMove: number } | null>(
@@ -77,11 +77,16 @@ export default function ArchiveClient({ runs }: { runs: ArchiveLogRow[] }) {
         )}
         <button
           className="btn btn-primary"
-          disabled={!preview || preview.liturgiesToMove === 0 || running}
+          disabled={!canEdit || !preview || preview.liturgiesToMove === 0 || running}
           onClick={handleRun}
         >
           {running ? "Archiving…" : "Preview & archive"}
         </button>
+        {!canEdit && (
+          <p className="muted" style={{ marginTop: "0.5rem" }}>
+            Only a System Admin can run the archive. You can still preview cutoffs and view history below.
+          </p>
+        )}
       </div>
 
       <div className="card">

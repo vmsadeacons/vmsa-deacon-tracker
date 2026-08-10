@@ -6,6 +6,7 @@ import type { LocationRow } from "@/lib/repo/locations";
 import type { LiturgyContext } from "@/lib/repo/liturgies";
 import type { ServiceTypeCode } from "@/lib/constants";
 import { getLiturgyReportAction } from "@/app/(app)/reports/actions";
+import { useLatestRequest } from "@/lib/useLatestRequest";
 
 export default function ByLiturgyTab({
   locations,
@@ -23,12 +24,15 @@ export default function ByLiturgyTab({
   const [serviceType, setServiceType] = useState(initialServiceType);
   const [result, setResult] = useState<(LiturgyContext & { archived: boolean }) | null>(null);
   const [loading, setLoading] = useState(false);
+  const runLatest = useLatestRequest<(LiturgyContext & { archived: boolean }) | null>();
 
-  async function load(d: string, l: string, s: ServiceTypeCode) {
+  function load(d: string, l: string, s: ServiceTypeCode) {
     if (!l) return;
     setLoading(true);
-    setResult(await getLiturgyReportAction(d, l, s));
-    setLoading(false);
+    runLatest(getLiturgyReportAction(d, l, s), (res) => {
+      setResult(res);
+      setLoading(false);
+    });
   }
 
   useEffect(() => {

@@ -13,6 +13,7 @@ import {
   type PWActivityId,
 } from "@/lib/constants";
 import { getPassionWeekOverviewAction, setPassionWeekAssignmentAction } from "@/app/(app)/passion-week/actions";
+import { useLatestRequest } from "@/lib/useLatestRequest";
 
 export default function PassionWeekClient({
   locations,
@@ -29,15 +30,17 @@ export default function PassionWeekClient({
   const [hour, setHour] = useState<string>(pwHoursFor(PW_SERVICES[0].id)[0]);
   const [overview, setOverview] = useState<PWOverview>({});
   const [loading, setLoading] = useState(false);
+  const runLatest = useLatestRequest<PWOverview>();
 
   const hours = pwHoursFor(serviceId);
 
-  async function load(y: number, l: string, s: PWServiceId) {
+  function load(y: number, l: string, s: PWServiceId) {
     if (!l) return;
     setLoading(true);
-    const result = await getPassionWeekOverviewAction(y, l, s);
-    setOverview(result);
-    setLoading(false);
+    runLatest(getPassionWeekOverviewAction(y, l, s), (result) => {
+      setOverview(result);
+      setLoading(false);
+    });
   }
 
   useEffect(() => {
@@ -64,17 +67,19 @@ export default function PassionWeekClient({
     return deacons.filter((d) => d.status === "Active" || d.id === currentDeaconId);
   }
 
-  async function handleAssign(activityId: PWActivityId, slotIndex: number, deaconId: string) {
-    const result = await setPassionWeekAssignmentAction({
-      year,
-      locationId,
-      serviceId,
-      hour,
-      activityId,
-      slotIndex,
-      deaconId: deaconId || null,
-    });
-    setOverview(result);
+  function handleAssign(activityId: PWActivityId, slotIndex: number, deaconId: string) {
+    runLatest(
+      setPassionWeekAssignmentAction({
+        year,
+        locationId,
+        serviceId,
+        hour,
+        activityId,
+        slotIndex,
+        deaconId: deaconId || null,
+      }),
+      setOverview
+    );
   }
 
   return (

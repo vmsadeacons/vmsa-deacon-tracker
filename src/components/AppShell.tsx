@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Sidebar from "./Sidebar";
+import CopticCross from "./CopticCross";
 import type { Role } from "@/lib/constants";
 
 export default function AppShell({
@@ -26,7 +27,8 @@ export default function AppShell({
           <button className="hamburger" aria-label="Open menu" onClick={() => setOpen((o) => !o)}>
             ☰
           </button>
-          <span className="sidebar-brand" style={{ fontSize: "1rem" }}>
+          <span className="sidebar-brand" style={{ fontSize: "1rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+            <CopticCross size={20} />
             VMSA Deacon Tracker
           </span>
         </div>

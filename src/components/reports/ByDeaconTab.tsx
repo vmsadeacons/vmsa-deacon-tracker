@@ -6,6 +6,7 @@ import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
 import type { DeaconHistory } from "@/lib/repo/reports";
 import { getDeaconHistoryReportAction } from "@/app/(app)/reports/actions";
 import { churchTodayAction, monthsAgoAction } from "@/lib/actions/shared";
+import { useLatestRequest } from "@/lib/useLatestRequest";
 
 type Period = "3" | "6" | "12" | "custom";
 
@@ -16,6 +17,7 @@ export default function ByDeaconTab({ deacons }: { deacons: DeaconWithAgeGroup[]
   const [toDate, setToDate] = useState("");
   const [history, setHistory] = useState<DeaconHistory | null>(null);
   const [loading, setLoading] = useState(false);
+  const runLatest = useLatestRequest<DeaconHistory>();
 
   async function handleView() {
     if (!deaconId) return;
@@ -29,8 +31,10 @@ export default function ByDeaconTab({ deacons }: { deacons: DeaconWithAgeGroup[]
       to = await churchTodayAction();
     }
     setLoading(true);
-    setHistory(await getDeaconHistoryReportAction(deaconId, from, to));
-    setLoading(false);
+    runLatest(getDeaconHistoryReportAction(deaconId, from, to), (res) => {
+      setHistory(res);
+      setLoading(false);
+    });
   }
 
   return (

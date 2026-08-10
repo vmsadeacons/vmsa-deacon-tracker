@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { LocationRow } from "@/lib/repo/locations";
 import type { SummaryRow } from "@/lib/repo/reports";
 import { getSummaryReportAction } from "@/app/(app)/reports/actions";
+import { useLatestRequest } from "@/lib/useLatestRequest";
 
 export default function SummaryTab({ locations }: { locations: LocationRow[] }) {
   const [fromDate, setFromDate] = useState("");
@@ -11,11 +12,14 @@ export default function SummaryTab({ locations }: { locations: LocationRow[] }) 
   const [locationId, setLocationId] = useState(""); // "" = All locations, per spec §6.5
   const [rows, setRows] = useState<SummaryRow[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const runLatest = useLatestRequest<SummaryRow[]>();
 
-  async function handleView() {
+  function handleView() {
     setLoading(true);
-    setRows(await getSummaryReportAction(fromDate || null, toDate || null, locationId || null));
-    setLoading(false);
+    runLatest(getSummaryReportAction(fromDate || null, toDate || null, locationId || null), (res) => {
+      setRows(res);
+      setLoading(false);
+    });
   }
 
   function exportCsv() {

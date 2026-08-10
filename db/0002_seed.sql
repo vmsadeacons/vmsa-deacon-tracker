@@ -9,12 +9,12 @@ insert into locations (name, status) values
   ('Church of the Resurrection', 'Active'),
   ('The Valley of the Mother of God', 'Active');
 
-insert into activities (name, allows_multiple, status) values
-  ('Altar service', true, 'Active'),
-  ('Pauline Epistle', false, 'Active'),
-  ('Catholic Epistle', false, 'Active'),
-  ('Praxis (Acts)', false, 'Active'),
-  ('Psalm & Gospel', false, 'Active');
+insert into activities (name, allows_multiple, status, sort_order) values
+  ('Altar service', true, 'Active', 0),
+  ('Pauline Epistle', false, 'Active', 1),
+  ('Catholic Epistle', false, 'Active', 2),
+  ('Praxis (Acts)', false, 'Active', 3),
+  ('Psalm & Gospel', false, 'Active', 4);
 
 insert into app_settings (key, value) values
   ('absence_period_months', '1'),

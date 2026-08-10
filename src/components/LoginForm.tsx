@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
+import CopticCross from "./CopticCross";
 
 const GOOGLE_ERROR_MESSAGES: Record<string, string> = {
   "no-admin-account":
@@ -46,7 +47,10 @@ export default function LoginForm() {
       }}
     >
       <div style={{ width: "100%", maxWidth: 760 }}>
-        <h1 style={{ textAlign: "center", marginBottom: "2rem" }}>VMSA Deacon Tracker</h1>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.6rem", marginBottom: "2rem" }}>
+          <CopticCross size={36} />
+          <h1 style={{ margin: 0 }}>VMSA Deacon Tracker</h1>
+        </div>
         <div className="grid-2">
           <div className="card">
             <h2>Administrators</h2>

@@ -98,8 +98,20 @@ export async function listUsers(): Promise<UserWithPerson[]> {
   return rows;
 }
 
-/** Only a SystemAdmin may touch a SystemAdmin row; the primary admin is untouchable by anyone. */
-export function canModifyUser(actorRole: Role, target: UserRow): boolean {
+/**
+ * Only a SystemAdmin may touch a SystemAdmin row (spec §4). This applies to
+ * editing/resetting a PIN too — including a SystemAdmin editing their own
+ * row (e.g. to link a deacon record), which must stay allowed even for the
+ * primary admin. The primary admin's extra protection is narrower: see
+ * `canDisableOrDeleteUser` below.
+ */
+export function canEditUser(actorRole: Role, target: UserRow): boolean {
+  if (target.role === "SystemAdmin" && actorRole !== "SystemAdmin") return false;
+  return true;
+}
+
+/** The seeded primary SystemAdmin can never be disabled or deleted, by anyone, through any path (spec §4/§6.6). */
+export function canDisableOrDeleteUser(actorRole: Role, target: UserRow): boolean {
   if (target.is_primary_admin) return false;
   if (target.role === "SystemAdmin" && actorRole !== "SystemAdmin") return false;
   return true;
@@ -138,7 +150,7 @@ export async function updateUser(
 ): Promise<UserRow> {
   const target = await getUserById(id);
   if (!target) throw new Error("User not found");
-  if (!canModifyUser(actorRole, target)) {
+  if (!canEditUser(actorRole, target)) {
     throw new Error("Not permitted to modify this account");
   }
   if (patch.role === "SystemAdmin" && actorRole !== "SystemAdmin") {
@@ -181,7 +193,7 @@ export async function updateUser(
 export async function setUserPin(id: string, pin: string, actorRole: Role): Promise<void> {
   const target = await getUserById(id);
   if (!target) throw new Error("User not found");
-  if (!canModifyUser(actorRole, target)) throw new Error("Not permitted to modify this account");
+  if (!canEditUser(actorRole, target)) throw new Error("Not permitted to modify this account");
   const pinHash = await hashPin(pin);
   await query(`update users set pin_hash = $2 where id = $1`, [id, pinHash]);
 }
@@ -193,14 +205,14 @@ export async function setUserStatus(
 ): Promise<void> {
   const target = await getUserById(id);
   if (!target) throw new Error("User not found");
-  if (!canModifyUser(actorRole, target)) throw new Error("Not permitted to modify this account");
+  if (!canDisableOrDeleteUser(actorRole, target)) throw new Error("Not permitted to modify this account");
   await query(`update users set status = $2 where id = $1`, [id, status]);
 }
 
 export async function deleteUser(id: string, actorRole: Role): Promise<void> {
   const target = await getUserById(id);
   if (!target) return;
-  if (!canModifyUser(actorRole, target)) throw new Error("Not permitted to delete this account");
+  if (!canDisableOrDeleteUser(actorRole, target)) throw new Error("Not permitted to delete this account");
   await query(`delete from users where id = $1`, [id]);
 }
 
@@ -213,7 +225,7 @@ export async function deleteUserInTx(
   const { rows } = await client.query<UserRow>(`select * from users where id = $1`, [userId]);
   const target = rows[0];
   if (!target) return;
-  if (!canModifyUser(actorRole, target)) {
+  if (!canDisableOrDeleteUser(actorRole, target)) {
     throw new Error("Not permitted to delete the login linked to this deacon");
   }
   await client.query(`delete from users where id = $1`, [userId]);
@@ -230,7 +242,7 @@ export async function disableLinkedUserIfAllowed(
     [linkedDeaconId]
   );
   for (const target of rows) {
-    if (canModifyUser(actorRole, target)) {
+    if (canDisableOrDeleteUser(actorRole, target)) {
       await client.query(`update users set status = 'Disabled' where id = $1`, [target.id]);
     }
     // If not allowed (primary admin / SystemAdmin-by-non-SystemAdmin), leave as-is —

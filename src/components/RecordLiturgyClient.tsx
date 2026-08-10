@@ -51,9 +51,15 @@ export default function RecordLiturgyClient({
   useEffect(() => {
     liturgyIdRef.current = liturgyId;
   }, [liturgyId]);
+  // Guards against out-of-order responses: an older field-change fetch
+  // resolving after a newer one, or a poll/mutation response landing after
+  // the selected liturgy has since changed.
+  const fieldChangeSeqRef = useRef(0);
 
   const loadLiturgy = useCallback(async (d: string, l: string, s: ServiceTypeCode) => {
+    const seq = ++fieldChangeSeqRef.current;
     const result = await openLiturgyAction(d, l, s);
+    if (seq !== fieldChangeSeqRef.current) return;
     setLiturgyId(result.liturgyId);
     setContext(result.context);
   }, []);
@@ -67,8 +73,10 @@ export default function RecordLiturgyClient({
 
   useEffect(() => {
     const interval = setInterval(async () => {
-      if (!liturgyIdRef.current) return;
-      const fresh = await refreshLiturgyAction(liturgyIdRef.current);
+      const targetLiturgyId = liturgyIdRef.current;
+      if (!targetLiturgyId) return;
+      const fresh = await refreshLiturgyAction(targetLiturgyId);
+      if (liturgyIdRef.current !== targetLiturgyId) return;
       setContext(fresh);
     }, POLL_MS);
     return () => clearInterval(interval);
@@ -88,6 +96,7 @@ export default function RecordLiturgyClient({
 
   async function handleToggleAttendance(deaconId: string) {
     if (!liturgyId) return;
+    const targetLiturgyId = liturgyId;
     const wasAttending = attendeeIds.includes(deaconId);
     // optimistic update
     setContext((prev) =>
@@ -100,19 +109,24 @@ export default function RecordLiturgyClient({
           }
         : prev
     );
-    const fresh = await toggleAttendanceAction(liturgyId, deaconId);
+    const fresh = await toggleAttendanceAction(targetLiturgyId, deaconId);
+    if (liturgyIdRef.current !== targetLiturgyId) return;
     setContext(fresh);
   }
 
   async function handleToggleAltar(activityId: string, deaconId: string) {
     if (!liturgyId) return;
-    const fresh = await toggleAltarAction(liturgyId, activityId, deaconId);
+    const targetLiturgyId = liturgyId;
+    const fresh = await toggleAltarAction(targetLiturgyId, activityId, deaconId);
+    if (liturgyIdRef.current !== targetLiturgyId) return;
     setContext(fresh);
   }
 
   async function handleSetReading(activityId: string, deaconId: string) {
     if (!liturgyId) return;
-    const fresh = await setReadingAction(liturgyId, activityId, deaconId || null);
+    const targetLiturgyId = liturgyId;
+    const fresh = await setReadingAction(targetLiturgyId, activityId, deaconId || null);
+    if (liturgyIdRef.current !== targetLiturgyId) return;
     setContext(fresh);
   }
 

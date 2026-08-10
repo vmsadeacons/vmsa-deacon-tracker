@@ -5,6 +5,7 @@ import type { LocationRow } from "@/lib/repo/locations";
 import type { PWOverview } from "@/lib/repo/passionWeek";
 import { PW_SERVICES, PW_ACTIVITIES, pwHoursFor, pwSlotCount, type PWServiceId } from "@/lib/constants";
 import { getPassionWeekFullScheduleAction } from "@/app/(app)/reports/actions";
+import { useLatestRequest } from "@/lib/useLatestRequest";
 
 export default function PassionWeekReportTab({
   locations,
@@ -17,12 +18,15 @@ export default function PassionWeekReportTab({
   const [locationId, setLocationId] = useState(locations[0]?.id ?? "");
   const [schedule, setSchedule] = useState<Record<PWServiceId, PWOverview> | null>(null);
   const [loading, setLoading] = useState(false);
+  const runLatest = useLatestRequest<Record<PWServiceId, PWOverview>>();
 
-  async function handleView() {
+  function handleView() {
     if (!locationId) return;
     setLoading(true);
-    setSchedule(await getPassionWeekFullScheduleAction(year, locationId));
-    setLoading(false);
+    runLatest(getPassionWeekFullScheduleAction(year, locationId), (res) => {
+      setSchedule(res);
+      setLoading(false);
+    });
   }
 
   return (

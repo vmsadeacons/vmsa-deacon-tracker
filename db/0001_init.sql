@@ -20,6 +20,7 @@ create table activities (
   name text not null unique,
   allows_multiple boolean not null default false,
   status text not null default 'Active' check (status in ('Active', 'Inactive')),
+  sort_order int not null default 0,
   created_at timestamptz not null default now()
 );
 

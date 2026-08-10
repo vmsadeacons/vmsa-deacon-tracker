@@ -14,7 +14,11 @@ import {
   setAgeGroupThresholdsAction,
 } from "@/app/(app)/settings/actions";
 
-function LocationsCard({ locations }: { locations: LocationRow[] }) {
+function ViewOnlyNote() {
+  return <p className="muted" style={{ marginTop: "0.5rem" }}>Only a System Admin can make changes here.</p>;
+}
+
+function LocationsCard({ locations, canEdit }: { locations: LocationRow[]; canEdit: boolean }) {
   const router = useRouter();
   const [newName, setNewName] = useState("");
 
@@ -50,7 +54,7 @@ function LocationsCard({ locations }: { locations: LocationRow[] }) {
                   <span className={`badge ${l.status === "Active" ? "badge-green" : "badge-grey"}`}>{l.status}</span>
                 </td>
                 <td>
-                  <button className="btn btn-secondary btn-sm" onClick={() => toggleStatus(l)}>
+                  <button className="btn btn-secondary btn-sm" disabled={!canEdit} onClick={() => toggleStatus(l)}>
                     {l.status === "Active" ? "Deactivate" : "Activate"}
                   </button>
                 </td>
@@ -59,17 +63,21 @@ function LocationsCard({ locations }: { locations: LocationRow[] }) {
           </tbody>
         </table>
       </div>
-      <div style={{ display: "flex", gap: "0.5rem" }}>
-        <input placeholder="New location name" value={newName} onChange={(e) => setNewName(e.target.value)} />
-        <button className="btn btn-primary" onClick={add}>
-          Add
-        </button>
-      </div>
+      {canEdit ? (
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <input placeholder="New location name" value={newName} onChange={(e) => setNewName(e.target.value)} />
+          <button className="btn btn-primary" onClick={add}>
+            Add
+          </button>
+        </div>
+      ) : (
+        <ViewOnlyNote />
+      )}
     </div>
   );
 }
 
-function ActivitiesCard({ activities }: { activities: ActivityRow[] }) {
+function ActivitiesCard({ activities, canEdit }: { activities: ActivityRow[]; canEdit: boolean }) {
   const router = useRouter();
   const [newName, setNewName] = useState("");
   const [allowsMultiple, setAllowsMultiple] = useState(false);
@@ -109,7 +117,7 @@ function ActivitiesCard({ activities }: { activities: ActivityRow[] }) {
                   <span className={`badge ${a.status === "Active" ? "badge-green" : "badge-grey"}`}>{a.status}</span>
                 </td>
                 <td>
-                  <button className="btn btn-secondary btn-sm" onClick={() => toggleStatus(a)}>
+                  <button className="btn btn-secondary btn-sm" disabled={!canEdit} onClick={() => toggleStatus(a)}>
                     {a.status === "Active" ? "Deactivate" : "Activate"}
                   </button>
                 </td>
@@ -118,21 +126,25 @@ function ActivitiesCard({ activities }: { activities: ActivityRow[] }) {
           </tbody>
         </table>
       </div>
-      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-        <input placeholder="New activity name" value={newName} onChange={(e) => setNewName(e.target.value)} />
-        <label style={{ display: "flex", alignItems: "center", gap: "0.35rem", whiteSpace: "nowrap" }}>
-          <input type="checkbox" checked={allowsMultiple} onChange={(e) => setAllowsMultiple(e.target.checked)} />
-          Allows multiple
-        </label>
-        <button className="btn btn-primary" onClick={add}>
-          Add
-        </button>
-      </div>
+      {canEdit ? (
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          <input placeholder="New activity name" value={newName} onChange={(e) => setNewName(e.target.value)} />
+          <label style={{ display: "flex", alignItems: "center", gap: "0.35rem", whiteSpace: "nowrap" }}>
+            <input type="checkbox" checked={allowsMultiple} onChange={(e) => setAllowsMultiple(e.target.checked)} />
+            Allows multiple
+          </label>
+          <button className="btn btn-primary" onClick={add}>
+            Add
+          </button>
+        </div>
+      ) : (
+        <ViewOnlyNote />
+      )}
     </div>
   );
 }
 
-function AppSettingsCard({ settings }: { settings: AppSettings }) {
+function AppSettingsCard({ settings, canEdit }: { settings: AppSettings; canEdit: boolean }) {
   const router = useRouter();
   const [months, setMonths] = useState(settings.absencePeriodMonths);
 
@@ -153,18 +165,20 @@ function AppSettingsCard({ settings }: { settings: AppSettings }) {
           <button
             key={m}
             type="button"
-            className={`chip ${months === m ? "active" : ""}`}
+            className={`chip ${months === m ? "active" : ""} ${!canEdit ? "disabled" : ""}`}
+            disabled={!canEdit}
             onClick={() => save(m as 1 | 2 | 3 | 6)}
           >
             {m} month{m === 1 ? "" : "s"}
           </button>
         ))}
       </div>
+      {!canEdit && <ViewOnlyNote />}
     </div>
   );
 }
 
-function AgeGroupsCard({ settings }: { settings: AppSettings }) {
+function AgeGroupsCard({ settings, canEdit }: { settings: AppSettings; canEdit: boolean }) {
   const router = useRouter();
   const [youthMin, setYouthMin] = useState(settings.ageGroupYouthMin);
   const [adultMin, setAdultMin] = useState(settings.ageGroupAdultMin);
@@ -188,11 +202,23 @@ function AgeGroupsCard({ settings }: { settings: AppSettings }) {
       <div className="grid-2" style={{ marginBottom: "0.75rem" }}>
         <div className="field">
           <label>Youth starts at (years)</label>
-          <input type="number" min={0} value={youthMin} onChange={(e) => setYouthMin(Number(e.target.value))} />
+          <input
+            type="number"
+            min={0}
+            disabled={!canEdit}
+            value={youthMin}
+            onChange={(e) => setYouthMin(Number(e.target.value))}
+          />
         </div>
         <div className="field">
           <label>Adult starts at (years)</label>
-          <input type="number" min={0} value={adultMin} onChange={(e) => setAdultMin(Number(e.target.value))} />
+          <input
+            type="number"
+            min={0}
+            disabled={!canEdit}
+            value={adultMin}
+            onChange={(e) => setAdultMin(Number(e.target.value))}
+          />
         </div>
       </div>
       <p className="muted" style={{ marginBottom: "0.75rem" }}>
@@ -201,9 +227,13 @@ function AgeGroupsCard({ settings }: { settings: AppSettings }) {
       </p>
       {!valid && <p className="error-text" style={{ marginBottom: "0.75rem" }}>Youth threshold must be non-negative and less than the Adult threshold.</p>}
       {error && <p className="error-text" style={{ marginBottom: "0.75rem" }}>{error}</p>}
-      <button className="btn btn-primary" disabled={!valid} onClick={save}>
-        Save
-      </button>
+      {canEdit ? (
+        <button className="btn btn-primary" disabled={!valid} onClick={save}>
+          Save
+        </button>
+      ) : (
+        <ViewOnlyNote />
+      )}
     </div>
   );
 }
@@ -212,18 +242,20 @@ export default function SettingsClient({
   locations,
   activities,
   settings,
+  canEdit,
 }: {
   locations: LocationRow[];
   activities: ActivityRow[];
   settings: AppSettings;
+  canEdit: boolean;
 }) {
   return (
     <div>
       <h1>Settings</h1>
-      <LocationsCard locations={locations} />
-      <ActivitiesCard activities={activities} />
-      <AppSettingsCard settings={settings} />
-      <AgeGroupsCard settings={settings} />
+      <LocationsCard locations={locations} canEdit={canEdit} />
+      <ActivitiesCard activities={activities} canEdit={canEdit} />
+      <AppSettingsCard settings={settings} canEdit={canEdit} />
+      <AgeGroupsCard settings={settings} canEdit={canEdit} />
     </div>
   );
 }
