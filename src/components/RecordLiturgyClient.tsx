@@ -47,6 +47,8 @@ export default function RecordLiturgyClient({
   const [liturgyId, setLiturgyId] = useState(initialLiturgyId);
   const [context, setContext] = useState(initialContext);
   const [showMore, setShowMore] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const noticeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const liturgyIdRef = useRef(liturgyId);
   useEffect(() => {
     liturgyIdRef.current = liturgyId;
@@ -94,6 +96,12 @@ export default function RecordLiturgyClient({
     .filter((d) => d.status === "Active" || attendeeIds.includes(d.id))
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  function showNotice(text: string) {
+    setNotice(text);
+    if (noticeTimeoutRef.current) clearTimeout(noticeTimeoutRef.current);
+    noticeTimeoutRef.current = setTimeout(() => setNotice(null), 8000);
+  }
+
   async function handleToggleAttendance(deaconId: string) {
     if (!liturgyId) return;
     const targetLiturgyId = liturgyId;
@@ -112,6 +120,22 @@ export default function RecordLiturgyClient({
     const fresh = await toggleAttendanceAction(targetLiturgyId, deaconId);
     if (liturgyIdRef.current !== targetLiturgyId) return;
     setContext(fresh);
+
+    // Assigning an activity implies attendance (spec §5) -- the chip can
+    // only ever add/remove the plain marker, so someone with an active
+    // assignment stays "attending" no matter what. Explain why, rather
+    // than letting the click silently appear to do nothing.
+    if (wasAttending && fresh.attendeeIds.includes(deaconId)) {
+      const name = fresh.attendees.find((a) => a.deaconId === deaconId)?.name ?? "This deacon";
+      const assignedTo = fresh.assignments
+        .filter((a) => a.deaconIds.includes(deaconId))
+        .map((a) => a.activityName);
+      if (assignedTo.length > 0) {
+        showNotice(
+          `${name} still shows as attending because they're assigned to ${assignedTo.join(", ")}. Clear those activities first if you intend to remove their attendance.`
+        );
+      }
+    }
   }
 
   async function handleToggleAltar(activityId: string, deaconId: string) {
@@ -151,6 +175,32 @@ export default function RecordLiturgyClient({
 
       <div className="card">
         <div className="step-header">2 · Who attended?</div>
+        {notice && (
+          <div
+            style={{
+              background: "var(--amber-bg)",
+              color: "var(--amber)",
+              borderRadius: 10,
+              padding: "0.65rem 0.9rem",
+              marginBottom: "0.85rem",
+              fontSize: "0.88rem",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: "0.75rem",
+            }}
+          >
+            <span>{notice}</span>
+            <button
+              type="button"
+              onClick={() => setNotice(null)}
+              aria-label="Dismiss"
+              style={{ background: "none", border: "none", color: "var(--amber)", cursor: "pointer", fontWeight: 700 }}
+            >
+              ×
+            </button>
+          </div>
+        )}
         <div className="chip-row">
           {activeCandidates.map((d) => (
             <button
