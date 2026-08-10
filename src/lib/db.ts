@@ -1,4 +1,13 @@
-import { Pool, type QueryResultRow } from "pg";
+import { Pool, types, type QueryResultRow } from "pg";
+
+// pg's default type parsers turn DATE/TIMESTAMP/TIMESTAMPTZ columns into
+// real JS Date objects. Every repo function and component in this app
+// treats these columns as plain ISO strings (for comparisons, display,
+// CSV export, etc.), so return the raw string instead — applied globally,
+// once, before any query runs.
+types.setTypeParser(types.builtins.DATE, (val) => val);
+types.setTypeParser(types.builtins.TIMESTAMP, (val) => val);
+types.setTypeParser(types.builtins.TIMESTAMPTZ, (val) => val);
 
 declare global {
   var _pgPool: Pool | undefined;
