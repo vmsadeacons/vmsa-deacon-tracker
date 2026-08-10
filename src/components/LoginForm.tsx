@@ -47,8 +47,8 @@ export default function LoginForm() {
       }}
     >
       <div style={{ width: "100%", maxWidth: 760 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "0.6rem", marginBottom: "2rem" }}>
-          <CopticCross size={36} />
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "0.5rem", marginBottom: "2rem" }}>
+          <CopticCross size={48} />
           <h1 style={{ margin: 0 }}>VMSA Deacon Tracker</h1>
         </div>
         <div className="grid-2">

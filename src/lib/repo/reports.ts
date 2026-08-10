@@ -37,6 +37,7 @@ interface RawHistoryRow {
   activity_name: string | null;
   allows_multiple: boolean | null;
   liturgy_id: string;
+  activity_sort_order: number | null;
 }
 
 /**
@@ -52,7 +53,7 @@ export async function getDeaconHistory(
 ): Promise<DeaconHistory> {
   const { rows } = await query<RawHistoryRow>(
     `select l.date, l.service_type, loc.name as location_name, a.name as activity_name,
-            a.allows_multiple, p.liturgy_id
+            a.allows_multiple, p.liturgy_id, a.sort_order as activity_sort_order
      from participation p
      join liturgies l on l.id = p.liturgy_id
      join locations loc on loc.id = l.location_id
@@ -62,7 +63,7 @@ export async function getDeaconHistory(
        and ($3::date is null or l.date <= $3)
      union all
      select l.date, l.service_type, loc.name as location_name, a.name as activity_name,
-            a.allows_multiple, p.liturgy_id
+            a.allows_multiple, p.liturgy_id, a.sort_order as activity_sort_order
      from archive_participation p
      join archive_liturgies l on l.id = p.liturgy_id
      join locations loc on loc.id = l.location_id
@@ -70,7 +71,7 @@ export async function getDeaconHistory(
      where p.deacon_id = $1
        and ($2::date is null or l.date >= $2)
        and ($3::date is null or l.date <= $3)
-     order by date desc`,
+     order by date desc, activity_sort_order nulls first`,
     [deaconId, fromDate, toDate]
   );
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import LiturgyPicker from "@/components/LiturgyPicker";
 import type { LocationRow } from "@/lib/repo/locations";
 import type { LiturgyContext } from "@/lib/repo/liturgies";
@@ -24,41 +24,37 @@ export default function ByLiturgyTab({
   const [serviceType, setServiceType] = useState(initialServiceType);
   const [result, setResult] = useState<(LiturgyContext & { archived: boolean }) | null>(null);
   const [loading, setLoading] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const runLatest = useLatestRequest<(LiturgyContext & { archived: boolean }) | null>();
 
-  function load(d: string, l: string, s: ServiceTypeCode) {
-    if (!l) return;
+  function handleView() {
+    if (!locationId) return;
     setLoading(true);
-    runLatest(getLiturgyReportAction(d, l, s), (res) => {
+    setHasSearched(true);
+    runLatest(getLiturgyReportAction(date, locationId, serviceType), (res) => {
       setResult(res);
       setLoading(false);
     });
   }
 
-  useEffect(() => {
-    // Initial fetch on mount — standard data-fetching effect, not a
-    // render-time state update.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    load(date, locationId, serviceType);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   function handleChange(d: string, l: string, s: ServiceTypeCode) {
     setDate(d);
     setLocationId(l);
     setServiceType(s);
-    load(d, l, s);
   }
 
   return (
     <div>
       <div className="card">
         <LiturgyPicker date={date} locationId={locationId} serviceType={serviceType} locations={locations} onChange={handleChange} />
+        <button className="btn btn-primary" style={{ marginTop: "1rem" }} onClick={handleView}>
+          View
+        </button>
       </div>
 
       {loading && <p className="muted">Loading…</p>}
 
-      {!loading && !result && (
+      {!loading && hasSearched && !result && (
         <div className="card">
           <p className="muted">No liturgy recorded for this date, location, and service.</p>
         </div>

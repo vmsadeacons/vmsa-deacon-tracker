@@ -30,6 +30,7 @@ export interface LiturgyParticipantRow {
   activity_id: string | null;
   activity_name: string | null;
   allows_multiple: boolean | null;
+  activity_sort_order: number | null;
 }
 
 export interface LiturgyContext {
@@ -51,7 +52,7 @@ async function buildLiturgyContext(
   const participationTable = archived ? "archive_participation" : "participation";
   const { rows } = await query<LiturgyParticipantRow>(
     `select p.deacon_id, d.name as deacon_name, d.status as deacon_status,
-            p.activity_id, a.name as activity_name, a.allows_multiple
+            p.activity_id, a.name as activity_name, a.allows_multiple, a.sort_order as activity_sort_order
      from ${participationTable} p
      join deacons d on d.id = p.deacon_id
      left join activities a on a.id = p.activity_id
@@ -63,7 +64,7 @@ async function buildLiturgyContext(
   const attendeeMap = new Map<string, { deaconId: string; name: string; status: string }>();
   const assignmentMap = new Map<
     string,
-    { activityId: string; activityName: string; allowsMultiple: boolean; deaconIds: string[] }
+    { activityId: string; activityName: string; allowsMultiple: boolean; sortOrder: number; deaconIds: string[] }
   >();
 
   for (const row of rows) {
@@ -81,6 +82,7 @@ async function buildLiturgyContext(
           activityId: row.activity_id,
           activityName: row.activity_name!,
           allowsMultiple: row.allows_multiple!,
+          sortOrder: row.activity_sort_order ?? 999,
           deaconIds: [],
         };
         assignmentMap.set(row.activity_id, entry);
@@ -89,11 +91,19 @@ async function buildLiturgyContext(
     }
   }
 
+  // Fixed activity order (spec §5): Altar service, Pauline, Catholic, Praxis, Psalm & Gospel.
+  const assignments = [...assignmentMap.values()].sort((a, b) => a.sortOrder - b.sortOrder);
+
   return {
     liturgyId,
     attendeeIds: [...attendeeMap.keys()],
     attendees: [...attendeeMap.values()],
-    assignments: [...assignmentMap.values()],
+    assignments: assignments.map((a) => ({
+      activityId: a.activityId,
+      activityName: a.activityName,
+      allowsMultiple: a.allowsMultiple,
+      deaconIds: a.deaconIds,
+    })),
   };
 }
 

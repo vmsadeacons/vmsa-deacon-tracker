@@ -1,32 +1,74 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { LocationRow } from "@/lib/repo/locations";
 import type { SummaryRow } from "@/lib/repo/reports";
 import { getSummaryReportAction } from "@/app/(app)/reports/actions";
 import { useLatestRequest } from "@/lib/useLatestRequest";
+import { churchTodayAction, monthsAgoAction } from "@/lib/actions/shared";
+
+type Period = "3" | "6" | "12" | "custom";
+type SortKey = "name" | "ageGroup" | "attended" | "altar" | "readings";
 
 export default function SummaryTab({ locations }: { locations: LocationRow[] }) {
+  const [period, setPeriod] = useState<Period>("3");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [locationId, setLocationId] = useState(""); // "" = All locations, per spec §6.5
   const [rows, setRows] = useState<SummaryRow[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>("name");
+  const [sortDir, setSortDir] = useState<1 | -1>(1);
   const runLatest = useLatestRequest<SummaryRow[]>();
 
-  function handleView() {
+  async function handleView() {
+    let from: string | null;
+    let to: string | null;
+    if (period === "custom") {
+      from = fromDate || null;
+      to = toDate || null;
+    } else {
+      from = await monthsAgoAction(Number(period));
+      to = await churchTodayAction();
+    }
     setLoading(true);
-    runLatest(getSummaryReportAction(fromDate || null, toDate || null, locationId || null), (res) => {
+    runLatest(getSummaryReportAction(from, to, locationId || null), (res) => {
       setRows(res);
       setLoading(false);
     });
   }
 
+  const sorted = useMemo(() => {
+    if (!rows) return null;
+    const copy = [...rows];
+    copy.sort((a, b) => {
+      const av = a[sortKey];
+      const bv = b[sortKey];
+      if (typeof av === "number" && typeof bv === "number") return (av - bv) * sortDir;
+      return String(av ?? "").localeCompare(String(bv ?? "")) * sortDir;
+    });
+    return copy;
+  }, [rows, sortKey, sortDir]);
+
+  function toggleSort(key: SortKey) {
+    if (key === sortKey) {
+      setSortDir((d) => (d === 1 ? -1 : 1));
+    } else {
+      setSortKey(key);
+      setSortDir(1);
+    }
+  }
+
+  function sortIndicator(key: SortKey) {
+    if (key !== sortKey) return "";
+    return sortDir === 1 ? " ▲" : " ▼";
+  }
+
   function exportCsv() {
-    if (!rows) return;
+    if (!sorted) return;
     const header = ["Name", "Age group", "Attended", "Altar", "Readings"];
     const lines = [header.join(",")];
-    for (const r of rows) {
+    for (const r of sorted) {
       lines.push(
         [r.name, r.ageGroup ?? "", r.attended, r.altar, r.readings]
           .map((v) => `"${String(v).replace(/"/g, '""')}"`)
@@ -42,18 +84,39 @@ export default function SummaryTab({ locations }: { locations: LocationRow[] }) 
     URL.revokeObjectURL(url);
   }
 
+  const columns: { key: SortKey; label: string }[] = [
+    { key: "name", label: "Name" },
+    { key: "ageGroup", label: "Age group" },
+    { key: "attended", label: "Attended" },
+    { key: "altar", label: "Altar" },
+    { key: "readings", label: "Readings" },
+  ];
+
   return (
     <div>
       <div className="card">
         <div className="fieldrow">
           <div className="field">
-            <label>From</label>
-            <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+            <label>Period</label>
+            <select value={period} onChange={(e) => setPeriod(e.target.value as Period)}>
+              <option value="3">Last 3 months</option>
+              <option value="6">Last 6 months</option>
+              <option value="12">Last 12 months</option>
+              <option value="custom">Custom range</option>
+            </select>
           </div>
-          <div className="field">
-            <label>To</label>
-            <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
-          </div>
+          {period === "custom" && (
+            <>
+              <div className="field">
+                <label>From</label>
+                <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+              </div>
+              <div className="field">
+                <label>To</label>
+                <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+              </div>
+            </>
+          )}
           <div className="field">
             <label>Location</label>
             <select value={locationId} onChange={(e) => setLocationId(e.target.value)}>
@@ -70,7 +133,7 @@ export default function SummaryTab({ locations }: { locations: LocationRow[] }) 
           <button className="btn btn-primary" onClick={handleView}>
             View
           </button>
-          <button className="btn btn-secondary" disabled={!rows} onClick={exportCsv}>
+          <button className="btn btn-secondary" disabled={!sorted} onClick={exportCsv}>
             Export CSV
           </button>
         </div>
@@ -78,21 +141,22 @@ export default function SummaryTab({ locations }: { locations: LocationRow[] }) 
 
       {loading && <p className="muted">Loading…</p>}
 
-      {rows && !loading && (
+      {sorted && !loading && (
         <div className="card">
           <div className="table-wrap">
             <table className="table">
               <thead>
                 <tr>
-                  <th>Name</th>
-                  <th>Age group</th>
-                  <th>Attended</th>
-                  <th>Altar</th>
-                  <th>Readings</th>
+                  {columns.map((col) => (
+                    <th key={col.key} className="sortable" onClick={() => toggleSort(col.key)}>
+                      {col.label}
+                      {sortIndicator(col.key)}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r) => (
+                {sorted.map((r) => (
                   <tr key={r.deaconId}>
                     <td>{r.name}</td>
                     <td>{r.ageGroup ?? "—"}</td>
