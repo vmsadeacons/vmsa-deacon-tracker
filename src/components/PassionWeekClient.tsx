@@ -4,25 +4,22 @@ import { useEffect, useState } from "react";
 import type { LocationRow } from "@/lib/repo/locations";
 import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
 import type { PWOverview } from "@/lib/repo/passionWeek";
-import {
-  PW_SERVICES,
-  PW_ACTIVITIES,
-  pwHoursFor,
-  pwSlotCount,
-  type PWServiceId,
-  type PWActivityId,
-} from "@/lib/constants";
+import type { PWActivityRow } from "@/lib/repo/passionWeekActivities";
+import { PW_SERVICES, pwHoursFor, pwSlotCount, type PWServiceId, type PWActivityId } from "@/lib/constants";
 import { getPassionWeekOverviewAction, setPassionWeekAssignmentAction } from "@/app/(app)/passion-week/actions";
 import { useLatestRequest } from "@/lib/useLatestRequest";
+import SingleRosterPickerModal from "./SingleRosterPickerModal";
 
 export default function PassionWeekClient({
   locations,
   deacons,
   initialYear,
+  pwActivities,
 }: {
   locations: LocationRow[];
   deacons: DeaconWithAgeGroup[];
   initialYear: number;
+  pwActivities: PWActivityRow[];
 }) {
   const [year, setYear] = useState(initialYear);
   const [locationId, setLocationId] = useState(locations[0]?.id ?? "");
@@ -33,6 +30,7 @@ export default function PassionWeekClient({
   const runLatest = useLatestRequest<PWOverview>();
 
   const hours = pwHoursFor(serviceId);
+  const activities = [...pwActivities].sort((a, b) => a.sort_order - b.sort_order);
 
   function load(y: number, l: string, s: PWServiceId) {
     if (!l) return;
@@ -67,7 +65,7 @@ export default function PassionWeekClient({
     return deacons.filter((d) => d.status === "Active" || d.id === currentDeaconId);
   }
 
-  function handleAssign(activityId: PWActivityId, slotIndex: number, deaconId: string) {
+  function handleAssign(activityId: PWActivityId, slotIndex: number, deaconId: string | null) {
     runLatest(
       setPassionWeekAssignmentAction({
         year,
@@ -76,7 +74,7 @@ export default function PassionWeekClient({
         hour,
         activityId,
         slotIndex,
-        deaconId: deaconId || null,
+        deaconId,
       }),
       setOverview
     );
@@ -137,24 +135,23 @@ export default function PassionWeekClient({
           <p className="muted">Loading…</p>
         ) : (
           <div className="grid-2">
-            {PW_ACTIVITIES.map((act) => {
-              const slots = pwSlotCount(serviceId, act.id);
+            {activities.map((act) => {
+              const slots = pwSlotCount(serviceId, act.code);
               return (
-                <div key={act.id} className="card" style={{ marginBottom: 0 }}>
+                <div key={act.code} className="card" style={{ marginBottom: 0 }}>
                   <div className="step-header">{act.label}</div>
                   {Array.from({ length: slots }).map((_, slotIndex) => {
-                    const current = overview[hour]?.[act.id]?.[slotIndex]?.deaconId ?? "";
+                    const current = overview[hour]?.[act.code]?.[slotIndex]?.deaconId ?? "";
                     return (
                       <div key={slotIndex} className="field" style={{ marginBottom: slots > 1 ? "0.5rem" : 0 }}>
                         {slots > 1 && <label>Reading {slotIndex + 1}</label>}
-                        <select value={current} onChange={(e) => handleAssign(act.id, slotIndex, e.target.value)}>
-                          <option value="">— none —</option>
-                          {deaconOptions(current || undefined).map((d) => (
-                            <option key={d.id} value={d.id}>
-                              {d.name}
-                            </option>
-                          ))}
-                        </select>
+                        <SingleRosterPickerModal
+                          items={deaconOptions(current || undefined).map((d) => ({ id: d.id, name: d.name }))}
+                          selectedId={current || null}
+                          onSelect={(id) => handleAssign(act.code, slotIndex, id)}
+                          title={`${act.label} — choose a deacon`}
+                          idPrefix={`pw-${act.code}-${slotIndex}`}
+                        />
                       </div>
                     );
                   })}
@@ -172,8 +169,8 @@ export default function PassionWeekClient({
             <thead>
               <tr>
                 <th>Hour</th>
-                {PW_ACTIVITIES.map((act) => (
-                  <th key={act.id}>{act.label}</th>
+                {activities.map((act) => (
+                  <th key={act.code}>{act.label}</th>
                 ))}
               </tr>
             </thead>
@@ -181,12 +178,12 @@ export default function PassionWeekClient({
               {hours.map((h) => (
                 <tr key={h}>
                   <td>{h}</td>
-                  {PW_ACTIVITIES.map((act) => {
-                    const slots = pwSlotCount(serviceId, act.id);
+                  {activities.map((act) => {
+                    const slots = pwSlotCount(serviceId, act.code);
                     const names = Array.from({ length: slots })
-                      .map((_, i) => overview[h]?.[act.id]?.[i]?.name)
+                      .map((_, i) => overview[h]?.[act.code]?.[i]?.name)
                       .filter(Boolean);
-                    return <td key={act.id}>{names.length > 0 ? names.join(", ") : "—"}</td>;
+                    return <td key={act.code}>{names.length > 0 ? names.join(", ") : "—"}</td>;
                   })}
                 </tr>
               ))}

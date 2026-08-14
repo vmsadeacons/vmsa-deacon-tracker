@@ -14,7 +14,7 @@ export default async function ProfilePage() {
   }
   const [deacon, locations] = await Promise.all([
     getDeacon(session.user.linkedDeaconId),
-    listLocations(false),
+    listLocations(true), // full list so an already-picked-but-now-inactive location still shows, greyed out
   ]);
   if (!deacon) {
     return (

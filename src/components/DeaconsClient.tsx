@@ -9,6 +9,7 @@ import type { LocationRow } from "@/lib/repo/locations";
 import type { DeaconInput } from "@/lib/repo/deacons";
 import { createDeaconAction, updateDeaconAction, deleteDeaconAction } from "@/app/(app)/deacons/actions";
 import { formatPhone, telHref } from "@/lib/formatPhone";
+import DeaconAvatar from "./DeaconAvatar";
 
 type SortKey = "name" | "city" | "age_group" | "rank" | "status";
 
@@ -26,6 +27,7 @@ export default function DeaconsClient({
   const [editing, setEditing] = useState<DeaconWithAgeGroup | null>(null);
   const [adding, setAdding] = useState(searchParams.get("add") === "1");
   const [error, setError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const sorted = useMemo(() => {
     const copy = [...deacons];
@@ -52,22 +54,26 @@ export default function DeaconsClient({
   }
 
   async function handleCreate(input: DeaconInput) {
-    setError(null);
+    setFormError(null);
     const result = await createDeaconAction(input);
     if (result.ok) {
       setAdding(false);
       router.replace("/deacons");
       router.refresh();
+    } else {
+      setFormError(result.error);
     }
   }
 
   async function handleUpdate(input: DeaconInput) {
     if (!editing) return;
-    setError(null);
+    setFormError(null);
     const result = await updateDeaconAction(editing.id, input);
     if (result.ok) {
       setEditing(null);
       router.refresh();
+    } else {
+      setFormError(result.error);
     }
   }
 
@@ -105,6 +111,7 @@ export default function DeaconsClient({
           <table className="table">
             <thead>
               <tr>
+                <th></th>
                 {columns.map((col) => (
                   <th key={col.key} className="sortable" onClick={() => toggleSort(col.key)}>
                     {col.label}
@@ -119,7 +126,23 @@ export default function DeaconsClient({
             <tbody>
               {sorted.map((d) => (
                 <tr key={d.id}>
-                  <td>{d.name}</td>
+                  <td>
+                    <DeaconAvatar
+                      deaconId={d.id}
+                      hasPhoto={d.has_photo}
+                      firstName={d.first_name}
+                      lastName={d.last_name}
+                      size={28}
+                    />
+                  </td>
+                  <td>
+                    {d.name}
+                    {d.is_guest && (
+                      <span className="badge badge-gold" style={{ marginLeft: "0.4rem" }}>
+                        Guest
+                      </span>
+                    )}
+                  </td>
                   <td>{d.city ?? "—"}</td>
                   <td>{d.age_group ?? "—"}</td>
                   <td>{d.rank}</td>
@@ -146,12 +169,24 @@ export default function DeaconsClient({
       </div>
 
       <Modal open={adding} onClose={() => setAdding(false)} title="Add deacon" wide>
-        <DeaconForm initial={null} locations={locations} onCancel={() => setAdding(false)} onSave={handleCreate} />
+        <DeaconForm
+          initial={null}
+          locations={locations}
+          error={formError}
+          onCancel={() => setAdding(false)}
+          onSave={handleCreate}
+        />
       </Modal>
 
       <Modal open={Boolean(editing)} onClose={() => setEditing(null)} title="Edit deacon" wide>
         {editing && (
-          <DeaconForm initial={editing} locations={locations} onCancel={() => setEditing(null)} onSave={handleUpdate} />
+          <DeaconForm
+            initial={editing}
+            locations={locations}
+            error={formError}
+            onCancel={() => setEditing(null)}
+            onSave={handleUpdate}
+          />
         )}
       </Modal>
     </div>

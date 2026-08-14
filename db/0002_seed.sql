@@ -11,10 +11,17 @@ insert into locations (name, status) values
 
 insert into activities (name, allows_multiple, status, sort_order) values
   ('Altar service', true, 'Active', 0),
-  ('Pauline Epistle', false, 'Active', 1),
-  ('Catholic Epistle', false, 'Active', 2),
-  ('Praxis (Acts)', false, 'Active', 3),
-  ('Psalm & Gospel', false, 'Active', 4);
+  ('Matins Gospel', false, 'Active', 1),
+  ('Pauline Epistle', false, 'Active', 2),
+  ('Catholic Epistle', false, 'Active', 3),
+  ('Praxis (Acts)', false, 'Active', 4),
+  ('Psalm & Gospel', false, 'Active', 5);
+
+insert into passion_week_activities (code, label, sort_order) values
+  ('PC1', 'Psalm Coptic 1', 0),
+  ('PC2', 'Psalm Coptic 2', 1),
+  ('GC', 'Gospel Coptic', 2),
+  ('GE', 'Gospel English', 3);
 
 insert into app_settings (key, value) values
   ('absence_period_months', '1'),

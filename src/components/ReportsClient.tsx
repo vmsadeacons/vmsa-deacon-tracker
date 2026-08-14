@@ -8,6 +8,7 @@ import SummaryTab from "./reports/SummaryTab";
 import PassionWeekReportTab from "./reports/PassionWeekReportTab";
 import type { LocationRow } from "@/lib/repo/locations";
 import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
+import type { PWActivityRow } from "@/lib/repo/passionWeekActivities";
 import type { ServiceTypeCode } from "@/lib/constants";
 
 type Tab = "by-liturgy" | "by-deacon" | "summary" | "passion-week";
@@ -26,6 +27,7 @@ export default function ReportsClient({
   defaultLocationId,
   defaultServiceType,
   currentYear,
+  pwActivities,
 }: {
   locations: LocationRow[];
   deacons: DeaconWithAgeGroup[];
@@ -33,7 +35,9 @@ export default function ReportsClient({
   defaultLocationId: string;
   defaultServiceType: ServiceTypeCode;
   currentYear: number;
+  pwActivities: PWActivityRow[];
 }) {
+  const pwLabels = Object.fromEntries(pwActivities.map((a) => [a.code, a.label]));
   const searchParams = useSearchParams();
   const initialTab = (searchParams.get("tab") as Tab) ?? "by-liturgy";
   const [tab, setTab] = useState<Tab>(TABS.some((t) => t.id === initialTab) ? initialTab : "by-liturgy");
@@ -61,9 +65,11 @@ export default function ReportsClient({
           initialServiceType={prefillService}
         />
       )}
-      {tab === "by-deacon" && <ByDeaconTab deacons={deacons} />}
+      {tab === "by-deacon" && <ByDeaconTab deacons={deacons} pwLabels={pwLabels} />}
       {tab === "summary" && <SummaryTab locations={locations} />}
-      {tab === "passion-week" && <PassionWeekReportTab locations={locations} initialYear={currentYear} />}
+      {tab === "passion-week" && (
+        <PassionWeekReportTab locations={locations} initialYear={currentYear} pwActivities={pwActivities} />
+      )}
     </div>
   );
 }

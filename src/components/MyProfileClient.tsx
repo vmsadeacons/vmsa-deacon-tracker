@@ -3,10 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ChipMultiSelect from "./ChipMultiSelect";
+import PhotoEditor from "./PhotoEditor";
 import { DEACON_RANKS, SERVICE_TYPES, SERVICE_LABELS } from "@/lib/constants";
 import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
 import type { LocationRow } from "@/lib/repo/locations";
-import { updateMyProfileAction } from "@/app/(app)/profile/actions";
+import { updateMyProfileAction, setMyPhotoAction, deleteMyPhotoAction } from "@/app/(app)/profile/actions";
 
 export default function MyProfileClient({
   deacon,
@@ -20,7 +21,9 @@ export default function MyProfileClient({
   const [address, setAddress] = useState(deacon.address ?? "");
   const [city, setCity] = useState(deacon.city ?? "");
   const [email, setEmail] = useState(deacon.email ?? "");
+  const [dob, setDob] = useState(deacon.dob ?? "");
   const [rank, setRank] = useState(deacon.rank);
+  const [dateOfOrdination, setDateOfOrdination] = useState(deacon.date_of_ordination ?? "");
   const [locationPrefs, setLocationPrefs] = useState<string[]>(deacon.location_prefs);
   const [liturgyPrefs, setLiturgyPrefs] = useState<string[]>(deacon.liturgy_prefs);
   const [saving, setSaving] = useState(false);
@@ -35,7 +38,9 @@ export default function MyProfileClient({
       address: address || null,
       city: city || null,
       email: email || null,
+      dob: dob || null,
       rank,
+      dateOfOrdination: dateOfOrdination || null,
       locationPrefs,
       liturgyPrefs,
     });
@@ -44,6 +49,12 @@ export default function MyProfileClient({
     router.refresh();
   }
 
+  const locationOptions = locations.map((l) => ({
+    value: l.id,
+    label: l.name,
+    disabled: l.status !== "Active",
+  }));
+
   return (
     <div>
       <h1>My Profile</h1>
@@ -51,6 +62,16 @@ export default function MyProfileClient({
         <p className="muted" style={{ marginBottom: "1rem" }}>
           Name: <strong>{deacon.name}</strong> (set by an admin)
         </p>
+
+        <PhotoEditor
+          deaconId={deacon.id}
+          firstName={deacon.first_name}
+          lastName={deacon.last_name}
+          hasPhoto={deacon.has_photo}
+          onUpload={setMyPhotoAction}
+          onDelete={deleteMyPhotoAction}
+        />
+
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           <div className="grid-2">
             <div className="field">
@@ -58,8 +79,8 @@ export default function MyProfileClient({
               <input value={phone} onChange={(e) => setPhone(e.target.value)} />
             </div>
             <div className="field">
-              <label>Email</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <label>Date of birth</label>
+              <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
             </div>
             <div className="field">
               <label>Address</label>
@@ -68,6 +89,10 @@ export default function MyProfileClient({
             <div className="field">
               <label>City</label>
               <input value={city} onChange={(e) => setCity(e.target.value)} />
+            </div>
+            <div className="field">
+              <label>Email</label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
             <div className="field">
               <label>Rank</label>
@@ -79,15 +104,19 @@ export default function MyProfileClient({
                 ))}
               </select>
             </div>
+            <div className="field">
+              <label>Date of ordination</label>
+              <input
+                type="date"
+                value={dateOfOrdination}
+                onChange={(e) => setDateOfOrdination(e.target.value)}
+              />
+            </div>
           </div>
 
           <div className="field">
             <label>Location preferences</label>
-            <ChipMultiSelect
-              options={locations.map((l) => ({ value: l.id, label: l.name }))}
-              selected={locationPrefs}
-              onChange={setLocationPrefs}
-            />
+            <ChipMultiSelect options={locationOptions} selected={locationPrefs} onChange={setLocationPrefs} />
           </div>
 
           <div className="field">
@@ -99,11 +128,11 @@ export default function MyProfileClient({
             />
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-            <button className="btn btn-primary" type="submit" disabled={saving}>
+          <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+            <button type="submit" className="btn btn-primary" disabled={saving}>
               {saving ? "Saving…" : "Save"}
             </button>
-            {saved && <span className="badge badge-green">Saved</span>}
+            {saved && <span className="muted">Saved.</span>}
           </div>
         </form>
       </div>

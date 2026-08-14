@@ -27,6 +27,7 @@ export default async function CheckinPage() {
     <CheckinClient
       locations={locations}
       linkedDeaconId={session.user.linkedDeaconId}
+      myName={session.user.name ?? ""}
       initialDate={date}
       initialLocationId={locationId}
       initialServiceType={serviceType}

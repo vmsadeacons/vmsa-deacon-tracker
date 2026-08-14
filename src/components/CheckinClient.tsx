@@ -12,6 +12,7 @@ const POLL_MS = 20000;
 export default function CheckinClient({
   locations,
   linkedDeaconId,
+  myName,
   initialDate,
   initialLocationId,
   initialServiceType,
@@ -20,6 +21,7 @@ export default function CheckinClient({
 }: {
   locations: LocationRow[];
   linkedDeaconId: string | null;
+  myName: string;
   initialDate: string;
   initialLocationId: string;
   initialServiceType: ServiceTypeCode;
@@ -98,6 +100,11 @@ export default function CheckinClient({
   return (
     <div>
       <h1>Check-in</h1>
+      <div className="card">
+        <p className="muted" style={{ marginBottom: 0 }}>
+          Name: <strong>{myName}</strong>
+        </p>
+      </div>
 
       <div className="card">
         <LiturgyPicker

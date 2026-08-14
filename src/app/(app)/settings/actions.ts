@@ -5,6 +5,8 @@ import { assertSystemAdmin } from "@/lib/authz";
 import { createLocation, updateLocation } from "@/lib/repo/locations";
 import { createActivity, updateActivity } from "@/lib/repo/activities";
 import { setAbsencePeriod, setAgeGroupThresholds } from "@/lib/repo/settings";
+import { updatePWActivity } from "@/lib/repo/passionWeekActivities";
+import type { PWActivityId } from "@/lib/constants";
 
 // Settings is view-only for General Admins — every mutation here is
 // SystemAdmin-only (the page itself still renders for General Admins,
@@ -62,4 +64,14 @@ export async function setAgeGroupThresholdsAction(youthMin: number, adultMin: nu
   } catch (err) {
     return { ok: false as const, error: (err as Error).message };
   }
+}
+
+export async function updatePWActivityAction(code: PWActivityId, label: string, sortOrder: number) {
+  await assertSystemAdmin();
+  await updatePWActivity(code, label, sortOrder);
+  revalidatePath("/settings");
+  revalidatePath("/passion-week");
+  revalidatePath("/reports");
+  revalidatePath("/history");
+  return { ok: true as const };
 }

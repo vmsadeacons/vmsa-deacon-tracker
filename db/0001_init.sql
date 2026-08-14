@@ -30,7 +30,20 @@ create table activities (
 
 create table deacons (
   id uuid primary key default gen_random_uuid(),
-  name text not null,
+  first_name text not null,
+  last_name text not null default '',
+  -- Free-form, admin-set; distinguishes two deacons who'd otherwise share a
+  -- first+last name. First+Last+Qualifier together identify a deacon.
+  name_qualifier text,
+  -- Generated so every existing query that reads `name` keeps working
+  -- unchanged; the source of truth is first_name/last_name/name_qualifier.
+  name text generated always as (
+    trim(first_name || ' ' || last_name) ||
+    case when name_qualifier is not null and name_qualifier <> ''
+         then ' (' || name_qualifier || ')'
+         else ''
+    end
+  ) stored,
   phone text,
   address text,
   city text,
@@ -43,9 +56,16 @@ create table deacons (
       'Ognostis (Reader)',
       'Epideacon (Subdeacon)',
       'Deacon (Full Deacon)',
-      'Archdeacon'
+      'Archdeacon',
+      'Priest'
     )
   ),
+  date_of_ordination date,
+  is_guest boolean not null default false,
+  -- Resized to 200x200 client-side before upload; never selected in list
+  -- queries (see src/lib/repo/deacons.ts) -- served one at a time via
+  -- /api/deacons/[id]/photo so bulk roster queries stay lightweight.
+  photo bytea,
   -- Each element is either a locations.id (as text) or the literal 'All'.
   location_prefs text[] not null default '{}',
   -- Each element is one of S1/S2/Wed/Fri/Sat/Other or the literal 'All'.
@@ -58,6 +78,9 @@ create table deacons (
 
 create index deacons_status_idx on deacons (status);
 create index deacons_email_idx on deacons (email);
+create unique index deacons_identity_unique on deacons (
+  lower(first_name), lower(last_name), lower(coalesce(name_qualifier, ''))
+);
 
 -- ---------------------------------------------------------------------------
 -- Liturgies + participation
@@ -126,6 +149,14 @@ create table passion_week_participation (
 
 create index pwp_year_location_idx on passion_week_participation (year, location_id);
 create index pwp_deacon_idx on passion_week_participation (deacon_id);
+
+-- Display label + order only -- the set of 4 is fixed (see spec discussion);
+-- an admin can rename/reorder but not add or remove.
+create table passion_week_activities (
+  code text primary key check (code in ('PC1', 'PC2', 'GC', 'GE')),
+  label text not null,
+  sort_order int not null
+);
 
 -- ---------------------------------------------------------------------------
 -- Users (who can sign in) — deliberately separate from deacons, see spec §6.1

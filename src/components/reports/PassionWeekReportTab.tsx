@@ -3,17 +3,21 @@
 import { useState } from "react";
 import type { LocationRow } from "@/lib/repo/locations";
 import type { PWOverview } from "@/lib/repo/passionWeek";
-import { PW_SERVICES, PW_ACTIVITIES, pwHoursFor, pwSlotCount, type PWServiceId } from "@/lib/constants";
+import type { PWActivityRow } from "@/lib/repo/passionWeekActivities";
+import { PW_SERVICES, pwHoursFor, pwSlotCount, type PWServiceId } from "@/lib/constants";
 import { getPassionWeekFullScheduleAction } from "@/app/(app)/reports/actions";
 import { useLatestRequest } from "@/lib/useLatestRequest";
 
 export default function PassionWeekReportTab({
   locations,
   initialYear,
+  pwActivities,
 }: {
   locations: LocationRow[];
   initialYear: number;
+  pwActivities: PWActivityRow[];
 }) {
+  const activities = [...pwActivities].sort((a, b) => a.sort_order - b.sort_order);
   const [year, setYear] = useState(initialYear);
   const [locationId, setLocationId] = useState(locations[0]?.id ?? "");
   const [schedule, setSchedule] = useState<Record<PWServiceId, PWOverview> | null>(null);
@@ -68,8 +72,8 @@ export default function PassionWeekReportTab({
                   <thead>
                     <tr>
                       <th>Hour</th>
-                      {PW_ACTIVITIES.map((act) => (
-                        <th key={act.id}>{act.label}</th>
+                      {activities.map((act) => (
+                        <th key={act.code}>{act.label}</th>
                       ))}
                     </tr>
                   </thead>
@@ -77,12 +81,12 @@ export default function PassionWeekReportTab({
                     {hours.map((h) => (
                       <tr key={h}>
                         <td>{h}</td>
-                        {PW_ACTIVITIES.map((act) => {
-                          const slots = pwSlotCount(svc.id, act.id);
+                        {activities.map((act) => {
+                          const slots = pwSlotCount(svc.id, act.code);
                           const names = Array.from({ length: slots })
-                            .map((_, i) => overview[h]?.[act.id]?.[i]?.name)
+                            .map((_, i) => overview[h]?.[act.code]?.[i]?.name)
                             .filter(Boolean);
-                          return <td key={act.id}>{names.length > 0 ? names.join(", ") : "—"}</td>;
+                          return <td key={act.code}>{names.length > 0 ? names.join(", ") : "—"}</td>;
                         })}
                       </tr>
                     ))}

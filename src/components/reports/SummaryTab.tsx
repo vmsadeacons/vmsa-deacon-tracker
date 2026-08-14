@@ -6,6 +6,7 @@ import type { SummaryRow } from "@/lib/repo/reports";
 import { getSummaryReportAction } from "@/app/(app)/reports/actions";
 import { useLatestRequest } from "@/lib/useLatestRequest";
 import { churchTodayAction, monthsAgoAction } from "@/lib/actions/shared";
+import { SERVICE_TYPES, SERVICE_LABELS, type ServiceTypeCode } from "@/lib/constants";
 
 type Period = "3" | "6" | "12" | "custom";
 type SortKey = "name" | "ageGroup" | "attended" | "altar" | "readings";
@@ -15,6 +16,8 @@ export default function SummaryTab({ locations }: { locations: LocationRow[] }) 
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [locationId, setLocationId] = useState(""); // "" = All locations, per spec §6.5
+  const [serviceType, setServiceType] = useState(""); // "" = All services
+  const [includeGuests, setIncludeGuests] = useState(false);
   const [rows, setRows] = useState<SummaryRow[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -32,10 +35,19 @@ export default function SummaryTab({ locations }: { locations: LocationRow[] }) 
       to = await churchTodayAction();
     }
     setLoading(true);
-    runLatest(getSummaryReportAction(from, to, locationId || null), (res) => {
-      setRows(res);
-      setLoading(false);
-    });
+    runLatest(
+      getSummaryReportAction(
+        from,
+        to,
+        locationId || null,
+        (serviceType as ServiceTypeCode) || null,
+        includeGuests
+      ),
+      (res) => {
+        setRows(res);
+        setLoading(false);
+      }
+    );
   }
 
   const sorted = useMemo(() => {
@@ -95,6 +107,10 @@ export default function SummaryTab({ locations }: { locations: LocationRow[] }) 
   return (
     <div>
       <div className="card">
+        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
+          <input type="checkbox" checked={includeGuests} onChange={(e) => setIncludeGuests(e.target.checked)} />
+          Include Guests
+        </label>
         <div className="fieldrow">
           <div className="field">
             <label>Period</label>
@@ -124,6 +140,17 @@ export default function SummaryTab({ locations }: { locations: LocationRow[] }) 
               {locations.map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label>Service</label>
+            <select value={serviceType} onChange={(e) => setServiceType(e.target.value)}>
+              <option value="">All services</option>
+              {SERVICE_TYPES.map((s) => (
+                <option key={s} value={s}>
+                  {SERVICE_LABELS[s]}
                 </option>
               ))}
             </select>

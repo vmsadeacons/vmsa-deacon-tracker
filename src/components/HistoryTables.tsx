@@ -1,7 +1,13 @@
 import type { DeaconHistory } from "@/lib/repo/reports";
 import { SERVICE_LABELS, pwServiceLabel, pwActivityLabel, type ServiceTypeCode } from "@/lib/constants";
 
-export default function HistoryTables({ history }: { history: DeaconHistory }) {
+export default function HistoryTables({
+  history,
+  pwLabels,
+}: {
+  history: DeaconHistory;
+  pwLabels?: Record<string, string>;
+}) {
   return (
     <div>
       <div className="stat-row stat-row-4">
@@ -75,7 +81,7 @@ export default function HistoryTables({ history }: { history: DeaconHistory }) {
                     <td>{r.year}</td>
                     <td>{pwServiceLabel(r.serviceId)}</td>
                     <td>{r.hour}</td>
-                    <td>{pwActivityLabel(r.activityId)}</td>
+                    <td>{pwLabels?.[r.activityId] ?? pwActivityLabel(r.activityId)}</td>
                     <td>{r.locationName}</td>
                   </tr>
                 ))}

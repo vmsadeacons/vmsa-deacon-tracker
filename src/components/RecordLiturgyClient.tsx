@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import LiturgyPicker from "./LiturgyPicker";
 import Modal from "./Modal";
+import RosterPicker from "./RosterPicker";
+import SingleRosterPickerModal from "./SingleRosterPickerModal";
 import type { LocationRow } from "@/lib/repo/locations";
 import type { ActivityRow } from "@/lib/repo/activities";
 import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
@@ -201,21 +203,15 @@ export default function RecordLiturgyClient({
             </button>
           </div>
         )}
-        <div className="chip-row">
-          {activeCandidates.map((d) => (
-            <button
-              key={d.id}
-              type="button"
-              className={`chip ${attendeeIds.includes(d.id) ? "active" : ""}`}
-              onClick={() => handleToggleAttendance(d.id)}
-            >
-              {d.name}
-            </button>
-          ))}
-          <button type="button" className="chip" onClick={() => setShowMore(true)}>
-            more…
-          </button>
-        </div>
+        <RosterPicker
+          items={activeCandidates.map((d) => ({ id: d.id, name: d.name }))}
+          selectedIds={attendeeIds}
+          onToggle={handleToggleAttendance}
+          idPrefix="attend"
+        />
+        <button type="button" className="btn btn-secondary btn-sm" style={{ marginTop: "0.75rem" }} onClick={() => setShowMore(true)}>
+          more…
+        </button>
       </div>
 
       {altarActivity && (
@@ -251,14 +247,13 @@ export default function RecordLiturgyClient({
               return (
                 <div key={act.id} className="card">
                   <div className="step-header">{act.name}</div>
-                  <select value={current} onChange={(e) => handleSetReading(act.id, e.target.value)}>
-                    <option value="">— none —</option>
-                    {attendees.map((a) => (
-                      <option key={a.deaconId} value={a.deaconId}>
-                        {a.name}
-                      </option>
-                    ))}
-                  </select>
+                  <SingleRosterPickerModal
+                    items={attendees.map((a) => ({ id: a.deaconId, name: a.name }))}
+                    selectedId={current || null}
+                    onSelect={(id) => handleSetReading(act.id, id ?? "")}
+                    title={`${act.name} — choose a deacon`}
+                    idPrefix={`reading-${act.id}`}
+                  />
                 </div>
               );
             })}
@@ -266,19 +261,13 @@ export default function RecordLiturgyClient({
         </div>
       )}
 
-      <Modal open={showMore} onClose={() => setShowMore(false)} title="Full roster">
-        <div className="chip-row">
-          {allRosterSorted.map((d) => (
-            <button
-              key={d.id}
-              type="button"
-              className={`chip ${attendeeIds.includes(d.id) ? "active" : ""}`}
-              onClick={() => handleToggleAttendance(d.id)}
-            >
-              {d.name}
-            </button>
-          ))}
-        </div>
+      <Modal open={showMore} onClose={() => setShowMore(false)} title="Full roster" wide>
+        <RosterPicker
+          items={allRosterSorted.map((d) => ({ id: d.id, name: d.name }))}
+          selectedIds={attendeeIds}
+          onToggle={handleToggleAttendance}
+          idPrefix="fullroster"
+        />
       </Modal>
     </div>
   );

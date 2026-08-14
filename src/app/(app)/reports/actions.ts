@@ -25,10 +25,12 @@ export async function getDeaconHistoryReportAction(
 export async function getSummaryReportAction(
   fromDate: string | null,
   toDate: string | null,
-  locationId: string | null
+  locationId: string | null,
+  serviceType: ServiceTypeCode | null,
+  includeGuests: boolean
 ) {
   await assertAdmin();
-  return getSummaryReport(fromDate, toDate, locationId);
+  return getSummaryReport(fromDate, toDate, locationId, serviceType, includeGuests);
 }
 
 export async function getPassionWeekFullScheduleAction(year: number, locationId: string) {

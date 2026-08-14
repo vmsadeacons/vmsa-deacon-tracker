@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import HistoryTables from "@/components/HistoryTables";
+import SingleRosterPickerModal from "@/components/SingleRosterPickerModal";
 import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
 import type { DeaconHistory } from "@/lib/repo/reports";
 import { getDeaconHistoryReportAction } from "@/app/(app)/reports/actions";
@@ -10,14 +11,26 @@ import { useLatestRequest } from "@/lib/useLatestRequest";
 
 type Period = "3" | "6" | "12" | "custom";
 
-export default function ByDeaconTab({ deacons }: { deacons: DeaconWithAgeGroup[] }) {
+export default function ByDeaconTab({
+  deacons,
+  pwLabels,
+}: {
+  deacons: DeaconWithAgeGroup[];
+  pwLabels: Record<string, string>;
+}) {
   const [deaconId, setDeaconId] = useState("");
   const [period, setPeriod] = useState<Period>("3");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [includeGuests, setIncludeGuests] = useState(false);
   const [history, setHistory] = useState<DeaconHistory | null>(null);
   const [loading, setLoading] = useState(false);
   const runLatest = useLatestRequest<DeaconHistory>();
+
+  const pickableDeacons = useMemo(
+    () => deacons.filter((d) => includeGuests || !d.is_guest),
+    [deacons, includeGuests]
+  );
 
   async function handleView() {
     if (!deaconId) return;
@@ -40,17 +53,25 @@ export default function ByDeaconTab({ deacons }: { deacons: DeaconWithAgeGroup[]
   return (
     <div>
       <div className="card">
+        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
+          <input
+            type="checkbox"
+            checked={includeGuests}
+            onChange={(e) => setIncludeGuests(e.target.checked)}
+          />
+          Include Guests
+        </label>
         <div className="fieldrow">
           <div className="field">
             <label>Deacon</label>
-            <select value={deaconId} onChange={(e) => setDeaconId(e.target.value)}>
-              <option value="">— Select —</option>
-              {deacons.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
+            <SingleRosterPickerModal
+              items={pickableDeacons.map((d) => ({ id: d.id, name: d.name }))}
+              selectedId={deaconId || null}
+              onSelect={(id) => setDeaconId(id ?? "")}
+              placeholder="— Select —"
+              title="Choose a deacon"
+              idPrefix="bydeacon"
+            />
           </div>
           <div className="field">
             <label>Period</label>
@@ -80,7 +101,7 @@ export default function ByDeaconTab({ deacons }: { deacons: DeaconWithAgeGroup[]
       </div>
 
       {loading && <p className="muted">Loading…</p>}
-      {history && !loading && <HistoryTables history={history} />}
+      {history && !loading && <HistoryTables history={history} pwLabels={pwLabels} />}
     </div>
   );
 }

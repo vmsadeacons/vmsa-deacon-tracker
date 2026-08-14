@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { LocationRow } from "@/lib/repo/locations";
 import type { ActivityRow } from "@/lib/repo/activities";
 import type { AppSettings } from "@/lib/repo/settings";
+import type { PWActivityRow } from "@/lib/repo/passionWeekActivities";
 import {
   createLocationAction,
   updateLocationAction,
@@ -12,6 +13,7 @@ import {
   updateActivityAction,
   setAbsencePeriodAction,
   setAgeGroupThresholdsAction,
+  updatePWActivityAction,
 } from "@/app/(app)/settings/actions";
 
 function ViewOnlyNote() {
@@ -156,7 +158,7 @@ function AppSettingsCard({ settings, canEdit }: { settings: AppSettings; canEdit
 
   return (
     <div className="card">
-      <h3>App settings</h3>
+      <h3>Period Selection</h3>
       <label style={{ fontSize: "0.85rem", color: "var(--muted)", fontWeight: 600 }}>
         Dashboard &quot;Absent&quot; alert period
       </label>
@@ -238,24 +240,102 @@ function AgeGroupsCard({ settings, canEdit }: { settings: AppSettings; canEdit: 
   );
 }
 
+function PassionWeekActivitiesCard({
+  pwActivities,
+  canEdit,
+}: {
+  pwActivities: PWActivityRow[];
+  canEdit: boolean;
+}) {
+  const router = useRouter();
+  const sorted = [...pwActivities].sort((a, b) => a.sort_order - b.sort_order);
+  const [drafts, setDrafts] = useState(
+    Object.fromEntries(sorted.map((a) => [a.code, { label: a.label, sortOrder: a.sort_order }]))
+  );
+
+  async function save(code: (typeof sorted)[number]["code"]) {
+    const draft = drafts[code];
+    await updatePWActivityAction(code, draft.label, draft.sortOrder);
+    router.refresh();
+  }
+
+  return (
+    <div className="card">
+      <h3>Passion Week Activities</h3>
+      <p className="muted" style={{ marginBottom: "1rem" }}>
+        Rename or reorder the 4 Passion Week readings. The set itself is fixed.
+      </p>
+      <div className="table-wrap">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Label</th>
+              <th>Order</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((a) => (
+              <tr key={a.code}>
+                <td>
+                  <input
+                    value={drafts[a.code].label}
+                    disabled={!canEdit}
+                    onChange={(e) =>
+                      setDrafts((d) => ({ ...d, [a.code]: { ...d[a.code], label: e.target.value } }))
+                    }
+                  />
+                </td>
+                <td>
+                  <input
+                    type="number"
+                    style={{ width: 70 }}
+                    value={drafts[a.code].sortOrder}
+                    disabled={!canEdit}
+                    onChange={(e) =>
+                      setDrafts((d) => ({
+                        ...d,
+                        [a.code]: { ...d[a.code], sortOrder: Number(e.target.value) },
+                      }))
+                    }
+                  />
+                </td>
+                <td>
+                  <button className="btn btn-secondary btn-sm" disabled={!canEdit} onClick={() => save(a.code)}>
+                    Save
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {!canEdit && <ViewOnlyNote />}
+    </div>
+  );
+}
+
 export default function SettingsClient({
   locations,
   activities,
   settings,
+  pwActivities,
   canEdit,
 }: {
   locations: LocationRow[];
   activities: ActivityRow[];
   settings: AppSettings;
+  pwActivities: PWActivityRow[];
   canEdit: boolean;
 }) {
   return (
     <div>
       <h1>Settings</h1>
-      <LocationsCard locations={locations} canEdit={canEdit} />
-      <ActivitiesCard activities={activities} canEdit={canEdit} />
       <AppSettingsCard settings={settings} canEdit={canEdit} />
       <AgeGroupsCard settings={settings} canEdit={canEdit} />
+      <LocationsCard locations={locations} canEdit={canEdit} />
+      <ActivitiesCard activities={activities} canEdit={canEdit} />
+      <PassionWeekActivitiesCard pwActivities={pwActivities} canEdit={canEdit} />
     </div>
   );
 }

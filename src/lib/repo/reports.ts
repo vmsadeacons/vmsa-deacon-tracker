@@ -146,7 +146,9 @@ export interface SummaryRow {
 export async function getSummaryReport(
   fromDate: string | null,
   toDate: string | null,
-  locationId: string | null
+  locationId: string | null,
+  serviceType: string | null = null,
+  includeGuests: boolean = false
 ): Promise<SummaryRow[]> {
   const settings = await getAppSettings();
   const { rows } = await query<{
@@ -159,21 +161,23 @@ export async function getSummaryReport(
     readings: string;
   }>(
     `with combined as (
-       select p.deacon_id, p.liturgy_id, l.date, l.location_id, a.allows_multiple
+       select p.deacon_id, p.liturgy_id, l.date, l.location_id, l.service_type, a.allows_multiple
        from participation p
        join liturgies l on l.id = p.liturgy_id
        left join activities a on a.id = p.activity_id
        where ($1::date is null or l.date >= $1)
          and ($2::date is null or l.date <= $2)
          and ($3::uuid is null or l.location_id = $3)
+         and ($4::text is null or l.service_type = $4)
        union all
-       select p.deacon_id, p.liturgy_id, l.date, l.location_id, a.allows_multiple
+       select p.deacon_id, p.liturgy_id, l.date, l.location_id, l.service_type, a.allows_multiple
        from archive_participation p
        join archive_liturgies l on l.id = p.liturgy_id
        left join activities a on a.id = p.activity_id
        where ($1::date is null or l.date >= $1)
          and ($2::date is null or l.date <= $2)
          and ($3::uuid is null or l.location_id = $3)
+         and ($4::text is null or l.service_type = $4)
      )
      select d.id, d.name, d.dob, d.age_group_override,
        count(distinct c.liturgy_id) as attended,
@@ -181,10 +185,10 @@ export async function getSummaryReport(
        count(*) filter (where c.allows_multiple = false) as readings
      from deacons d
      left join combined c on c.deacon_id = d.id
-     where d.status = 'Active'
+     where d.status = 'Active' and ($5 or not d.is_guest)
      group by d.id
      order by d.name`,
-    [fromDate, toDate, locationId]
+    [fromDate, toDate, locationId, serviceType, includeGuests]
   );
 
   return rows.map((r) => ({

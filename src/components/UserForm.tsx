@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { UserWithPerson } from "@/lib/repo/users";
 import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
 import type { Role } from "@/lib/constants";
+import SingleRosterPickerModal from "./SingleRosterPickerModal";
 
 export default function UserForm({
   initial,
@@ -67,14 +68,14 @@ export default function UserForm({
     <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
       <div className="field">
         <label>Deacon (optional)</label>
-        <select value={linkedDeaconId} onChange={(e) => setLinkedDeaconId(e.target.value)}>
-          <option value="">— Not tied to a deacon record —</option>
-          {availableDeacons.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.name}
-            </option>
-          ))}
-        </select>
+        <SingleRosterPickerModal
+          items={availableDeacons.map((d) => ({ id: d.id, name: d.name }))}
+          selectedId={linkedDeaconId || null}
+          onSelect={(id) => setLinkedDeaconId(id ?? "")}
+          placeholder="— Not tied to a deacon record —"
+          title="Choose a deacon"
+          idPrefix="grant-access"
+        />
       </div>
 
       <div className="field">
