@@ -34,6 +34,7 @@ export default function DeaconDetailModal({
           hasPhoto={deacon.has_photo}
           firstName={deacon.first_name}
           lastName={deacon.last_name}
+          updatedAt={deacon.updated_at}
           size={64}
         />
         <div>

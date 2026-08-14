@@ -8,6 +8,7 @@ export default function DeaconAvatar({
   firstName,
   lastName,
   size = 32,
+  updatedAt,
   version,
 }: {
   deaconId: string;
@@ -15,7 +16,14 @@ export default function DeaconAvatar({
   firstName: string;
   lastName: string;
   size?: number;
-  version?: number; // bump after upload/delete to bust the browser cache
+  // Cache-busting key for the <img> URL. Prefer updatedAt (the deacon
+  // row's own updated_at, which the DB bumps on every write including a
+  // photo change) -- it's always correct without any component having to
+  // remember to track it. `version` is a fallback for spots that manage
+  // their own local optimistic counter (an editor mid-session, before the
+  // page has re-fetched fresh server data).
+  updatedAt?: string;
+  version?: number;
 }) {
   const style: React.CSSProperties = {
     width: size,
@@ -33,9 +41,10 @@ export default function DeaconAvatar({
   };
 
   if (hasPhoto) {
+    const cacheKey = updatedAt ?? (version !== undefined ? String(version) : "");
     return (
       <img
-        src={`/api/deacons/${deaconId}/photo${version ? `?v=${version}` : ""}`}
+        src={`/api/deacons/${deaconId}/photo${cacheKey ? `?v=${encodeURIComponent(cacheKey)}` : ""}`}
         alt=""
         style={{ ...style, objectFit: "cover" }}
       />

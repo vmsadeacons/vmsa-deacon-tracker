@@ -165,7 +165,13 @@ export default function DeaconsClient({
                 >
                   {letter}
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))",
+                    gap: "0.6rem",
+                  }}
+                >
                   {groupDeacons.map((d) => (
                     <div
                       key={d.id}
@@ -179,6 +185,7 @@ export default function DeaconsClient({
                           hasPhoto={d.has_photo}
                           firstName={d.first_name}
                           lastName={d.last_name}
+                          updatedAt={d.updated_at}
                           size={40}
                         />
                         <div style={{ minWidth: 0 }}>

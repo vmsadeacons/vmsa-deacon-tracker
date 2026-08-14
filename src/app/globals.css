@@ -250,6 +250,14 @@ a {
   min-width: 0;
 }
 
+/* Checkboxes/radios shouldn't stretch to the field's full width -- that
+   pushes their label far away from the box instead of sitting next to it. */
+.field input[type="checkbox"],
+.field input[type="radio"] {
+  width: auto;
+  flex: 0 0 auto;
+}
+
 /* ---------------------------------------------------------------------- */
 /* Form controls                                                          */
 /* ---------------------------------------------------------------------- */

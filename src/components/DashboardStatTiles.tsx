@@ -31,24 +31,30 @@ function ContactList({ people }: { people: DeaconContact[] }) {
 export default function DashboardStatTiles({
   activeCount,
   activeDeacons,
+  guestCount,
   absentCount,
   absentDeacons,
   absencePeriodMonths,
 }: {
   activeCount: number;
   activeDeacons: DeaconContact[];
+  guestCount: number;
   absentCount: number;
   absentDeacons: DeaconContact[];
   absencePeriodMonths: number;
 }) {
   const [open, setOpen] = useState<"active" | "absent" | null>(null);
+  const activeLabel =
+    guestCount > 0
+      ? `Deacons (excluding ${guestCount} guest${guestCount === 1 ? "" : "s"})`
+      : "Active deacons";
 
   return (
     <div>
       <div className="stat-row">
         <button className="stat-tile clickable" onClick={() => setOpen(open === "active" ? null : "active")}>
           <div className="stat-value">{activeCount}</div>
-          <div className="stat-label">Active deacons</div>
+          <div className="stat-label">{activeLabel}</div>
         </button>
         <button className="stat-tile clickable" onClick={() => setOpen(open === "absent" ? null : "absent")}>
           <div className="stat-value">{absentCount}</div>

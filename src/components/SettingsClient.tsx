@@ -26,11 +26,17 @@ function ViewOnlyNote() {
 function LocationsCard({ locations, canEdit }: { locations: LocationRow[]; canEdit: boolean }) {
   const router = useRouter();
   const [newName, setNewName] = useState("");
+  const [drafts, setDrafts] = useState(Object.fromEntries(locations.map((l) => [l.id, l.name])));
 
   async function add() {
     if (!newName.trim()) return;
     await createLocationAction(newName.trim());
     setNewName("");
+    router.refresh();
+  }
+
+  async function saveDraft(id: string) {
+    await updateLocationAction(id, { name: drafts[id] });
     router.refresh();
   }
 
@@ -54,11 +60,20 @@ function LocationsCard({ locations, canEdit }: { locations: LocationRow[]; canEd
           <tbody>
             {locations.map((l) => (
               <tr key={l.id}>
-                <td>{l.name}</td>
+                <td>
+                  <input
+                    value={drafts[l.id] ?? l.name}
+                    disabled={!canEdit}
+                    onChange={(e) => setDrafts((d) => ({ ...d, [l.id]: e.target.value }))}
+                  />
+                </td>
                 <td>
                   <span className={`badge ${l.status === "Active" ? "badge-green" : "badge-grey"}`}>{l.status}</span>
                 </td>
-                <td>
+                <td style={{ display: "flex", gap: "0.4rem" }}>
+                  <button className="btn btn-secondary btn-sm" disabled={!canEdit} onClick={() => saveDraft(l.id)}>
+                    Save
+                  </button>
                   <button className="btn btn-secondary btn-sm" disabled={!canEdit} onClick={() => toggleStatus(l)}>
                     {l.status === "Active" ? "Deactivate" : "Activate"}
                   </button>
