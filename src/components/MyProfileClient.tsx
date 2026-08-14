@@ -4,17 +4,20 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ChipMultiSelect from "./ChipMultiSelect";
 import PhotoEditor from "./PhotoEditor";
-import { DEACON_RANKS, SERVICE_TYPES, SERVICE_LABELS } from "@/lib/constants";
+import { AGE_GROUPS, SERVICE_TYPES, SERVICE_LABELS } from "@/lib/constants";
 import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
 import type { LocationRow } from "@/lib/repo/locations";
+import type { RankRow } from "@/lib/repo/ranks";
 import { updateMyProfileAction, setMyPhotoAction, deleteMyPhotoAction } from "@/app/(app)/profile/actions";
 
 export default function MyProfileClient({
   deacon,
   locations,
+  ranks,
 }: {
   deacon: DeaconWithAgeGroup;
   locations: LocationRow[];
+  ranks: RankRow[];
 }) {
   const router = useRouter();
   const [phone, setPhone] = useState(deacon.phone ?? "");
@@ -22,12 +25,31 @@ export default function MyProfileClient({
   const [city, setCity] = useState(deacon.city ?? "");
   const [email, setEmail] = useState(deacon.email ?? "");
   const [dob, setDob] = useState(deacon.dob ?? "");
-  const [rank, setRank] = useState(deacon.rank);
-  const [dateOfOrdination, setDateOfOrdination] = useState(deacon.date_of_ordination ?? "");
+  const [ageGroupOverride, setAgeGroupOverride] = useState(deacon.age_group_override ?? "");
+  const [rankId, setRankId] = useState(deacon.rank_id);
+  const [ordinationYear, setOrdinationYear] = useState(
+    deacon.ordination_year ? String(deacon.ordination_year) : ""
+  );
   const [locationPrefs, setLocationPrefs] = useState<string[]>(deacon.location_prefs);
   const [liturgyPrefs, setLiturgyPrefs] = useState<string[]>(deacon.liturgy_prefs);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [hasPhoto, setHasPhoto] = useState(deacon.has_photo);
+  const [photoVersion, setPhotoVersion] = useState(0);
+
+  async function handlePhotoChange(dataUrl: string) {
+    await setMyPhotoAction(dataUrl);
+    setHasPhoto(true);
+    setPhotoVersion((v) => v + 1);
+    router.refresh();
+  }
+
+  async function handlePhotoDelete() {
+    await deleteMyPhotoAction();
+    setHasPhoto(false);
+    setPhotoVersion((v) => v + 1);
+    router.refresh();
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,8 +61,9 @@ export default function MyProfileClient({
       city: city || null,
       email: email || null,
       dob: dob || null,
-      rank,
-      dateOfOrdination: dateOfOrdination || null,
+      ageGroupOverride: ageGroupOverride ? (ageGroupOverride as (typeof AGE_GROUPS)[number]) : null,
+      rankId,
+      ordinationYear: ordinationYear ? Number(ordinationYear) : null,
       locationPrefs,
       liturgyPrefs,
     });
@@ -55,32 +78,57 @@ export default function MyProfileClient({
     disabled: l.status !== "Active",
   }));
 
+  const rankOptions = ranks.filter((r) => r.status === "Active" || r.id === deacon.rank_id);
+
   return (
     <div>
       <h1>My Profile</h1>
       <div className="card">
-        <p className="muted" style={{ marginBottom: "1rem" }}>
-          Name: <strong>{deacon.name}</strong> (set by an admin)
-        </p>
-
         <PhotoEditor
-          deaconId={deacon.id}
+          photoSrc={hasPhoto ? `/api/deacons/${deacon.id}/photo?v=${photoVersion}` : null}
           firstName={deacon.first_name}
           lastName={deacon.last_name}
-          hasPhoto={deacon.has_photo}
-          onUpload={setMyPhotoAction}
-          onDelete={deleteMyPhotoAction}
+          onChange={handlePhotoChange}
+          onDelete={handlePhotoDelete}
+          showDelete
         />
+
+        <p className="muted" style={{ marginBottom: "1rem" }}>
+          Name:{" "}
+          <strong>
+            {deacon.first_name} {deacon.last_name}
+          </strong>{" "}
+          (set by an admin)
+        </p>
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
           <div className="grid-2">
+            <div className="field">
+              <label>Age group (used only if DOB is blank)</label>
+              <select
+                value={ageGroupOverride}
+                onChange={(e) => setAgeGroupOverride(e.target.value)}
+                disabled={Boolean(dob)}
+              >
+                <option value="">—</option>
+                {AGE_GROUPS.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label>Date of birth</label>
+              <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
+            </div>
             <div className="field">
               <label>Phone</label>
               <input value={phone} onChange={(e) => setPhone(e.target.value)} />
             </div>
             <div className="field">
-              <label>Date of birth</label>
-              <input type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
+              <label>Email</label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
             <div className="field">
               <label>Address</label>
@@ -91,25 +139,23 @@ export default function MyProfileClient({
               <input value={city} onChange={(e) => setCity(e.target.value)} />
             </div>
             <div className="field">
-              <label>Email</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            </div>
-            <div className="field">
               <label>Rank</label>
-              <select value={rank} onChange={(e) => setRank(e.target.value as typeof rank)}>
-                {DEACON_RANKS.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
+              <select value={rankId} onChange={(e) => setRankId(e.target.value)}>
+                {rankOptions.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
                   </option>
                 ))}
               </select>
             </div>
             <div className="field">
-              <label>Date of ordination</label>
+              <label>Year of ordination</label>
               <input
-                type="date"
-                value={dateOfOrdination}
-                onChange={(e) => setDateOfOrdination(e.target.value)}
+                type="number"
+                min={1900}
+                max={2100}
+                value={ordinationYear}
+                onChange={(e) => setOrdinationYear(e.target.value)}
               />
             </div>
           </div>

@@ -137,6 +137,7 @@ export interface SummaryRow {
   deaconId: string;
   name: string;
   ageGroup: AgeGroup | null;
+  isGuest: boolean;
   attended: number;
   altar: number;
   readings: number;
@@ -156,6 +157,7 @@ export async function getSummaryReport(
     name: string;
     dob: string | null;
     age_group_override: AgeGroup | null;
+    is_guest: boolean;
     attended: string;
     altar: string;
     readings: string;
@@ -179,7 +181,7 @@ export async function getSummaryReport(
          and ($3::uuid is null or l.location_id = $3)
          and ($4::text is null or l.service_type = $4)
      )
-     select d.id, d.name, d.dob, d.age_group_override,
+     select d.id, d.name, d.dob, d.age_group_override, d.is_guest,
        count(distinct c.liturgy_id) as attended,
        count(*) filter (where c.allows_multiple = true) as altar,
        count(*) filter (where c.allows_multiple = false) as readings
@@ -200,6 +202,7 @@ export async function getSummaryReport(
       settings.ageGroupYouthMin,
       settings.ageGroupAdultMin
     ),
+    isGuest: r.is_guest,
     attended: Number(r.attended),
     altar: Number(r.altar),
     readings: Number(r.readings),

@@ -6,6 +6,7 @@ import type { LocationRow } from "@/lib/repo/locations";
 import type { ActivityRow } from "@/lib/repo/activities";
 import type { AppSettings } from "@/lib/repo/settings";
 import type { PWActivityRow } from "@/lib/repo/passionWeekActivities";
+import type { RankRow } from "@/lib/repo/ranks";
 import {
   createLocationAction,
   updateLocationAction,
@@ -14,6 +15,8 @@ import {
   setAbsencePeriodAction,
   setAgeGroupThresholdsAction,
   updatePWActivityAction,
+  createRankAction,
+  updateRankAction,
 } from "@/app/(app)/settings/actions";
 
 function ViewOnlyNote() {
@@ -83,12 +86,22 @@ function ActivitiesCard({ activities, canEdit }: { activities: ActivityRow[]; ca
   const router = useRouter();
   const [newName, setNewName] = useState("");
   const [allowsMultiple, setAllowsMultiple] = useState(false);
+  const sorted = [...activities].sort((a, b) => a.sort_order - b.sort_order);
+  const [drafts, setDrafts] = useState(
+    Object.fromEntries(sorted.map((a) => [a.id, { name: a.name, sortOrder: a.sort_order }]))
+  );
 
   async function add() {
     if (!newName.trim()) return;
     await createActivityAction(newName.trim(), allowsMultiple);
     setNewName("");
     setAllowsMultiple(false);
+    router.refresh();
+  }
+
+  async function saveDraft(id: string) {
+    const draft = drafts[id];
+    await updateActivityAction(id, { name: draft.name, sortOrder: draft.sortOrder });
     router.refresh();
   }
 
@@ -99,26 +112,52 @@ function ActivitiesCard({ activities, canEdit }: { activities: ActivityRow[]; ca
 
   return (
     <div className="card">
-      <h3>Activities</h3>
+      <h3>Liturgy Activities</h3>
       <div className="table-wrap" style={{ marginBottom: "1rem" }}>
         <table className="table">
           <thead>
             <tr>
               <th>Name</th>
+              <th>Order</th>
               <th>Allows multiple</th>
               <th>Status</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {activities.map((a) => (
+            {sorted.map((a) => (
               <tr key={a.id}>
-                <td>{a.name}</td>
+                <td>
+                  <input
+                    value={drafts[a.id]?.name ?? a.name}
+                    disabled={!canEdit}
+                    onChange={(e) =>
+                      setDrafts((d) => ({ ...d, [a.id]: { ...d[a.id], name: e.target.value } }))
+                    }
+                  />
+                </td>
+                <td>
+                  <input
+                    type="number"
+                    style={{ width: 70 }}
+                    value={drafts[a.id]?.sortOrder ?? a.sort_order}
+                    disabled={!canEdit}
+                    onChange={(e) =>
+                      setDrafts((d) => ({
+                        ...d,
+                        [a.id]: { ...d[a.id], sortOrder: Number(e.target.value) },
+                      }))
+                    }
+                  />
+                </td>
                 <td>{a.allows_multiple ? "Yes" : "No"}</td>
                 <td>
                   <span className={`badge ${a.status === "Active" ? "badge-green" : "badge-grey"}`}>{a.status}</span>
                 </td>
-                <td>
+                <td style={{ display: "flex", gap: "0.4rem" }}>
+                  <button className="btn btn-secondary btn-sm" disabled={!canEdit} onClick={() => saveDraft(a.id)}>
+                    Save
+                  </button>
                   <button className="btn btn-secondary btn-sm" disabled={!canEdit} onClick={() => toggleStatus(a)}>
                     {a.status === "Active" ? "Deactivate" : "Activate"}
                   </button>
@@ -135,6 +174,101 @@ function ActivitiesCard({ activities, canEdit }: { activities: ActivityRow[]; ca
             <input type="checkbox" checked={allowsMultiple} onChange={(e) => setAllowsMultiple(e.target.checked)} />
             Allows multiple
           </label>
+          <button className="btn btn-primary" onClick={add}>
+            Add
+          </button>
+        </div>
+      ) : (
+        <ViewOnlyNote />
+      )}
+    </div>
+  );
+}
+
+function RanksCard({ ranks, canEdit }: { ranks: RankRow[]; canEdit: boolean }) {
+  const router = useRouter();
+  const [newName, setNewName] = useState("");
+  const sorted = [...ranks].sort((a, b) => a.sort_order - b.sort_order);
+  const [drafts, setDrafts] = useState(
+    Object.fromEntries(sorted.map((r) => [r.id, { name: r.name, sortOrder: r.sort_order }]))
+  );
+
+  async function add() {
+    if (!newName.trim()) return;
+    await createRankAction(newName.trim());
+    setNewName("");
+    router.refresh();
+  }
+
+  async function saveDraft(id: string) {
+    const draft = drafts[id];
+    await updateRankAction(id, { name: draft.name, sortOrder: draft.sortOrder });
+    router.refresh();
+  }
+
+  async function toggleStatus(r: RankRow) {
+    await updateRankAction(r.id, { status: r.status === "Active" ? "Inactive" : "Active" });
+    router.refresh();
+  }
+
+  return (
+    <div className="card">
+      <h3>Ranks</h3>
+      <div className="table-wrap" style={{ marginBottom: "1rem" }}>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Order</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((r) => (
+              <tr key={r.id}>
+                <td>
+                  <input
+                    value={drafts[r.id]?.name ?? r.name}
+                    disabled={!canEdit}
+                    onChange={(e) =>
+                      setDrafts((d) => ({ ...d, [r.id]: { ...d[r.id], name: e.target.value } }))
+                    }
+                  />
+                </td>
+                <td>
+                  <input
+                    type="number"
+                    style={{ width: 70 }}
+                    value={drafts[r.id]?.sortOrder ?? r.sort_order}
+                    disabled={!canEdit}
+                    onChange={(e) =>
+                      setDrafts((d) => ({
+                        ...d,
+                        [r.id]: { ...d[r.id], sortOrder: Number(e.target.value) },
+                      }))
+                    }
+                  />
+                </td>
+                <td>
+                  <span className={`badge ${r.status === "Active" ? "badge-green" : "badge-grey"}`}>{r.status}</span>
+                </td>
+                <td style={{ display: "flex", gap: "0.4rem" }}>
+                  <button className="btn btn-secondary btn-sm" disabled={!canEdit} onClick={() => saveDraft(r.id)}>
+                    Save
+                  </button>
+                  <button className="btn btn-secondary btn-sm" disabled={!canEdit} onClick={() => toggleStatus(r)}>
+                    {r.status === "Active" ? "Deactivate" : "Activate"}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {canEdit ? (
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <input placeholder="New rank name" value={newName} onChange={(e) => setNewName(e.target.value)} />
           <button className="btn btn-primary" onClick={add}>
             Add
           </button>
@@ -253,9 +387,14 @@ function PassionWeekActivitiesCard({
     Object.fromEntries(sorted.map((a) => [a.code, { label: a.label, sortOrder: a.sort_order }]))
   );
 
-  async function save(code: (typeof sorted)[number]["code"]) {
+  async function saveDraft(code: (typeof sorted)[number]["code"]) {
     const draft = drafts[code];
-    await updatePWActivityAction(code, draft.label, draft.sortOrder);
+    await updatePWActivityAction(code, { label: draft.label, sortOrder: draft.sortOrder });
+    router.refresh();
+  }
+
+  async function toggleStatus(a: PWActivityRow) {
+    await updatePWActivityAction(a.code, { status: a.status === "Active" ? "Inactive" : "Active" });
     router.refresh();
   }
 
@@ -263,7 +402,8 @@ function PassionWeekActivitiesCard({
     <div className="card">
       <h3>Passion Week Activities</h3>
       <p className="muted" style={{ marginBottom: "1rem" }}>
-        Rename or reorder the 4 Passion Week readings. The set itself is fixed.
+        Rename, reorder, or deactivate the 4 Passion Week readings. A deactivated one disappears from new
+        Passion Week entry, but past assignments and reports stay untouched. The set itself is fixed.
       </p>
       <div className="table-wrap">
         <table className="table">
@@ -271,6 +411,7 @@ function PassionWeekActivitiesCard({
             <tr>
               <th>Label</th>
               <th>Order</th>
+              <th>Status</th>
               <th></th>
             </tr>
           </thead>
@@ -301,8 +442,14 @@ function PassionWeekActivitiesCard({
                   />
                 </td>
                 <td>
-                  <button className="btn btn-secondary btn-sm" disabled={!canEdit} onClick={() => save(a.code)}>
+                  <span className={`badge ${a.status === "Active" ? "badge-green" : "badge-grey"}`}>{a.status}</span>
+                </td>
+                <td style={{ display: "flex", gap: "0.4rem" }}>
+                  <button className="btn btn-secondary btn-sm" disabled={!canEdit} onClick={() => saveDraft(a.code)}>
                     Save
+                  </button>
+                  <button className="btn btn-secondary btn-sm" disabled={!canEdit} onClick={() => toggleStatus(a)}>
+                    {a.status === "Active" ? "Deactivate" : "Activate"}
                   </button>
                 </td>
               </tr>
@@ -320,12 +467,14 @@ export default function SettingsClient({
   activities,
   settings,
   pwActivities,
+  ranks,
   canEdit,
 }: {
   locations: LocationRow[];
   activities: ActivityRow[];
   settings: AppSettings;
   pwActivities: PWActivityRow[];
+  ranks: RankRow[];
   canEdit: boolean;
 }) {
   return (
@@ -333,6 +482,7 @@ export default function SettingsClient({
       <h1>Settings</h1>
       <AppSettingsCard settings={settings} canEdit={canEdit} />
       <AgeGroupsCard settings={settings} canEdit={canEdit} />
+      <RanksCard ranks={ranks} canEdit={canEdit} />
       <LocationsCard locations={locations} canEdit={canEdit} />
       <ActivitiesCard activities={activities} canEdit={canEdit} />
       <PassionWeekActivitiesCard pwActivities={pwActivities} canEdit={canEdit} />

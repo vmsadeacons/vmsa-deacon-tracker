@@ -1,17 +1,22 @@
 import { query, withTransaction } from "@/lib/db";
 import { computeAgeGroup } from "@/lib/ageGroup";
-import type { AgeGroup, DeaconRank, Role } from "@/lib/constants";
+import type { AgeGroup, Role } from "@/lib/constants";
 import { deleteUserInTx, disableLinkedUserIfAllowed } from "@/lib/repo/users";
 import { getAppSettings } from "@/lib/repo/settings";
+import { getDefaultRankId } from "@/lib/repo/ranks";
 
 // Deliberately never includes `photo` -- bulk/list queries stay lightweight;
 // photo bytes are only ever fetched one at a time via getDeaconPhoto(), served
 // through /api/deacons/[id]/photo. `has_photo` is enough for list screens to
-// know whether to render a thumbnail.
-const DEACON_COLUMNS = `
-  id, first_name, last_name, name_qualifier, name, phone, address, city, email, dob,
-  age_group_override, rank, date_of_ordination, is_guest, (photo is not null) as has_photo,
-  location_prefs, liturgy_prefs, notes, status, created_at, updated_at
+// know whether to render a thumbnail. `rank` is the joined, readable name;
+// `rank_id` is the FK, needed by the edit form's picker.
+const DEACON_SELECT = `
+  select d.id, d.first_name, d.last_name, d.name_qualifier, d.name, d.phone, d.address, d.city,
+         d.email, d.dob, d.age_group_override, d.rank_id, r.name as rank, d.ordination_year,
+         d.is_guest, (d.photo is not null) as has_photo, d.location_prefs, d.liturgy_prefs,
+         d.notes, d.status, d.created_at, d.updated_at
+  from deacons d
+  left join ranks r on r.id = d.rank_id
 `;
 
 export interface DeaconRow {
@@ -26,8 +31,9 @@ export interface DeaconRow {
   email: string | null;
   dob: string | null;
   age_group_override: AgeGroup | null;
-  rank: DeaconRank;
-  date_of_ordination: string | null;
+  rank_id: string;
+  rank: string;
+  ordination_year: number | null;
   is_guest: boolean;
   has_photo: boolean;
   location_prefs: string[];
@@ -58,18 +64,15 @@ export async function listDeacons(includeArchived = true): Promise<DeaconWithAge
   const settings = await getAppSettings();
   const { rows } = await query<DeaconRow>(
     includeArchived
-      ? `select ${DEACON_COLUMNS} from deacons order by name`
-      : `select ${DEACON_COLUMNS} from deacons where status = 'Active' order by name`
+      ? `${DEACON_SELECT} order by d.name`
+      : `${DEACON_SELECT} where d.status = 'Active' order by d.name`
   );
   return rows.map((d) => withAgeGroup(d, settings.ageGroupYouthMin, settings.ageGroupAdultMin));
 }
 
 export async function getDeacon(id: string): Promise<DeaconWithAgeGroup | null> {
   const settings = await getAppSettings();
-  const { rows } = await query<DeaconRow>(
-    `select ${DEACON_COLUMNS} from deacons where id = $1`,
-    [id]
-  );
+  const { rows } = await query<DeaconRow>(`${DEACON_SELECT} where d.id = $1`, [id]);
   const d = rows[0];
   if (!d) return null;
   return withAgeGroup(d, settings.ageGroupYouthMin, settings.ageGroupAdultMin);
@@ -101,8 +104,8 @@ export interface DeaconInput {
   email?: string | null;
   dob?: string | null;
   ageGroupOverride?: AgeGroup | null;
-  rank?: DeaconRank;
-  dateOfOrdination?: string | null;
+  rankId?: string;
+  ordinationYear?: number | null;
   isGuest?: boolean;
   locationPrefs?: string[];
   liturgyPrefs?: string[];
@@ -124,14 +127,20 @@ function friendlyDuplicateError(err: unknown): never {
   throw err;
 }
 
+async function fetchById(id: string): Promise<DeaconRow | undefined> {
+  const { rows } = await query<DeaconRow>(`${DEACON_SELECT} where d.id = $1`, [id]);
+  return rows[0];
+}
+
 export async function createDeacon(input: DeaconInput): Promise<DeaconRow> {
+  const rankId = input.rankId ?? (await getDefaultRankId());
   try {
-    const { rows } = await query<DeaconRow>(
+    const { rows } = await query<{ id: string }>(
       `insert into deacons
          (first_name, last_name, name_qualifier, phone, address, city, email, dob,
-          age_group_override, rank, date_of_ordination, is_guest, location_prefs, liturgy_prefs, notes, status)
-       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,coalesce($10,'Epsaltos (Hymnist)'),$11,coalesce($12,false),$13,$14,$15,coalesce($16,'Active'))
-       returning ${DEACON_COLUMNS}`,
+          age_group_override, rank_id, ordination_year, is_guest, location_prefs, liturgy_prefs, notes, status)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,coalesce($12,false),$13,$14,$15,coalesce($16,'Active'))
+       returning id`,
       [
         input.firstName,
         input.lastName ?? "",
@@ -142,8 +151,8 @@ export async function createDeacon(input: DeaconInput): Promise<DeaconRow> {
         input.email ?? null,
         input.dob ?? null,
         input.ageGroupOverride ?? null,
-        input.rank ?? null,
-        input.dateOfOrdination ?? null,
+        rankId,
+        input.ordinationYear ?? null,
         input.isGuest ?? null,
         input.locationPrefs ?? [],
         input.liturgyPrefs ?? [],
@@ -151,7 +160,7 @@ export async function createDeacon(input: DeaconInput): Promise<DeaconRow> {
         input.status ?? null,
       ]
     );
-    return rows[0];
+    return (await fetchById(rows[0].id))!;
   } catch (err) {
     friendlyDuplicateError(err);
   }
@@ -159,21 +168,16 @@ export async function createDeacon(input: DeaconInput): Promise<DeaconRow> {
 
 /** One record, whoever edited it last wins (admin guess or the deacon's own edit) — spec §6.8. */
 export async function updateDeacon(id: string, input: Partial<DeaconInput>): Promise<DeaconRow> {
-  const current = await query<DeaconRow>(
-    `select ${DEACON_COLUMNS} from deacons where id = $1`,
-    [id]
-  );
-  if (!current.rows[0]) throw new Error("Deacon not found");
-  const d = current.rows[0];
+  const d = await fetchById(id);
+  if (!d) throw new Error("Deacon not found");
 
   try {
-    const { rows } = await query<DeaconRow>(
+    await query(
       `update deacons set
          first_name = $2, last_name = $3, name_qualifier = $4, phone = $5, address = $6, city = $7,
-         email = $8, dob = $9, age_group_override = $10, rank = $11, date_of_ordination = $12,
+         email = $8, dob = $9, age_group_override = $10, rank_id = $11, ordination_year = $12,
          is_guest = $13, location_prefs = $14, liturgy_prefs = $15, notes = $16, status = $17
-       where id = $1
-       returning ${DEACON_COLUMNS}`,
+       where id = $1`,
       [
         id,
         input.firstName ?? d.first_name,
@@ -185,8 +189,8 @@ export async function updateDeacon(id: string, input: Partial<DeaconInput>): Pro
         input.email !== undefined ? input.email : d.email,
         input.dob !== undefined ? input.dob : d.dob,
         input.ageGroupOverride !== undefined ? input.ageGroupOverride : d.age_group_override,
-        input.rank ?? d.rank,
-        input.dateOfOrdination !== undefined ? input.dateOfOrdination : d.date_of_ordination,
+        input.rankId ?? d.rank_id,
+        input.ordinationYear !== undefined ? input.ordinationYear : d.ordination_year,
         input.isGuest !== undefined ? input.isGuest : d.is_guest,
         input.locationPrefs ?? d.location_prefs,
         input.liturgyPrefs ?? d.liturgy_prefs,
@@ -194,7 +198,7 @@ export async function updateDeacon(id: string, input: Partial<DeaconInput>): Pro
         input.status ?? d.status,
       ]
     );
-    return rows[0];
+    return (await fetchById(id))!;
   } catch (err) {
     friendlyDuplicateError(err);
   }

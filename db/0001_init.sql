@@ -24,6 +24,13 @@ create table activities (
   created_at timestamptz not null default now()
 );
 
+create table ranks (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  sort_order int not null default 0,
+  status text not null default 'Active' check (status in ('Active', 'Inactive'))
+);
+
 -- ---------------------------------------------------------------------------
 -- Roster
 -- ---------------------------------------------------------------------------
@@ -50,17 +57,8 @@ create table deacons (
   email text,
   dob date,
   age_group_override text check (age_group_override in ('Child', 'Youth', 'Adult')),
-  rank text not null default 'Epsaltos (Hymnist)' check (
-    rank in (
-      'Epsaltos (Hymnist)',
-      'Ognostis (Reader)',
-      'Epideacon (Subdeacon)',
-      'Deacon (Full Deacon)',
-      'Archdeacon',
-      'Priest'
-    )
-  ),
-  date_of_ordination date,
+  rank_id uuid not null references ranks (id),
+  ordination_year int,
   is_guest boolean not null default false,
   -- Resized to 200x200 client-side before upload; never selected in list
   -- queries (see src/lib/repo/deacons.ts) -- served one at a time via
@@ -155,7 +153,9 @@ create index pwp_deacon_idx on passion_week_participation (deacon_id);
 create table passion_week_activities (
   code text primary key check (code in ('PC1', 'PC2', 'GC', 'GE')),
   label text not null,
-  sort_order int not null
+  sort_order int not null,
+  -- Inactive = hidden from new Passion Week entry, but past assignments/reports are untouched.
+  status text not null default 'Active' check (status in ('Active', 'Inactive'))
 );
 
 -- ---------------------------------------------------------------------------

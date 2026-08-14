@@ -1,6 +1,7 @@
 import { requireSession } from "@/lib/authz";
 import { getDeacon } from "@/lib/repo/deacons";
 import { listLocations } from "@/lib/repo/locations";
+import { listRanks } from "@/lib/repo/ranks";
 import MyProfileClient from "@/components/MyProfileClient";
 
 export default async function ProfilePage() {
@@ -12,9 +13,10 @@ export default async function ProfilePage() {
       </div>
     );
   }
-  const [deacon, locations] = await Promise.all([
+  const [deacon, locations, ranks] = await Promise.all([
     getDeacon(session.user.linkedDeaconId),
     listLocations(true), // full list so an already-picked-but-now-inactive location still shows, greyed out
+    listRanks(true),
   ]);
   if (!deacon) {
     return (
@@ -23,5 +25,5 @@ export default async function ProfilePage() {
       </div>
     );
   }
-  return <MyProfileClient deacon={deacon} locations={locations} />;
+  return <MyProfileClient deacon={deacon} locations={locations} ranks={ranks} />;
 }

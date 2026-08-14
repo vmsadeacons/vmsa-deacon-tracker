@@ -19,3 +19,9 @@ export function telHref(raw: string): string {
   const ten = tenDigitsOf(raw);
   return `tel:${ten ? `+1${ten}` : raw}`;
 }
+
+/** An sms: URI for the "Text" button — same number resolution as telHref. */
+export function smsHref(raw: string): string {
+  const ten = tenDigitsOf(raw);
+  return `sms:${ten ? `+1${ten}` : raw}`;
+}

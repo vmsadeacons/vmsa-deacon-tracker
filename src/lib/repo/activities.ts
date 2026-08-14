@@ -32,16 +32,17 @@ export async function createActivity(
 
 export async function updateActivity(
   id: string,
-  patch: { name?: string; allowsMultiple?: boolean; status?: "Active" | "Inactive" }
+  patch: { name?: string; allowsMultiple?: boolean; status?: "Active" | "Inactive"; sortOrder?: number }
 ): Promise<ActivityRow> {
   const { rows } = await query<ActivityRow>(
     `update activities set
        name = coalesce($2, name),
        allows_multiple = coalesce($3, allows_multiple),
-       status = coalesce($4, status)
+       status = coalesce($4, status),
+       sort_order = coalesce($5, sort_order)
      where id = $1
      returning id, name, allows_multiple, status, sort_order`,
-    [id, patch.name ?? null, patch.allowsMultiple ?? null, patch.status ?? null]
+    [id, patch.name ?? null, patch.allowsMultiple ?? null, patch.status ?? null, patch.sortOrder ?? null]
   );
   return rows[0];
 }

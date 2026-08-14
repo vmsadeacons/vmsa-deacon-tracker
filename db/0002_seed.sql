@@ -17,6 +17,14 @@ insert into activities (name, allows_multiple, status, sort_order) values
   ('Praxis (Acts)', false, 'Active', 4),
   ('Psalm & Gospel', false, 'Active', 5);
 
+insert into ranks (name, sort_order) values
+  ('Epsaltos (Hymnist)', 0),
+  ('Ognostis (Reader)', 1),
+  ('Epideacon (Subdeacon)', 2),
+  ('Deacon (Full Deacon)', 3),
+  ('Archdeacon', 4),
+  ('Priest', 5);
+
 insert into passion_week_activities (code, label, sort_order) values
   ('PC1', 'Psalm Coptic 1', 0),
   ('PC2', 'Psalm Coptic 2', 1),

@@ -4,59 +4,64 @@ import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Modal from "./Modal";
 import DeaconForm from "./DeaconForm";
-import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
-import type { LocationRow } from "@/lib/repo/locations";
-import type { DeaconInput } from "@/lib/repo/deacons";
-import { createDeaconAction, updateDeaconAction, deleteDeaconAction } from "@/app/(app)/deacons/actions";
-import { formatPhone, telHref } from "@/lib/formatPhone";
+import DeaconDetailModal from "./DeaconDetailModal";
 import DeaconAvatar from "./DeaconAvatar";
+import type { DeaconWithAgeGroup, DeaconInput } from "@/lib/repo/deacons";
+import type { LocationRow } from "@/lib/repo/locations";
+import type { RankRow } from "@/lib/repo/ranks";
+import { createDeaconAction, updateDeaconAction, deleteDeaconAction, setDeaconPhotoAction } from "@/app/(app)/deacons/actions";
+import { formatPhone, telHref, smsHref } from "@/lib/formatPhone";
 
-type SortKey = "name" | "city" | "age_group" | "rank" | "status";
+const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
 export default function DeaconsClient({
   deacons,
   locations,
+  ranks,
 }: {
   deacons: DeaconWithAgeGroup[];
   locations: LocationRow[];
+  ranks: RankRow[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [sortKey, setSortKey] = useState<SortKey>("name");
-  const [sortDir, setSortDir] = useState<1 | -1>(1);
+  const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<DeaconWithAgeGroup | null>(null);
+  const [viewing, setViewing] = useState<DeaconWithAgeGroup | null>(null);
   const [adding, setAdding] = useState(searchParams.get("add") === "1");
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const sorted = useMemo(() => {
-    const copy = [...deacons];
-    copy.sort((a, b) => {
-      const av = (a[sortKey] ?? "") as string;
-      const bv = (b[sortKey] ?? "") as string;
-      return av.localeCompare(bv) * sortDir;
-    });
-    return copy;
-  }, [deacons, sortKey, sortDir]);
+  const sorted = useMemo(() => [...deacons].sort((a, b) => a.name.localeCompare(b.name)), [deacons]);
 
-  function toggleSort(key: SortKey) {
-    if (key === sortKey) {
-      setSortDir((d) => (d === 1 ? -1 : 1));
-    } else {
-      setSortKey(key);
-      setSortDir(1);
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return q ? sorted.filter((d) => d.name.toLowerCase().includes(q)) : sorted;
+  }, [sorted, search]);
+
+  const groups = useMemo(() => {
+    const map = new Map<string, DeaconWithAgeGroup[]>();
+    for (const d of filtered) {
+      const letter = /[A-Za-z]/.test(d.first_name[0] ?? "") ? d.first_name[0].toUpperCase() : "#";
+      if (!map.has(letter)) map.set(letter, []);
+      map.get(letter)!.push(d);
     }
+    return map;
+  }, [filtered]);
+
+  const availableLetters = new Set(groups.keys());
+
+  function jumpTo(letter: string) {
+    document.getElementById(`deacons-sec-${letter}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  function sortIndicator(key: SortKey) {
-    if (key !== sortKey) return "";
-    return sortDir === 1 ? " ▲" : " ▼";
-  }
-
-  async function handleCreate(input: DeaconInput) {
+  async function handleCreate(input: DeaconInput, pendingPhotoDataUrl: string | null) {
     setFormError(null);
     const result = await createDeaconAction(input);
     if (result.ok) {
+      if (pendingPhotoDataUrl) {
+        await setDeaconPhotoAction(result.deacon.id, pendingPhotoDataUrl);
+      }
       setAdding(false);
       router.replace("/deacons");
       router.refresh();
@@ -84,22 +89,21 @@ export default function DeaconsClient({
       setError(result.reason);
       return;
     }
+    setViewing(null);
     router.refresh();
   }
-
-  const columns: { key: SortKey; label: string }[] = [
-    { key: "name", label: "Name" },
-    { key: "city", label: "City" },
-    { key: "age_group", label: "Age group" },
-    { key: "rank", label: "Rank" },
-    { key: "status", label: "Status" },
-  ];
 
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
         <h1 style={{ margin: 0 }}>Deacons</h1>
-        <button className="btn btn-primary" onClick={() => setAdding(true)}>
+        <button
+          className="btn btn-primary"
+          onClick={() => {
+            setFormError(null);
+            setAdding(true);
+          }}
+        >
           Add deacon
         </button>
       </div>
@@ -107,84 +111,165 @@ export default function DeaconsClient({
       {error && <p className="error-text" style={{ marginBottom: "1rem" }}>{error}</p>}
 
       <div className="card">
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th></th>
-                {columns.map((col) => (
-                  <th key={col.key} className="sortable" onClick={() => toggleSort(col.key)}>
-                    {col.label}
-                    {sortIndicator(col.key)}
-                  </th>
-                ))}
-                <th>Phone</th>
-                <th>Email</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map((d) => (
-                <tr key={d.id}>
-                  <td>
-                    <DeaconAvatar
-                      deaconId={d.id}
-                      hasPhoto={d.has_photo}
-                      firstName={d.first_name}
-                      lastName={d.last_name}
-                      size={28}
-                    />
-                  </td>
-                  <td>
-                    {d.name}
-                    {d.is_guest && (
-                      <span className="badge badge-gold" style={{ marginLeft: "0.4rem" }}>
-                        Guest
-                      </span>
-                    )}
-                  </td>
-                  <td>{d.city ?? "—"}</td>
-                  <td>{d.age_group ?? "—"}</td>
-                  <td>{d.rank}</td>
-                  <td>
-                    <span className={`badge ${d.status === "Active" ? "badge-green" : "badge-grey"}`}>
-                      {d.status}
-                    </span>
-                  </td>
-                  <td>{d.phone ? <a href={telHref(d.phone)}>{formatPhone(d.phone)}</a> : "—"}</td>
-                  <td>{d.email ?? "—"}</td>
-                  <td style={{ display: "flex", gap: "0.5rem" }}>
-                    <button className="btn btn-secondary btn-sm" onClick={() => setEditing(d)}>
-                      Edit
-                    </button>
-                    <button className="btn btn-danger btn-sm" onClick={() => handleDelete(d)}>
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <input
+          type="text"
+          placeholder="Search by name"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{ width: "100%", marginBottom: "0.75rem", boxSizing: "border-box" }}
+        />
+        <div style={{ display: "flex" }}>
+          <div
+            style={{
+              width: 24,
+              flexShrink: 0,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+            }}
+          >
+            {ALPHABET.map((letter) => {
+              const has = availableLetters.has(letter);
+              return (
+                <button
+                  key={letter}
+                  type="button"
+                  onClick={() => has && jumpTo(letter)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    fontSize: 10,
+                    padding: "1px 0",
+                    width: 20,
+                    cursor: has ? "pointer" : "default",
+                    color: has ? "var(--wine)" : "var(--muted-2)",
+                    opacity: has ? 1 : 0.4,
+                  }}
+                >
+                  {letter}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ flex: 1, minWidth: 0, paddingLeft: "0.75rem" }}>
+            {[...groups.entries()].map(([letter, groupDeacons]) => (
+              <div key={letter} id={`deacons-sec-${letter}`} style={{ marginBottom: "1rem" }}>
+                <div
+                  style={{
+                    fontFamily: "var(--font-serif)",
+                    fontSize: "0.85rem",
+                    color: "var(--gold)",
+                    fontWeight: 700,
+                    margin: "0.5rem 0",
+                  }}
+                >
+                  {letter}
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+                  {groupDeacons.map((d) => (
+                    <div
+                      key={d.id}
+                      className="card"
+                      style={{ marginBottom: 0, cursor: "pointer" }}
+                      onClick={() => setViewing(d)}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.5rem" }}>
+                        <DeaconAvatar
+                          deaconId={d.id}
+                          hasPhoto={d.has_photo}
+                          firstName={d.first_name}
+                          lastName={d.last_name}
+                          size={40}
+                        />
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontWeight: 600 }}>
+                            {d.name}
+                            {d.is_guest && (
+                              <span className="badge badge-gold" style={{ marginLeft: "0.4rem" }}>
+                                Guest
+                              </span>
+                            )}
+                          </div>
+                          <div className="muted" style={{ fontSize: "0.85rem" }}>{d.age_group ?? "—"}</div>
+                        </div>
+                      </div>
+                      {d.phone && (
+                        <div
+                          style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <span className="muted" style={{ fontSize: "0.9rem" }}>{formatPhone(d.phone)}</span>
+                          <a className="btn btn-secondary btn-sm" href={telHref(d.phone)}>
+                            Call
+                          </a>
+                          <a className="btn btn-secondary btn-sm" href={smsHref(d.phone)}>
+                            Text
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {filtered.length === 0 && <p className="muted">No matches.</p>}
+          </div>
         </div>
       </div>
 
-      <Modal open={adding} onClose={() => setAdding(false)} title="Add deacon" wide>
+      <DeaconDetailModal
+        deacon={viewing}
+        locations={locations}
+        onClose={() => setViewing(null)}
+        onEdit={(d) => {
+          setViewing(null);
+          setFormError(null);
+          setEditing(d);
+        }}
+        onDelete={handleDelete}
+      />
+
+      <Modal
+        open={adding}
+        onClose={() => {
+          setAdding(false);
+          setFormError(null);
+        }}
+        title="Add deacon"
+        wide
+      >
         <DeaconForm
           initial={null}
           locations={locations}
+          ranks={ranks}
           error={formError}
-          onCancel={() => setAdding(false)}
+          onCancel={() => {
+            setAdding(false);
+            setFormError(null);
+          }}
           onSave={handleCreate}
         />
       </Modal>
 
-      <Modal open={Boolean(editing)} onClose={() => setEditing(null)} title="Edit deacon" wide>
+      <Modal
+        open={Boolean(editing)}
+        onClose={() => {
+          setEditing(null);
+          setFormError(null);
+        }}
+        title="Edit deacon"
+        wide
+      >
         {editing && (
           <DeaconForm
             initial={editing}
             locations={locations}
+            ranks={ranks}
             error={formError}
-            onCancel={() => setEditing(null)}
+            onCancel={() => {
+              setEditing(null);
+              setFormError(null);
+            }}
             onSave={handleUpdate}
           />
         )}

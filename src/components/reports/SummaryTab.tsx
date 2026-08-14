@@ -185,7 +185,14 @@ export default function SummaryTab({ locations }: { locations: LocationRow[] }) 
               <tbody>
                 {sorted.map((r) => (
                   <tr key={r.deaconId}>
-                    <td>{r.name}</td>
+                    <td>
+                      {r.name}
+                      {r.isGuest && (
+                        <span className="badge badge-gold" style={{ marginLeft: "0.4rem" }}>
+                          Guest
+                        </span>
+                      )}
+                    </td>
                     <td>{r.ageGroup ?? "—"}</td>
                     <td>{r.attended}</td>
                     <td>{r.altar}</td>

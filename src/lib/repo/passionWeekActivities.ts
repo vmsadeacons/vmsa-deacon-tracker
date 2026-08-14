@@ -5,20 +5,29 @@ export interface PWActivityRow {
   code: PWActivityId;
   label: string;
   sort_order: number;
+  status: "Active" | "Inactive";
 }
 
-/** Admin-editable label + order for the 4 fixed Passion Week activities (name/order only, set is fixed). */
-export async function listPWActivities(): Promise<PWActivityRow[]> {
+/** Admin-editable label + order for the 4 fixed Passion Week activities (name/order/status only, set is fixed). */
+export async function listPWActivities(includeInactive = true): Promise<PWActivityRow[]> {
   const { rows } = await query<PWActivityRow>(
-    `select code, label, sort_order from passion_week_activities order by sort_order`
+    includeInactive
+      ? `select code, label, sort_order, status from passion_week_activities order by sort_order`
+      : `select code, label, sort_order, status from passion_week_activities where status = 'Active' order by sort_order`
   );
   return rows;
 }
 
-export async function updatePWActivity(code: PWActivityId, label: string, sortOrder: number): Promise<void> {
-  await query(`update passion_week_activities set label = $2, sort_order = $3 where code = $1`, [
-    code,
-    label,
-    sortOrder,
-  ]);
+export async function updatePWActivity(
+  code: PWActivityId,
+  patch: { label?: string; sortOrder?: number; status?: "Active" | "Inactive" }
+): Promise<void> {
+  await query(
+    `update passion_week_activities set
+       label = coalesce($2, label),
+       sort_order = coalesce($3, sort_order),
+       status = coalesce($4, status)
+     where code = $1`,
+    [code, patch.label ?? null, patch.sortOrder ?? null, patch.status ?? null]
+  );
 }

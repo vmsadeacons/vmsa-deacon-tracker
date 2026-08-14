@@ -3,15 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { assertSession } from "@/lib/authz";
 import { updateDeacon, setDeaconPhoto, deleteDeaconPhoto } from "@/lib/repo/deacons";
-import type { DeaconRank } from "@/lib/constants";
+import type { AgeGroup } from "@/lib/constants";
 
 /**
  * Deacon self-service — deliberately narrower than the admin's updateDeacon:
- * name, status, notes, and age-group override are never accepted here,
- * regardless of what the client sends (spec §7.11). DOB and date of
- * ordination were added by request — the app's existing "DOB always wins
- * when present" rule already gives a self-entered DOB priority, since it's
- * the same shared record whoever edits it last (spec §6.8).
+ * name, status, and notes are never accepted here, regardless of what the
+ * client sends (spec §7.11). DOB, age group, and year of ordination were
+ * added to My Profile by explicit request; the app's existing "DOB always
+ * wins when present" rule already gives a self-entered DOB priority over
+ * the age-group override, since it's the same shared record whoever edits
+ * it last (spec §6.8).
  */
 export async function updateMyProfileAction(patch: {
   phone: string | null;
@@ -19,8 +20,9 @@ export async function updateMyProfileAction(patch: {
   city: string | null;
   email: string | null;
   dob: string | null;
-  rank: DeaconRank;
-  dateOfOrdination: string | null;
+  ageGroupOverride: AgeGroup | null;
+  rankId: string;
+  ordinationYear: number | null;
   locationPrefs: string[];
   liturgyPrefs: string[];
 }) {

@@ -30,7 +30,11 @@ export default function PassionWeekClient({
   const runLatest = useLatestRequest<PWOverview>();
 
   const hours = pwHoursFor(serviceId);
+  // Overview/history shows every activity regardless of status, so a
+  // deactivated one's past assignments stay visible; new entry only offers
+  // active ones.
   const activities = [...pwActivities].sort((a, b) => a.sort_order - b.sort_order);
+  const activeActivities = activities.filter((a) => a.status === "Active");
 
   function load(y: number, l: string, s: PWServiceId) {
     if (!l) return;
@@ -135,7 +139,7 @@ export default function PassionWeekClient({
           <p className="muted">Loading…</p>
         ) : (
           <div className="grid-2">
-            {activities.map((act) => {
+            {activeActivities.map((act) => {
               const slots = pwSlotCount(serviceId, act.code);
               return (
                 <div key={act.code} className="card" style={{ marginBottom: 0 }}>

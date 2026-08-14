@@ -12,14 +12,8 @@ export const SERVICE_LABELS: Record<ServiceTypeCode, string> = {
 
 export const LITURGY_PREF_OPTIONS = [...SERVICE_TYPES, "All"] as const;
 
-export const DEACON_RANKS = [
-  "Epsaltos (Hymnist)",
-  "Ognostis (Reader)",
-  "Epideacon (Subdeacon)",
-  "Deacon (Full Deacon)",
-  "Archdeacon",
-] as const;
-export type DeaconRank = (typeof DEACON_RANKS)[number];
+// Ranks are now a real admin-editable table (src/lib/repo/ranks.ts), not a
+// fixed list -- see the ranks table in Settings.
 
 export const AGE_GROUPS = ["Child", "Youth", "Adult"] as const;
 export type AgeGroup = (typeof AGE_GROUPS)[number];

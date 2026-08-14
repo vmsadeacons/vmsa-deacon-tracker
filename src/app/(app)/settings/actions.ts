@@ -6,6 +6,7 @@ import { createLocation, updateLocation } from "@/lib/repo/locations";
 import { createActivity, updateActivity } from "@/lib/repo/activities";
 import { setAbsencePeriod, setAgeGroupThresholds } from "@/lib/repo/settings";
 import { updatePWActivity } from "@/lib/repo/passionWeekActivities";
+import { createRank, updateRank } from "@/lib/repo/ranks";
 import type { PWActivityId } from "@/lib/constants";
 
 // Settings is view-only for General Admins — every mutation here is
@@ -38,7 +39,7 @@ export async function createActivityAction(name: string, allowsMultiple: boolean
 
 export async function updateActivityAction(
   id: string,
-  patch: { name?: string; allowsMultiple?: boolean; status?: "Active" | "Inactive" }
+  patch: { name?: string; allowsMultiple?: boolean; status?: "Active" | "Inactive"; sortOrder?: number }
 ) {
   await assertSystemAdmin();
   const activity = await updateActivity(id, patch);
@@ -66,12 +67,33 @@ export async function setAgeGroupThresholdsAction(youthMin: number, adultMin: nu
   }
 }
 
-export async function updatePWActivityAction(code: PWActivityId, label: string, sortOrder: number) {
+export async function updatePWActivityAction(
+  code: PWActivityId,
+  patch: { label?: string; sortOrder?: number; status?: "Active" | "Inactive" }
+) {
   await assertSystemAdmin();
-  await updatePWActivity(code, label, sortOrder);
+  await updatePWActivity(code, patch);
   revalidatePath("/settings");
   revalidatePath("/passion-week");
   revalidatePath("/reports");
   revalidatePath("/history");
   return { ok: true as const };
+}
+
+export async function createRankAction(name: string) {
+  await assertSystemAdmin();
+  const rank = await createRank(name);
+  revalidatePath("/settings");
+  return { ok: true as const, rank };
+}
+
+export async function updateRankAction(
+  id: string,
+  patch: { name?: string; sortOrder?: number; status?: "Active" | "Inactive" }
+) {
+  await assertSystemAdmin();
+  const rank = await updateRank(id, patch);
+  revalidatePath("/settings");
+  revalidatePath("/deacons");
+  return { ok: true as const, rank };
 }
