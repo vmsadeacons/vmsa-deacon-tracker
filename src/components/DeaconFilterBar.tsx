@@ -25,8 +25,12 @@ export default function DeaconFilterBar({
   ranks: string[];
   ageGroups: string[];
 }) {
+  const hasActiveFilters = Boolean(
+    filters.locationId || filters.service || filters.rank || filters.ageGroup
+  );
+
   return (
-    <div className="fieldrow" style={{ marginBottom: "1rem" }}>
+    <div className="fieldrow" style={{ marginBottom: "1rem", alignItems: "end" }}>
       <div className="field">
         <label>Preferred location</label>
         <select
@@ -73,6 +77,16 @@ export default function DeaconFilterBar({
             </option>
           ))}
         </select>
+      </div>
+      <div className="field">
+        <button
+          type="button"
+          className="btn btn-secondary"
+          disabled={!hasActiveFilters}
+          onClick={() => onChange(EMPTY_FILTERS)}
+        >
+          Clear filters
+        </button>
       </div>
     </div>
   );
