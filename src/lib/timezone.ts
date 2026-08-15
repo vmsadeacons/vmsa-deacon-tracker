@@ -15,6 +15,11 @@ export function churchTodayISO(): string {
   }).format(new Date());
 }
 
+/** January 1 of the current church-local year, as YYYY-MM-DD — for "year to date" periods. */
+export function yearStartISO(): string {
+  return `${churchTodayISO().slice(0, 4)}-01-01`;
+}
+
 export function churchNowHour(): number {
   const hourStr = new Intl.DateTimeFormat("en-US", {
     timeZone: TZ,

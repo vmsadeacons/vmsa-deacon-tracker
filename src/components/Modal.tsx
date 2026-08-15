@@ -6,12 +6,16 @@ export default function Modal({
   title,
   children,
   wide,
+  preventDismiss,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   children: React.ReactNode;
   wide?: boolean;
+  /** For forms with unsaved changes: no X button, no backdrop-click-to-close --
+   * only the form's own Cancel/Save buttons can leave. */
+  preventDismiss?: boolean;
 }) {
   if (!open) return null;
   return (
@@ -27,7 +31,7 @@ export default function Modal({
         overflowY: "auto",
         zIndex: 100,
       }}
-      onClick={onClose}
+      onClick={preventDismiss ? undefined : onClose}
     >
       <div
         className="card"
@@ -36,9 +40,11 @@ export default function Modal({
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
           <h2 style={{ margin: 0 }}>{title}</h2>
-          <button className="btn btn-secondary btn-sm" onClick={onClose} type="button">
-            Close
-          </button>
+          {!preventDismiss && (
+            <button className="btn btn-secondary btn-sm" onClick={onClose} type="button">
+              Close
+            </button>
+          )}
         </div>
         {children}
       </div>

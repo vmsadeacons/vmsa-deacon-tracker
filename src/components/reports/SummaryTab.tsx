@@ -6,10 +6,11 @@ import type { RankRow } from "@/lib/repo/ranks";
 import type { SummaryRow } from "@/lib/repo/reports";
 import { getSummaryReportAction } from "@/app/(app)/reports/actions";
 import { useLatestRequest } from "@/lib/useLatestRequest";
-import { churchTodayAction, monthsAgoAction } from "@/lib/actions/shared";
-import { SERVICE_TYPES, SERVICE_LABELS, type ServiceTypeCode } from "@/lib/constants";
+import { churchTodayAction, monthsAgoAction, yearStartAction } from "@/lib/actions/shared";
+import { SERVICE_TYPES, SERVICE_LABELS, AGE_GROUPS, type ServiceTypeCode } from "@/lib/constants";
+import { withPercent } from "@/lib/percent";
 
-type Period = "3" | "6" | "12" | "custom";
+type Period = "3" | "6" | "12" | "ytd" | "custom";
 type SortKey = "name" | "ageGroup" | "attended" | "altar" | "readings";
 
 export default function SummaryTab({ locations, ranks }: { locations: LocationRow[]; ranks: RankRow[] }) {
@@ -19,6 +20,7 @@ export default function SummaryTab({ locations, ranks }: { locations: LocationRo
   const [locationId, setLocationId] = useState(""); // "" = All locations, per spec §6.5
   const [serviceType, setServiceType] = useState(""); // "" = All services
   const [rankId, setRankId] = useState(""); // "" = All ranks
+  const [ageGroupFilter, setAgeGroupFilter] = useState(""); // "" = All age groups
   const [includeGuests, setIncludeGuests] = useState(false);
   const [rows, setRows] = useState<SummaryRow[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -32,6 +34,9 @@ export default function SummaryTab({ locations, ranks }: { locations: LocationRo
     if (period === "custom") {
       from = fromDate || null;
       to = toDate || null;
+    } else if (period === "ytd") {
+      from = await yearStartAction();
+      to = await churchTodayAction();
     } else {
       from = await monthsAgoAction(Number(period));
       to = await churchTodayAction();
@@ -55,7 +60,8 @@ export default function SummaryTab({ locations, ranks }: { locations: LocationRo
 
   const sorted = useMemo(() => {
     if (!rows) return null;
-    const copy = [...rows];
+    const filtered = ageGroupFilter ? rows.filter((r) => r.ageGroup === ageGroupFilter) : rows;
+    const copy = [...filtered];
     copy.sort((a, b) => {
       const av = a[sortKey];
       const bv = b[sortKey];
@@ -63,7 +69,7 @@ export default function SummaryTab({ locations, ranks }: { locations: LocationRo
       return String(av ?? "").localeCompare(String(bv ?? "")) * sortDir;
     });
     return copy;
-  }, [rows, sortKey, sortDir]);
+  }, [rows, ageGroupFilter, sortKey, sortDir]);
 
   function toggleSort(key: SortKey) {
     if (key === sortKey) {
@@ -110,10 +116,6 @@ export default function SummaryTab({ locations, ranks }: { locations: LocationRo
   return (
     <div>
       <div className="card">
-        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
-          <input type="checkbox" checked={includeGuests} onChange={(e) => setIncludeGuests(e.target.checked)} />
-          Include Guests
-        </label>
         <div className="fieldrow">
           <div className="field">
             <label>Period</label>
@@ -121,6 +123,7 @@ export default function SummaryTab({ locations, ranks }: { locations: LocationRo
               <option value="3">Last 3 months</option>
               <option value="6">Last 6 months</option>
               <option value="12">Last 12 months</option>
+              <option value="ytd">Year to date</option>
               <option value="custom">Custom range</option>
             </select>
           </div>
@@ -169,6 +172,27 @@ export default function SummaryTab({ locations, ranks }: { locations: LocationRo
               ))}
             </select>
           </div>
+          <div className="field">
+            <label>Age group</label>
+            <select value={ageGroupFilter} onChange={(e) => setAgeGroupFilter(e.target.value)}>
+              <option value="">All age groups</option>
+              {AGE_GROUPS.map((g) => (
+                <option key={g} value={g}>
+                  {g}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <input
+                type="checkbox"
+                checked={includeGuests}
+                onChange={(e) => setIncludeGuests(e.target.checked)}
+              />
+              Include Guests
+            </label>
+          </div>
         </div>
         <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
           <button className="btn btn-primary" onClick={handleView}>
@@ -209,8 +233,8 @@ export default function SummaryTab({ locations, ranks }: { locations: LocationRo
                     </td>
                     <td>{r.ageGroup ?? "—"}</td>
                     <td>{r.attended}</td>
-                    <td>{r.altar}</td>
-                    <td>{r.readings}</td>
+                    <td>{withPercent(r.altar, r.attended)}</td>
+                    <td>{withPercent(r.readings, r.attended)}</td>
                   </tr>
                 ))}
               </tbody>

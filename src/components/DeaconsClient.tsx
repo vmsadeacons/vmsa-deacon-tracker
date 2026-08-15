@@ -244,6 +244,7 @@ export default function DeaconsClient({
         }}
         title="Add deacon"
         wide
+        preventDismiss
       >
         <DeaconForm
           initial={null}
@@ -266,6 +267,7 @@ export default function DeaconsClient({
         }}
         title="Edit deacon"
         wide
+        preventDismiss
       >
         {editing && (
           <DeaconForm

@@ -6,10 +6,11 @@ import SingleRosterPickerModal from "@/components/SingleRosterPickerModal";
 import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
 import type { DeaconHistory } from "@/lib/repo/reports";
 import { getDeaconHistoryReportAction } from "@/app/(app)/reports/actions";
-import { churchTodayAction, monthsAgoAction } from "@/lib/actions/shared";
+import { churchTodayAction, monthsAgoAction, yearStartAction } from "@/lib/actions/shared";
 import { useLatestRequest } from "@/lib/useLatestRequest";
+import { AGE_GROUPS } from "@/lib/constants";
 
-type Period = "3" | "6" | "12" | "custom";
+type Period = "3" | "6" | "12" | "ytd" | "custom";
 
 export default function ByDeaconTab({
   deacons,
@@ -22,14 +23,18 @@ export default function ByDeaconTab({
   const [period, setPeriod] = useState<Period>("3");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [ageGroupFilter, setAgeGroupFilter] = useState(""); // "" = All age groups
   const [includeGuests, setIncludeGuests] = useState(false);
   const [history, setHistory] = useState<DeaconHistory | null>(null);
   const [loading, setLoading] = useState(false);
   const runLatest = useLatestRequest<DeaconHistory>();
 
   const pickableDeacons = useMemo(
-    () => deacons.filter((d) => includeGuests || !d.is_guest),
-    [deacons, includeGuests]
+    () =>
+      deacons.filter(
+        (d) => (includeGuests || !d.is_guest) && (!ageGroupFilter || d.age_group === ageGroupFilter)
+      ),
+    [deacons, includeGuests, ageGroupFilter]
   );
 
   async function handleView() {
@@ -39,6 +44,9 @@ export default function ByDeaconTab({
     if (period === "custom") {
       from = fromDate || null;
       to = toDate || null;
+    } else if (period === "ytd") {
+      from = await yearStartAction();
+      to = await churchTodayAction();
     } else {
       from = await monthsAgoAction(Number(period));
       to = await churchTodayAction();
@@ -53,14 +61,6 @@ export default function ByDeaconTab({
   return (
     <div>
       <div className="card">
-        <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
-          <input
-            type="checkbox"
-            checked={includeGuests}
-            onChange={(e) => setIncludeGuests(e.target.checked)}
-          />
-          Include Guests
-        </label>
         <div className="fieldrow">
           <div className="field">
             <label>Deacon</label>
@@ -79,6 +79,7 @@ export default function ByDeaconTab({
               <option value="3">Last 3 months</option>
               <option value="6">Last 6 months</option>
               <option value="12">Last 12 months</option>
+              <option value="ytd">Year to date</option>
               <option value="custom">Custom range</option>
             </select>
           </div>
@@ -94,6 +95,27 @@ export default function ByDeaconTab({
               </div>
             </>
           )}
+          <div className="field">
+            <label>Age group</label>
+            <select value={ageGroupFilter} onChange={(e) => setAgeGroupFilter(e.target.value)}>
+              <option value="">All age groups</option>
+              {AGE_GROUPS.map((g) => (
+                <option key={g} value={g}>
+                  {g}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <input
+                type="checkbox"
+                checked={includeGuests}
+                onChange={(e) => setIncludeGuests(e.target.checked)}
+              />
+              Include Guests
+            </label>
+          </div>
         </div>
         <button className="btn btn-primary" style={{ marginTop: "1rem" }} disabled={!deaconId} onClick={handleView}>
           View
@@ -101,7 +123,9 @@ export default function ByDeaconTab({
       </div>
 
       {loading && <p className="muted">Loading…</p>}
-      {history && !loading && <HistoryTables history={history} pwLabels={pwLabels} />}
+      {history && !loading && (
+        <HistoryTables history={history} pwLabels={pwLabels} showParticipationPercent />
+      )}
     </div>
   );
 }

@@ -1,26 +1,39 @@
 import type { DeaconHistory } from "@/lib/repo/reports";
 import { SERVICE_LABELS, pwServiceLabel, pwActivityLabel, type ServiceTypeCode } from "@/lib/constants";
+import { withPercent } from "@/lib/percent";
 
 export default function HistoryTables({
   history,
   pwLabels,
+  showParticipationPercent,
 }: {
   history: DeaconHistory;
   pwLabels?: Record<string, string>;
+  /** Altar/Readings tiles show "N (X%)" of liturgies attended -- opt-in so My History stays unchanged. */
+  showParticipationPercent?: boolean;
 }) {
+  const attended = history.stats.liturgiesAttended;
   return (
     <div>
       <div className="stat-row stat-row-4">
         <div className="stat-tile">
-          <div className="stat-value">{history.stats.liturgiesAttended}</div>
+          <div className="stat-value">{attended}</div>
           <div className="stat-label">Liturgies attended</div>
         </div>
         <div className="stat-tile">
-          <div className="stat-value">{history.stats.altarServices}</div>
+          <div className="stat-value">
+            {showParticipationPercent
+              ? withPercent(history.stats.altarServices, attended)
+              : history.stats.altarServices}
+          </div>
           <div className="stat-label">Altar services</div>
         </div>
         <div className="stat-tile">
-          <div className="stat-value">{history.stats.readings}</div>
+          <div className="stat-value">
+            {showParticipationPercent
+              ? withPercent(history.stats.readings, attended)
+              : history.stats.readings}
+          </div>
           <div className="stat-label">Readings</div>
         </div>
         <div className="stat-tile">
