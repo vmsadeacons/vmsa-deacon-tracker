@@ -7,7 +7,9 @@ import { formatPhone, telHref, smsHref } from "@/lib/formatPhone";
 const DEFAULT_TEMPLATE =
   "Dear $$Name$$, we've missed you at liturgy these past few weeks. Hope to see you soon.";
 
-export default function AbsentDeaconsList({ people }: { people: DeaconContact[] }) {
+/** Used for both the Dashboard's Active and Absent deacon lists — a plain
+ * contact table with select + bulk-personalized-text-message capability. */
+export default function MessageableDeaconList({ people }: { people: DeaconContact[] }) {
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [composing, setComposing] = useState(false);
   const [template, setTemplate] = useState(DEFAULT_TEMPLATE);
@@ -15,7 +17,7 @@ export default function AbsentDeaconsList({ people }: { people: DeaconContact[] 
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [sent, setSent] = useState<Record<string, boolean>>({});
 
-  if (people.length === 0) return <p className="muted">No one here.</p>;
+  if (people.length === 0) return <p className="muted">No one matches.</p>;
 
   const selectedIds = Object.keys(selected).filter((id) => selected[id]);
   const selectedPeople = people.filter((p) => selected[p.id]);

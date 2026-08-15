@@ -4,9 +4,8 @@ import { useMemo, useState } from "react";
 import type { DeaconContact } from "@/lib/repo/dashboard";
 import type { AbsencePeriodUnit } from "@/lib/repo/settings";
 import type { LocationRow } from "@/lib/repo/locations";
-import { formatPhone, telHref } from "@/lib/formatPhone";
 import { ALL_SENTINEL } from "@/lib/constants";
-import AbsentDeaconsList from "./AbsentDeaconsList";
+import MessageableDeaconList from "./MessageableDeaconList";
 import DeaconFilterBar, { EMPTY_FILTERS, type DeaconFilters } from "./DeaconFilterBar";
 
 function matchesPref(prefs: string[], value: string): boolean {
@@ -21,30 +20,6 @@ function applyFilters(people: DeaconContact[], filters: DeaconFilters): DeaconCo
     if (filters.ageGroup && p.age_group !== filters.ageGroup) return false;
     return true;
   });
-}
-
-function ContactList({ people }: { people: DeaconContact[] }) {
-  if (people.length === 0) return <p className="muted">No one matches.</p>;
-  return (
-    <div className="table-wrap">
-      <table className="table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Phone</th>
-          </tr>
-        </thead>
-        <tbody>
-          {people.map((p) => (
-            <tr key={p.id}>
-              <td>{p.name}</td>
-              <td>{p.phone ? <a href={telHref(p.phone)}>{formatPhone(p.phone)}</a> : <span className="muted">—</span>}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
 }
 
 export default function DashboardStatTiles({
@@ -118,7 +93,7 @@ export default function DashboardStatTiles({
             ranks={rankOptions}
             ageGroups={ageGroupOptions}
           />
-          <ContactList people={filtered} />
+          <MessageableDeaconList people={filtered} />
         </div>
       )}
       {open === "absent" && (
@@ -134,7 +109,7 @@ export default function DashboardStatTiles({
             ranks={rankOptions}
             ageGroups={ageGroupOptions}
           />
-          <AbsentDeaconsList people={filtered} />
+          <MessageableDeaconList people={filtered} />
         </div>
       )}
     </div>
