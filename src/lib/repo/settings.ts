@@ -1,13 +1,17 @@
 import { query } from "@/lib/db";
 
+export type AbsencePeriodUnit = "weeks" | "months";
+
 export interface AppSettings {
-  absencePeriodMonths: number;
+  absencePeriodValue: number;
+  absencePeriodUnit: AbsencePeriodUnit;
   ageGroupYouthMin: number;
   ageGroupAdultMin: number;
 }
 
 const DEFAULTS: AppSettings = {
-  absencePeriodMonths: 1,
+  absencePeriodValue: 1,
+  absencePeriodUnit: "months",
   ageGroupYouthMin: 18,
   ageGroupAdultMin: 35,
 };
@@ -19,7 +23,8 @@ export async function getAppSettings(): Promise<AppSettings> {
   );
   const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
   return {
-    absencePeriodMonths: Number(map.absence_period_months ?? DEFAULTS.absencePeriodMonths),
+    absencePeriodValue: Number(map.absence_period_value ?? DEFAULTS.absencePeriodValue),
+    absencePeriodUnit: (map.absence_period_unit as AbsencePeriodUnit) ?? DEFAULTS.absencePeriodUnit,
     ageGroupYouthMin: Number(map.age_group_youth_min ?? DEFAULTS.ageGroupYouthMin),
     ageGroupAdultMin: Number(map.age_group_adult_min ?? DEFAULTS.ageGroupAdultMin),
   };
@@ -33,8 +38,16 @@ async function upsertSetting(key: string, value: string) {
   );
 }
 
-export async function setAbsencePeriod(months: 1 | 2 | 3 | 6) {
-  await upsertSetting("absence_period_months", String(months));
+const ALLOWED_WEEK_VALUES = [1, 2, 3];
+const ALLOWED_MONTH_VALUES = [1, 2, 3, 6];
+
+export async function setAbsencePeriod(value: number, unit: AbsencePeriodUnit) {
+  const allowed = unit === "weeks" ? ALLOWED_WEEK_VALUES : ALLOWED_MONTH_VALUES;
+  if (!allowed.includes(value)) {
+    throw new Error(`${value} ${unit} isn't one of the offered options`);
+  }
+  await upsertSetting("absence_period_value", String(value));
+  await upsertSetting("absence_period_unit", unit);
 }
 
 export async function setAgeGroupThresholds(youthMin: number, adultMin: number) {

@@ -297,13 +297,25 @@ function RanksCard({ ranks, canEdit }: { ranks: RankRow[]; canEdit: boolean }) {
 
 function AppSettingsCard({ settings, canEdit }: { settings: AppSettings; canEdit: boolean }) {
   const router = useRouter();
-  const [months, setMonths] = useState(settings.absencePeriodMonths);
+  const [value, setValue] = useState(settings.absencePeriodValue);
+  const [unit, setUnit] = useState(settings.absencePeriodUnit);
 
-  async function save(m: 1 | 2 | 3 | 6) {
-    setMonths(m);
-    await setAbsencePeriodAction(m);
+  async function save(v: number, u: "weeks" | "months") {
+    setValue(v);
+    setUnit(u);
+    await setAbsencePeriodAction(v, u);
     router.refresh();
   }
+
+  const options: { value: number; unit: "weeks" | "months"; label: string }[] = [
+    { value: 1, unit: "weeks", label: "1 week" },
+    { value: 2, unit: "weeks", label: "2 weeks" },
+    { value: 3, unit: "weeks", label: "3 weeks" },
+    { value: 1, unit: "months", label: "1 month" },
+    { value: 2, unit: "months", label: "2 months" },
+    { value: 3, unit: "months", label: "3 months" },
+    { value: 6, unit: "months", label: "6 months" },
+  ];
 
   return (
     <div className="card">
@@ -312,15 +324,15 @@ function AppSettingsCard({ settings, canEdit }: { settings: AppSettings; canEdit
         Dashboard &quot;Absent&quot; alert period
       </label>
       <div className="chip-row" style={{ marginTop: "0.5rem" }}>
-        {[1, 2, 3, 6].map((m) => (
+        {options.map((opt) => (
           <button
-            key={m}
+            key={`${opt.unit}-${opt.value}`}
             type="button"
-            className={`chip ${months === m ? "active" : ""} ${!canEdit ? "disabled" : ""}`}
+            className={`chip ${value === opt.value && unit === opt.unit ? "active" : ""} ${!canEdit ? "disabled" : ""}`}
             disabled={!canEdit}
-            onClick={() => save(m as 1 | 2 | 3 | 6)}
+            onClick={() => save(opt.value, opt.unit)}
           >
-            {m} month{m === 1 ? "" : "s"}
+            {opt.label}
           </button>
         ))}
       </div>

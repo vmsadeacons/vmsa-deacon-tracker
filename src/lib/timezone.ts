@@ -70,6 +70,14 @@ export function monthsAgoISO(months: number): string {
   return dt.toISOString().slice(0, 10);
 }
 
+/** N days before church-local "today", as YYYY-MM-DD — exact, for week-granularity cutoffs. */
+export function daysAgoISO(days: number): string {
+  const todayStr = churchTodayISO();
+  const [y, m, d] = todayStr.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d - days));
+  return dt.toISOString().slice(0, 10);
+}
+
 /**
  * Coptic Holy Week only ever falls in April or May. A Holy Week `year`'s
  * records are included in a report period if the period overlaps that

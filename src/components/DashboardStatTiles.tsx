@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import type { DeaconContact } from "@/lib/repo/dashboard";
+import type { AbsencePeriodUnit } from "@/lib/repo/settings";
 import { formatPhone, telHref } from "@/lib/formatPhone";
+import AbsentDeaconsList from "./AbsentDeaconsList";
 
 function ContactList({ people }: { people: DeaconContact[] }) {
   if (people.length === 0) return <p className="muted">No one here.</p>;
@@ -34,20 +36,24 @@ export default function DashboardStatTiles({
   guestCount,
   absentCount,
   absentDeacons,
-  absencePeriodMonths,
+  absencePeriodValue,
+  absencePeriodUnit,
 }: {
   activeCount: number;
   activeDeacons: DeaconContact[];
   guestCount: number;
   absentCount: number;
   absentDeacons: DeaconContact[];
-  absencePeriodMonths: number;
+  absencePeriodValue: number;
+  absencePeriodUnit: AbsencePeriodUnit;
 }) {
   const [open, setOpen] = useState<"active" | "absent" | null>(null);
   const activeLabel =
     guestCount > 0
       ? `Deacons (excluding ${guestCount} guest${guestCount === 1 ? "" : "s"})`
       : "Active deacons";
+  const unitAbbrev = absencePeriodUnit === "weeks" ? "wk" : "mo";
+  const unitWord = absencePeriodUnit === "weeks" ? "week" : "month";
 
   return (
     <div>
@@ -58,7 +64,9 @@ export default function DashboardStatTiles({
         </button>
         <button className="stat-tile clickable" onClick={() => setOpen(open === "absent" ? null : "absent")}>
           <div className="stat-value">{absentCount}</div>
-          <div className="stat-label">Absent &gt; {absencePeriodMonths}mo</div>
+          <div className="stat-label">
+            Absent &gt; {absencePeriodValue}{unitAbbrev}
+          </div>
         </button>
       </div>
       {open === "active" && (
@@ -69,8 +77,11 @@ export default function DashboardStatTiles({
       )}
       {open === "absent" && (
         <div className="card">
-          <h3>Absent more than {absencePeriodMonths} month{absencePeriodMonths === 1 ? "" : "s"}</h3>
-          <ContactList people={absentDeacons} />
+          <h3>
+            Absent more than {absencePeriodValue} {unitWord}
+            {absencePeriodValue === 1 ? "" : "s"}
+          </h3>
+          <AbsentDeaconsList people={absentDeacons} />
         </div>
       )}
     </div>

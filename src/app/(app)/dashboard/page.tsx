@@ -31,7 +31,8 @@ export default async function DashboardPage() {
         guestCount={stats.guestCount}
         absentCount={stats.absentCount}
         absentDeacons={stats.absentDeacons}
-        absencePeriodMonths={stats.absencePeriodMonths}
+        absencePeriodValue={stats.absencePeriodValue}
+        absencePeriodUnit={stats.absencePeriodUnit}
       />
 
       <div className="card">

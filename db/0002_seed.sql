@@ -32,7 +32,8 @@ insert into passion_week_activities (code, label, sort_order) values
   ('GE', 'Gospel English', 3);
 
 insert into app_settings (key, value) values
-  ('absence_period_months', '1'),
+  ('absence_period_value', '1'),
+  ('absence_period_unit', 'months'),
   ('age_group_youth_min', '18'),
   ('age_group_adult_min', '35');
 

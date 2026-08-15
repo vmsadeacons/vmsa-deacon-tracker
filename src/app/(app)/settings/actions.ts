@@ -47,9 +47,9 @@ export async function updateActivityAction(
   return { ok: true as const, activity };
 }
 
-export async function setAbsencePeriodAction(months: 1 | 2 | 3 | 6) {
+export async function setAbsencePeriodAction(value: number, unit: "weeks" | "months") {
   await assertSystemAdmin();
-  await setAbsencePeriod(months);
+  await setAbsencePeriod(value, unit);
   revalidatePath("/settings");
   revalidatePath("/dashboard");
   return { ok: true as const };

@@ -1,10 +1,11 @@
 import { query } from "@/lib/db";
-import { getAppSettings } from "@/lib/repo/settings";
-import { monthsAgoISO } from "@/lib/timezone";
+import { getAppSettings, type AbsencePeriodUnit } from "@/lib/repo/settings";
+import { monthsAgoISO, daysAgoISO } from "@/lib/timezone";
 
 export interface DeaconContact {
   id: string;
   name: string;
+  first_name: string;
   phone: string | null;
 }
 
@@ -14,16 +15,20 @@ export interface DashboardStats {
   guestCount: number;
   absentCount: number;
   absentDeacons: DeaconContact[];
-  absencePeriodMonths: number;
+  absencePeriodValue: number;
+  absencePeriodUnit: AbsencePeriodUnit;
 }
 
 /** Both tiles exclude Archived deacons (spec §7.2) and Guests (visitors aren't regular roster). */
 export async function getDashboardStats(): Promise<DashboardStats> {
   const settings = await getAppSettings();
-  const cutoff = monthsAgoISO(settings.absencePeriodMonths);
+  const cutoff =
+    settings.absencePeriodUnit === "weeks"
+      ? daysAgoISO(settings.absencePeriodValue * 7)
+      : monthsAgoISO(settings.absencePeriodValue);
 
   const { rows: active } = await query<DeaconContact>(
-    `select id, name, phone from deacons where status = 'Active' and not is_guest order by name`
+    `select id, name, first_name, phone from deacons where status = 'Active' and not is_guest order by name`
   );
 
   const { rows: guestRows } = await query<{ count: string }>(
@@ -31,7 +36,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   );
 
   const { rows: absent } = await query<DeaconContact>(
-    `select d.id, d.name, d.phone
+    `select d.id, d.name, d.first_name, d.phone
      from deacons d
      where d.status = 'Active'
        and not d.is_guest
@@ -53,6 +58,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     guestCount: Number(guestRows[0].count),
     absentCount: absent.length,
     absentDeacons: absent,
-    absencePeriodMonths: settings.absencePeriodMonths,
+    absencePeriodValue: settings.absencePeriodValue,
+    absencePeriodUnit: settings.absencePeriodUnit,
   };
 }
