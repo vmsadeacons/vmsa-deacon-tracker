@@ -9,6 +9,7 @@ import { useLatestRequest } from "@/lib/useLatestRequest";
 import { churchTodayAction, monthsAgoAction, yearStartAction } from "@/lib/actions/shared";
 import { SERVICE_TYPES, SERVICE_LABELS, AGE_GROUPS, type ServiceTypeCode } from "@/lib/constants";
 import { withPercent } from "@/lib/percent";
+import { dateRangeLabel } from "@/lib/dateRange";
 
 type Period = "3" | "6" | "12" | "ytd" | "custom";
 type SortKey = "name" | "ageGroup" | "attended" | "altar" | "readings";
@@ -23,17 +24,18 @@ export default function SummaryTab({ locations, ranks }: { locations: LocationRo
   const [ageGroupFilter, setAgeGroupFilter] = useState(""); // "" = All age groups
   const [includeGuests, setIncludeGuests] = useState(false);
   const [rows, setRows] = useState<SummaryRow[] | null>(null);
+  const [rangeLabel, setRangeLabel] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<1 | -1>(1);
-  const runLatest = useLatestRequest<SummaryRow[]>();
+  const runLatest = useLatestRequest<{ rows: SummaryRow[]; minDate: string | null }>();
 
   async function handleView() {
     let from: string | null;
     let to: string | null;
     if (period === "custom") {
       from = fromDate || null;
-      to = toDate || null;
+      to = toDate || (await churchTodayAction());
     } else if (period === "ytd") {
       from = await yearStartAction();
       to = await churchTodayAction();
@@ -52,7 +54,8 @@ export default function SummaryTab({ locations, ranks }: { locations: LocationRo
         rankId || null
       ),
       (res) => {
-        setRows(res);
+        setRows(res.rows);
+        setRangeLabel(dateRangeLabel(from ?? res.minDate, to));
         setLoading(false);
       }
     );
@@ -208,6 +211,7 @@ export default function SummaryTab({ locations, ranks }: { locations: LocationRo
 
       {sorted && !loading && (
         <div className="card">
+          {rangeLabel && <p className="muted" style={{ marginBottom: "0.75rem" }}>{rangeLabel}</p>}
           <div className="table-wrap">
             <table className="table">
               <thead>

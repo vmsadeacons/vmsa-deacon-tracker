@@ -9,6 +9,7 @@ import { getDeaconHistoryReportAction } from "@/app/(app)/reports/actions";
 import { churchTodayAction, monthsAgoAction, yearStartAction } from "@/lib/actions/shared";
 import { useLatestRequest } from "@/lib/useLatestRequest";
 import { AGE_GROUPS } from "@/lib/constants";
+import { dateRangeLabel } from "@/lib/dateRange";
 
 type Period = "3" | "6" | "12" | "ytd" | "custom";
 
@@ -26,6 +27,7 @@ export default function ByDeaconTab({
   const [ageGroupFilter, setAgeGroupFilter] = useState(""); // "" = All age groups
   const [includeGuests, setIncludeGuests] = useState(false);
   const [history, setHistory] = useState<DeaconHistory | null>(null);
+  const [rangeLabel, setRangeLabel] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const runLatest = useLatestRequest<DeaconHistory>();
 
@@ -43,7 +45,7 @@ export default function ByDeaconTab({
     let to: string | null;
     if (period === "custom") {
       from = fromDate || null;
-      to = toDate || null;
+      to = toDate || (await churchTodayAction());
     } else if (period === "ytd") {
       from = await yearStartAction();
       to = await churchTodayAction();
@@ -54,6 +56,10 @@ export default function ByDeaconTab({
     setLoading(true);
     runLatest(getDeaconHistoryReportAction(deaconId, from, to), (res) => {
       setHistory(res);
+      // Records are sorted date desc, so the last one is the earliest --
+      // resolves an open "From" to the deacon's actual earliest record.
+      const earliestRecord = res.records[res.records.length - 1]?.date ?? null;
+      setRangeLabel(dateRangeLabel(from ?? earliestRecord, to));
       setLoading(false);
     });
   }
@@ -124,7 +130,10 @@ export default function ByDeaconTab({
 
       {loading && <p className="muted">Loading…</p>}
       {history && !loading && (
-        <HistoryTables history={history} pwLabels={pwLabels} showParticipationPercent />
+        <>
+          {rangeLabel && <p className="muted" style={{ margin: "0 0 0.75rem" }}>{rangeLabel}</p>}
+          <HistoryTables history={history} pwLabels={pwLabels} showParticipationPercent />
+        </>
       )}
     </div>
   );

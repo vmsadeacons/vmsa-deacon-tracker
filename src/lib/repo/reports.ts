@@ -143,6 +143,34 @@ export interface SummaryRow {
   readings: number;
 }
 
+export interface SummaryReport {
+  rows: SummaryRow[];
+  /** Earliest date among the matching (filtered) records — used to resolve an open "From" to a real date. */
+  minDate: string | null;
+}
+
+const SUMMARY_COMBINED_CTE = `
+  with combined as (
+    select p.deacon_id, p.liturgy_id, l.date, l.location_id, l.service_type, a.allows_multiple
+    from participation p
+    join liturgies l on l.id = p.liturgy_id
+    left join activities a on a.id = p.activity_id
+    where ($1::date is null or l.date >= $1)
+      and ($2::date is null or l.date <= $2)
+      and ($3::uuid is null or l.location_id = $3)
+      and ($4::text is null or l.service_type = $4)
+    union all
+    select p.deacon_id, p.liturgy_id, l.date, l.location_id, l.service_type, a.allows_multiple
+    from archive_participation p
+    join archive_liturgies l on l.id = p.liturgy_id
+    left join activities a on a.id = p.activity_id
+    where ($1::date is null or l.date >= $1)
+      and ($2::date is null or l.date <= $2)
+      and ($3::uuid is null or l.location_id = $3)
+      and ($4::text is null or l.service_type = $4)
+  )
+`;
+
 /** One aggregated query, not a per-deacon loop — avoids the N+1 the original build had (spec §8.1). */
 export async function getSummaryReport(
   fromDate: string | null,
@@ -151,8 +179,10 @@ export async function getSummaryReport(
   serviceType: string | null = null,
   includeGuests: boolean = false,
   rankId: string | null = null
-): Promise<SummaryRow[]> {
+): Promise<SummaryReport> {
   const settings = await getAppSettings();
+  const params = [fromDate, toDate, locationId, serviceType, includeGuests, rankId];
+
   const { rows } = await query<{
     id: string;
     name: string;
@@ -163,25 +193,7 @@ export async function getSummaryReport(
     altar: string;
     readings: string;
   }>(
-    `with combined as (
-       select p.deacon_id, p.liturgy_id, l.date, l.location_id, l.service_type, a.allows_multiple
-       from participation p
-       join liturgies l on l.id = p.liturgy_id
-       left join activities a on a.id = p.activity_id
-       where ($1::date is null or l.date >= $1)
-         and ($2::date is null or l.date <= $2)
-         and ($3::uuid is null or l.location_id = $3)
-         and ($4::text is null or l.service_type = $4)
-       union all
-       select p.deacon_id, p.liturgy_id, l.date, l.location_id, l.service_type, a.allows_multiple
-       from archive_participation p
-       join archive_liturgies l on l.id = p.liturgy_id
-       left join activities a on a.id = p.activity_id
-       where ($1::date is null or l.date >= $1)
-         and ($2::date is null or l.date <= $2)
-         and ($3::uuid is null or l.location_id = $3)
-         and ($4::text is null or l.service_type = $4)
-     )
+    `${SUMMARY_COMBINED_CTE}
      select d.id, d.name, d.dob, d.age_group_override, d.is_guest,
        count(distinct c.liturgy_id) as attended,
        count(*) filter (where c.allows_multiple = true) as altar,
@@ -191,21 +203,35 @@ export async function getSummaryReport(
      where d.status = 'Active' and ($5 or not d.is_guest) and ($6::uuid is null or d.rank_id = $6)
      group by d.id
      order by d.name`,
-    [fromDate, toDate, locationId, serviceType, includeGuests, rankId]
+    params
   );
 
-  return rows.map((r) => ({
-    deaconId: r.id,
-    name: r.name,
-    ageGroup: computeAgeGroup(
-      r.dob,
-      r.age_group_override,
-      settings.ageGroupYouthMin,
-      settings.ageGroupAdultMin
-    ),
-    isGuest: r.is_guest,
-    attended: Number(r.attended),
-    altar: Number(r.altar),
-    readings: Number(r.readings),
-  }));
+  // Earliest date among the exact same filtered set (location/service/guest/rank),
+  // so an open-ended "From" resolves to a real date rather than an approximation.
+  const { rows: minDateRows } = await query<{ min_date: string | null }>(
+    `${SUMMARY_COMBINED_CTE}
+     select min(c.date) as min_date
+     from combined c
+     join deacons d on d.id = c.deacon_id
+     where d.status = 'Active' and ($5 or not d.is_guest) and ($6::uuid is null or d.rank_id = $6)`,
+    params
+  );
+
+  return {
+    rows: rows.map((r) => ({
+      deaconId: r.id,
+      name: r.name,
+      ageGroup: computeAgeGroup(
+        r.dob,
+        r.age_group_override,
+        settings.ageGroupYouthMin,
+        settings.ageGroupAdultMin
+      ),
+      isGuest: r.is_guest,
+      attended: Number(r.attended),
+      altar: Number(r.altar),
+      readings: Number(r.readings),
+    })),
+    minDate: minDateRows[0]?.min_date ?? null,
+  };
 }
