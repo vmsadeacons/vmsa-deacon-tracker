@@ -2,12 +2,17 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/authz";
 import { getDashboardStats } from "@/lib/repo/dashboard";
 import { getRecentLiturgiesByLocation } from "@/lib/repo/liturgies";
+import { listLocations } from "@/lib/repo/locations";
 import DashboardStatTiles from "@/components/DashboardStatTiles";
 import RecentActivityTable from "@/components/RecentActivityTable";
 
 export default async function DashboardPage() {
   await requireAdmin();
-  const [stats, recent] = await Promise.all([getDashboardStats(), getRecentLiturgiesByLocation()]);
+  const [stats, recent, locations] = await Promise.all([
+    getDashboardStats(),
+    getRecentLiturgiesByLocation(),
+    listLocations(false),
+  ]);
 
   return (
     <div>
@@ -33,6 +38,7 @@ export default async function DashboardPage() {
         absentDeacons={stats.absentDeacons}
         absencePeriodValue={stats.absencePeriodValue}
         absencePeriodUnit={stats.absencePeriodUnit}
+        locations={locations}
       />
 
       <div className="card">
