@@ -3,16 +3,18 @@ import { requireAdmin } from "@/lib/authz";
 import { listLocations } from "@/lib/repo/locations";
 import { listDeacons } from "@/lib/repo/deacons";
 import { listPWActivities } from "@/lib/repo/passionWeekActivities";
+import { listRanks } from "@/lib/repo/ranks";
 import { churchTodayISO, computeDefaultServiceType } from "@/lib/timezone";
 import type { ServiceTypeCode } from "@/lib/constants";
 import ReportsClient from "@/components/ReportsClient";
 
 export default async function ReportsPage() {
   const session = await requireAdmin();
-  const [locations, deacons, pwActivities] = await Promise.all([
+  const [locations, deacons, pwActivities, ranks] = await Promise.all([
     listLocations(false),
     listDeacons(true),
     listPWActivities(),
+    listRanks(false),
   ]);
 
   const date = churchTodayISO();
@@ -31,6 +33,7 @@ export default async function ReportsPage() {
         defaultServiceType={serviceType}
         currentYear={currentYear}
         pwActivities={pwActivities}
+        ranks={ranks}
       />
     </Suspense>
   );

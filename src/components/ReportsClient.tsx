@@ -9,6 +9,7 @@ import PassionWeekReportTab from "./reports/PassionWeekReportTab";
 import type { LocationRow } from "@/lib/repo/locations";
 import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
 import type { PWActivityRow } from "@/lib/repo/passionWeekActivities";
+import type { RankRow } from "@/lib/repo/ranks";
 import type { ServiceTypeCode } from "@/lib/constants";
 
 type Tab = "by-liturgy" | "by-deacon" | "summary" | "passion-week";
@@ -28,6 +29,7 @@ export default function ReportsClient({
   defaultServiceType,
   currentYear,
   pwActivities,
+  ranks,
 }: {
   locations: LocationRow[];
   deacons: DeaconWithAgeGroup[];
@@ -36,6 +38,7 @@ export default function ReportsClient({
   defaultServiceType: ServiceTypeCode;
   currentYear: number;
   pwActivities: PWActivityRow[];
+  ranks: RankRow[];
 }) {
   const pwLabels = Object.fromEntries(pwActivities.map((a) => [a.code, a.label]));
   const searchParams = useSearchParams();
@@ -66,7 +69,7 @@ export default function ReportsClient({
         />
       )}
       {tab === "by-deacon" && <ByDeaconTab deacons={deacons} pwLabels={pwLabels} />}
-      {tab === "summary" && <SummaryTab locations={locations} />}
+      {tab === "summary" && <SummaryTab locations={locations} ranks={ranks} />}
       {tab === "passion-week" && (
         <PassionWeekReportTab locations={locations} initialYear={currentYear} pwActivities={pwActivities} />
       )}

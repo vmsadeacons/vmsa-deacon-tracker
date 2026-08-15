@@ -149,7 +149,8 @@ export async function getSummaryReport(
   toDate: string | null,
   locationId: string | null,
   serviceType: string | null = null,
-  includeGuests: boolean = false
+  includeGuests: boolean = false,
+  rankId: string | null = null
 ): Promise<SummaryRow[]> {
   const settings = await getAppSettings();
   const { rows } = await query<{
@@ -187,10 +188,10 @@ export async function getSummaryReport(
        count(*) filter (where c.allows_multiple = false) as readings
      from deacons d
      left join combined c on c.deacon_id = d.id
-     where d.status = 'Active' and ($5 or not d.is_guest)
+     where d.status = 'Active' and ($5 or not d.is_guest) and ($6::uuid is null or d.rank_id = $6)
      group by d.id
      order by d.name`,
-    [fromDate, toDate, locationId, serviceType, includeGuests]
+    [fromDate, toDate, locationId, serviceType, includeGuests, rankId]
   );
 
   return rows.map((r) => ({

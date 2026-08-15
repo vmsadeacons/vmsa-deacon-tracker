@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { LocationRow } from "@/lib/repo/locations";
+import type { RankRow } from "@/lib/repo/ranks";
 import type { SummaryRow } from "@/lib/repo/reports";
 import { getSummaryReportAction } from "@/app/(app)/reports/actions";
 import { useLatestRequest } from "@/lib/useLatestRequest";
@@ -11,12 +12,13 @@ import { SERVICE_TYPES, SERVICE_LABELS, type ServiceTypeCode } from "@/lib/const
 type Period = "3" | "6" | "12" | "custom";
 type SortKey = "name" | "ageGroup" | "attended" | "altar" | "readings";
 
-export default function SummaryTab({ locations }: { locations: LocationRow[] }) {
+export default function SummaryTab({ locations, ranks }: { locations: LocationRow[]; ranks: RankRow[] }) {
   const [period, setPeriod] = useState<Period>("3");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [locationId, setLocationId] = useState(""); // "" = All locations, per spec §6.5
   const [serviceType, setServiceType] = useState(""); // "" = All services
+  const [rankId, setRankId] = useState(""); // "" = All ranks
   const [includeGuests, setIncludeGuests] = useState(false);
   const [rows, setRows] = useState<SummaryRow[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -41,7 +43,8 @@ export default function SummaryTab({ locations }: { locations: LocationRow[] }) 
         to,
         locationId || null,
         (serviceType as ServiceTypeCode) || null,
-        includeGuests
+        includeGuests,
+        rankId || null
       ),
       (res) => {
         setRows(res);
@@ -151,6 +154,17 @@ export default function SummaryTab({ locations }: { locations: LocationRow[] }) 
               {SERVICE_TYPES.map((s) => (
                 <option key={s} value={s}>
                   {SERVICE_LABELS[s]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label>Rank</label>
+            <select value={rankId} onChange={(e) => setRankId(e.target.value)}>
+              <option value="">All ranks</option>
+              {ranks.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
                 </option>
               ))}
             </select>
