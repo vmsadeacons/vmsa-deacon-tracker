@@ -175,7 +175,7 @@ export default function DeaconsClient({
                   {groupDeacons.map((d) => (
                     <div
                       key={d.id}
-                      className="card"
+                      className="card card-deacon"
                       style={{ marginBottom: 0, cursor: "pointer" }}
                       onClick={() => setViewing(d)}
                     >

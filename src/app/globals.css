@@ -199,6 +199,10 @@ a {
   margin-bottom: 1.25rem;
 }
 
+.card-deacon {
+  background: #e9e8e5;
+}
+
 .step-header {
   font-family: var(--font-serif);
   font-size: 1.05rem;
