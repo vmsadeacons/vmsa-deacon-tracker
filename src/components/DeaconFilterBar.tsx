@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { SERVICE_TYPES, SERVICE_LABELS } from "@/lib/constants";
 import type { LocationRow } from "@/lib/repo/locations";
 
@@ -18,12 +19,15 @@ export default function DeaconFilterBar({
   locations,
   ranks,
   ageGroups,
+  extra,
 }: {
   filters: DeaconFilters;
   onChange: (next: DeaconFilters) => void;
   locations: LocationRow[];
   ranks: string[];
   ageGroups: string[];
+  /** Optional extra field(s) rendered before the rest of the row (e.g. the Dashboard's Absent period dropdown). */
+  extra?: ReactNode;
 }) {
   const hasActiveFilters = Boolean(
     filters.locationId || filters.service || filters.rank || filters.ageGroup
@@ -31,6 +35,7 @@ export default function DeaconFilterBar({
 
   return (
     <div className="fieldrow" style={{ marginBottom: "1rem", alignItems: "end" }}>
+      {extra}
       <div className="field">
         <label>Preferred location</label>
         <select

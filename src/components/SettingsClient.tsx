@@ -12,7 +12,6 @@ import {
   updateLocationAction,
   createActivityAction,
   updateActivityAction,
-  setAbsencePeriodAction,
   setAgeGroupThresholdsAction,
   updatePWActivityAction,
   createRankAction,
@@ -295,52 +294,6 @@ function RanksCard({ ranks, canEdit }: { ranks: RankRow[]; canEdit: boolean }) {
   );
 }
 
-function AppSettingsCard({ settings, canEdit }: { settings: AppSettings; canEdit: boolean }) {
-  const router = useRouter();
-  const [value, setValue] = useState(settings.absencePeriodValue);
-  const [unit, setUnit] = useState(settings.absencePeriodUnit);
-
-  async function save(v: number, u: "weeks" | "months") {
-    setValue(v);
-    setUnit(u);
-    await setAbsencePeriodAction(v, u);
-    router.refresh();
-  }
-
-  const options: { value: number; unit: "weeks" | "months"; label: string }[] = [
-    { value: 1, unit: "weeks", label: "1 week" },
-    { value: 2, unit: "weeks", label: "2 weeks" },
-    { value: 3, unit: "weeks", label: "3 weeks" },
-    { value: 1, unit: "months", label: "1 month" },
-    { value: 2, unit: "months", label: "2 months" },
-    { value: 3, unit: "months", label: "3 months" },
-    { value: 6, unit: "months", label: "6 months" },
-  ];
-
-  return (
-    <div className="card">
-      <h3>Period Selection</h3>
-      <label style={{ fontSize: "0.85rem", color: "var(--muted)", fontWeight: 600 }}>
-        Dashboard &quot;Absent&quot; alert period
-      </label>
-      <div className="chip-row" style={{ marginTop: "0.5rem" }}>
-        {options.map((opt) => (
-          <button
-            key={`${opt.unit}-${opt.value}`}
-            type="button"
-            className={`chip ${value === opt.value && unit === opt.unit ? "active" : ""} ${!canEdit ? "disabled" : ""}`}
-            disabled={!canEdit}
-            onClick={() => save(opt.value, opt.unit)}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-      {!canEdit && <ViewOnlyNote />}
-    </div>
-  );
-}
-
 function AgeGroupsCard({ settings, canEdit }: { settings: AppSettings; canEdit: boolean }) {
   const router = useRouter();
   const [youthMin, setYouthMin] = useState(settings.ageGroupYouthMin);
@@ -507,7 +460,6 @@ export default function SettingsClient({
   return (
     <div>
       <h1>Settings</h1>
-      <AppSettingsCard settings={settings} canEdit={canEdit} />
       <AgeGroupsCard settings={settings} canEdit={canEdit} />
       <RanksCard ranks={ranks} canEdit={canEdit} />
       <LocationsCard locations={locations} canEdit={canEdit} />

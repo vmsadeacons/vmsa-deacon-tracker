@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { assertSystemAdmin } from "@/lib/authz";
 import { createLocation, updateLocation } from "@/lib/repo/locations";
 import { createActivity, updateActivity } from "@/lib/repo/activities";
-import { setAbsencePeriod, setAgeGroupThresholds } from "@/lib/repo/settings";
+import { setAgeGroupThresholds } from "@/lib/repo/settings";
 import { updatePWActivity } from "@/lib/repo/passionWeekActivities";
 import { createRank, updateRank } from "@/lib/repo/ranks";
 import type { PWActivityId } from "@/lib/constants";
@@ -45,14 +45,6 @@ export async function updateActivityAction(
   const activity = await updateActivity(id, patch);
   revalidatePath("/settings");
   return { ok: true as const, activity };
-}
-
-export async function setAbsencePeriodAction(value: number, unit: "weeks" | "months") {
-  await assertSystemAdmin();
-  await setAbsencePeriod(value, unit);
-  revalidatePath("/settings");
-  revalidatePath("/dashboard");
-  return { ok: true as const };
 }
 
 export async function setAgeGroupThresholdsAction(youthMin: number, adultMin: number) {
