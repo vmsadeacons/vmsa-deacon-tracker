@@ -38,6 +38,9 @@ export default async function DashboardPage() {
         absentDeacons={stats.absentDeacons}
         absencePeriodValue={stats.absencePeriodValue}
         absencePeriodUnit={stats.absencePeriodUnit}
+        missingAgeGroupCount={stats.missingAgeGroupCount}
+        missingPhoneCount={stats.missingPhoneCount}
+        missingEmailCount={stats.missingEmailCount}
         locations={locations}
       />
 

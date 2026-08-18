@@ -25,6 +25,7 @@ export interface DeaconContact {
   name: string;
   first_name: string;
   phone: string | null;
+  email: string | null;
   location_prefs: string[];
   liturgy_prefs: string[];
   rank: string;
@@ -36,6 +37,7 @@ interface RawDeaconContact {
   name: string;
   first_name: string;
   phone: string | null;
+  email: string | null;
   location_prefs: string[];
   liturgy_prefs: string[];
   rank: string;
@@ -51,10 +53,13 @@ export interface DashboardStats {
   absentDeacons: DeaconContact[];
   absencePeriodValue: number;
   absencePeriodUnit: AbsencePeriodUnit;
+  missingAgeGroupCount: number;
+  missingPhoneCount: number;
+  missingEmailCount: number;
 }
 
 const CONTACT_SELECT = `
-  select d.id, d.name, d.first_name, d.phone, d.location_prefs, d.liturgy_prefs,
+  select d.id, d.name, d.first_name, d.phone, d.email, d.location_prefs, d.liturgy_prefs,
          r.name as rank, d.dob, d.age_group_override
   from deacons d
   left join ranks r on r.id = d.rank_id
@@ -73,6 +78,7 @@ async function getAbsentContacts(
     name: d.name,
     first_name: d.first_name,
     phone: d.phone,
+    email: d.email,
     location_prefs: d.location_prefs,
     liturgy_prefs: d.liturgy_prefs,
     rank: d.rank,
@@ -135,19 +141,24 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     name: d.name,
     first_name: d.first_name,
     phone: d.phone,
+    email: d.email,
     location_prefs: d.location_prefs,
     liturgy_prefs: d.liturgy_prefs,
     rank: d.rank,
     age_group: computeAgeGroup(d.dob, d.age_group_override, settings.ageGroupYouthMin, settings.ageGroupAdultMin),
   });
+  const activeDeacons = activeRaw.map(withAgeGroup);
 
   return {
     activeDeaconsCount: activeRaw.length,
-    activeDeacons: activeRaw.map(withAgeGroup),
+    activeDeacons,
     guestCount: Number(guestRows[0].count),
     absentCount,
     absentDeacons,
     absencePeriodValue: DEFAULT_ABSENCE_VALUE,
     absencePeriodUnit: DEFAULT_ABSENCE_UNIT,
+    missingAgeGroupCount: activeDeacons.filter((d) => !d.age_group).length,
+    missingPhoneCount: activeDeacons.filter((d) => !d.phone).length,
+    missingEmailCount: activeDeacons.filter((d) => !d.email).length,
   };
 }

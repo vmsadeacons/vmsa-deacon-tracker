@@ -33,6 +33,15 @@ function applyFilters(people: DeaconContact[], filters: DeaconFilters): DeaconCo
   });
 }
 
+type MissingTile = "missingAge" | "missingPhone" | "missingEmail";
+type OpenTile = "active" | "absent" | MissingTile;
+
+const MISSING_HEADINGS: Record<MissingTile, string> = {
+  missingAge: "No Age Group",
+  missingPhone: "No Phone Number",
+  missingEmail: "No Email",
+};
+
 export default function DashboardStatTiles({
   activeCount,
   activeDeacons,
@@ -41,6 +50,9 @@ export default function DashboardStatTiles({
   absentDeacons,
   absencePeriodValue,
   absencePeriodUnit,
+  missingAgeGroupCount,
+  missingPhoneCount,
+  missingEmailCount,
   locations,
 }: {
   activeCount: number;
@@ -50,9 +62,12 @@ export default function DashboardStatTiles({
   absentDeacons: DeaconContact[];
   absencePeriodValue: number;
   absencePeriodUnit: AbsencePeriodUnit;
+  missingAgeGroupCount: number;
+  missingPhoneCount: number;
+  missingEmailCount: number;
   locations: LocationRow[];
 }) {
-  const [open, setOpen] = useState<"active" | "absent" | null>(null);
+  const [open, setOpen] = useState<OpenTile | null>(null);
   const [filters, setFilters] = useState<DeaconFilters>(EMPTY_FILTERS);
   const [period, setPeriod] = useState<{ value: number; unit: AbsencePeriodUnit }>({
     value: absencePeriodValue,
@@ -80,10 +95,22 @@ export default function DashboardStatTiles({
     });
   }
 
-  const currentList = useMemo(
-    () => (open === "active" ? activeDeacons : open === "absent" ? absentData.people : []),
-    [open, activeDeacons, absentData]
-  );
+  const currentList = useMemo(() => {
+    switch (open) {
+      case "active":
+        return activeDeacons;
+      case "absent":
+        return absentData.people;
+      case "missingAge":
+        return activeDeacons.filter((d) => !d.age_group);
+      case "missingPhone":
+        return activeDeacons.filter((d) => !d.phone);
+      case "missingEmail":
+        return activeDeacons.filter((d) => !d.email);
+      default:
+        return [];
+    }
+  }, [open, activeDeacons, absentData]);
   const filtered = useMemo(() => applyFilters(currentList, filters), [currentList, filters]);
   const rankOptions = useMemo(
     () => [...new Set(currentList.map((p) => p.rank).filter(Boolean))].sort(),
@@ -94,7 +121,7 @@ export default function DashboardStatTiles({
     [currentList]
   );
 
-  function toggleOpen(next: "active" | "absent") {
+  function toggleOpen(next: OpenTile) {
     setOpen((cur) => (cur === next ? null : next));
     setFilters(EMPTY_FILTERS);
   }
@@ -111,6 +138,21 @@ export default function DashboardStatTiles({
           <div className="stat-label">
             Absent &gt; {period.value}{unitAbbrev}
           </div>
+        </button>
+      </div>
+      <div className="stat-group-label">Missing Information</div>
+      <div className="stat-row stat-row-3">
+        <button className="stat-tile small clickable" onClick={() => toggleOpen("missingAge")}>
+          <div className="stat-value">{missingAgeGroupCount}</div>
+          <div className="stat-label">have no Age Group</div>
+        </button>
+        <button className="stat-tile small clickable" onClick={() => toggleOpen("missingPhone")}>
+          <div className="stat-value">{missingPhoneCount}</div>
+          <div className="stat-label">have no Phone #</div>
+        </button>
+        <button className="stat-tile small clickable" onClick={() => toggleOpen("missingEmail")}>
+          <div className="stat-value">{missingEmailCount}</div>
+          <div className="stat-label">have no emails</div>
         </button>
       </div>
       {open === "active" && (
@@ -158,6 +200,19 @@ export default function DashboardStatTiles({
                 </select>
               </div>
             }
+          />
+          <MessageableDeaconList people={filtered} />
+        </div>
+      )}
+      {(open === "missingAge" || open === "missingPhone" || open === "missingEmail") && (
+        <div className="card">
+          <h3>{MISSING_HEADINGS[open]}</h3>
+          <DeaconFilterBar
+            filters={filters}
+            onChange={setFilters}
+            locations={locations}
+            ranks={rankOptions}
+            ageGroups={ageGroupOptions}
           />
           <MessageableDeaconList people={filtered} />
         </div>

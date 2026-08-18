@@ -474,8 +474,13 @@ table.table tbody tr:hover {
   grid-template-columns: repeat(4, 1fr) !important;
 }
 
+.stat-row.stat-row-3 {
+  grid-template-columns: repeat(3, 1fr) !important;
+}
+
 @media (max-width: 700px) {
-  .stat-row.stat-row-4 {
+  .stat-row.stat-row-4,
+  .stat-row.stat-row-3 {
     grid-template-columns: repeat(2, 1fr) !important;
   }
 }
@@ -507,6 +512,25 @@ table.table tbody tr:hover {
 .stat-tile .stat-label {
   font-size: 0.82rem;
   color: var(--muted);
+}
+
+.stat-tile.small {
+  padding: 0.75rem 1rem;
+}
+
+.stat-tile.small .stat-value {
+  font-size: 1.3rem;
+}
+
+.stat-tile.small .stat-label {
+  font-size: 0.76rem;
+}
+
+.stat-group-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
 }
 
 .quick-actions {
