@@ -1,4 +1,4 @@
-export const SERVICE_TYPES = ["S1", "S2", "Wed", "Fri", "Sat", "Other"] as const;
+export const SERVICE_TYPES = ["S1", "S2", "Wed", "Fri", "Sat", "Feast", "Other"] as const;
 export type ServiceTypeCode = (typeof SERVICE_TYPES)[number];
 
 export const SERVICE_LABELS: Record<ServiceTypeCode, string> = {
@@ -7,7 +7,8 @@ export const SERVICE_LABELS: Record<ServiceTypeCode, string> = {
   Wed: "Wednesday Liturgy",
   Fri: "Friday Liturgy",
   Sat: "Saturday Liturgy",
-  Other: "Other / Special Liturgy",
+  Feast: "Special Feast",
+  Other: "Other",
 };
 
 export const LITURGY_PREF_OPTIONS = [...SERVICE_TYPES, "All"] as const;
