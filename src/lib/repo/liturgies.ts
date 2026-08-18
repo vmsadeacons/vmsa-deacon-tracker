@@ -7,6 +7,13 @@ import type { ServiceTypeCode } from "@/lib/constants";
  * service_type) — an atomic upsert, so concurrent clicks can never create a
  * duplicate liturgy the way the original spreadsheet build repeatedly did.
  * Never falls back to the archive; a match here is about to be written to.
+ *
+ * Only ever called from the write paths below (toggleAttendance and
+ * friends), never just from viewing a date/location/service combo --
+ * otherwise merely opening Record a Liturgy or Check-in for a day nobody
+ * actually attended would leave a permanent, empty liturgy row behind
+ * (visible on the Dashboard as if something happened). See
+ * findLiturgyContext for the read-only lookup used by page loads.
  */
 export async function getOrCreateLiturgy(
   date: string,
@@ -112,6 +119,28 @@ export async function getLiturgyContext(liturgyId: string): Promise<LiturgyConte
   return buildLiturgyContext(liturgyId, false);
 }
 
+function emptyLiturgyContext(): LiturgyContext {
+  return { liturgyId: "", attendeeIds: [], attendees: [], assignments: [] };
+}
+
+/**
+ * Read-only counterpart to getOrCreateLiturgy, for page loads and
+ * date/location/service changes -- never creates a row. If nothing has
+ * been recorded yet, returns liturgyId: null with an empty context.
+ */
+export async function findLiturgyContext(
+  date: string,
+  locationId: string,
+  serviceType: ServiceTypeCode
+): Promise<{ liturgyId: string | null; context: LiturgyContext }> {
+  const { rows } = await query<{ id: string }>(
+    `select id from liturgies where date = $1 and location_id = $2 and service_type = $3`,
+    [date, locationId, serviceType]
+  );
+  if (!rows[0]) return { liturgyId: null, context: emptyLiturgyContext() };
+  return { liturgyId: rows[0].id, context: await buildLiturgyContext(rows[0].id, false) };
+}
+
 /** Read-only report path: falls back to archive, flags it. Spec §7.9.1 / §6.7. */
 export async function getLiturgyReportContext(
   date: string,
@@ -137,11 +166,15 @@ export async function getLiturgyReportContext(
   return null;
 }
 
+/** Creates the liturgy row on first use (see getOrCreateLiturgy), then toggles plain attendance. */
 export async function toggleAttendance(
-  liturgyId: string,
+  date: string,
+  locationId: string,
+  serviceType: ServiceTypeCode,
   deaconId: string,
   source: "admin" | "self"
 ): Promise<LiturgyContext> {
+  const liturgyId = await getOrCreateLiturgy(date, locationId, serviceType);
   await withTransaction(async (client) => {
     const { rows } = await client.query<{ id: string }>(
       `select id from participation where liturgy_id = $1 and deacon_id = $2 and activity_id is null`,
@@ -160,7 +193,13 @@ export async function toggleAttendance(
 }
 
 /** Idempotent: does nothing if the deacon is already marked attending by any means. */
-export async function checkInSelf(liturgyId: string, deaconId: string): Promise<LiturgyContext> {
+export async function checkInSelf(
+  date: string,
+  locationId: string,
+  serviceType: ServiceTypeCode,
+  deaconId: string
+): Promise<LiturgyContext> {
+  const liturgyId = await getOrCreateLiturgy(date, locationId, serviceType);
   await query(
     `insert into participation (liturgy_id, deacon_id, activity_id, source)
      values ($1, $2, null, 'self')
@@ -170,11 +209,23 @@ export async function checkInSelf(liturgyId: string, deaconId: string): Promise<
   return getLiturgyContext(liturgyId);
 }
 
-/** Only ever removes the plain attendance marker, and only one the deacon set themselves. */
+/**
+ * Only ever removes the plain attendance marker, and only one the deacon
+ * set themselves. Read-only lookup -- if nothing was ever recorded for
+ * this date/location/service, there's nothing to undo.
+ */
 export async function undoCheckInSelf(
-  liturgyId: string,
+  date: string,
+  locationId: string,
+  serviceType: ServiceTypeCode,
   deaconId: string
 ): Promise<LiturgyContext> {
+  const { rows } = await query<{ id: string }>(
+    `select id from liturgies where date = $1 and location_id = $2 and service_type = $3`,
+    [date, locationId, serviceType]
+  );
+  if (!rows[0]) return emptyLiturgyContext();
+  const liturgyId = rows[0].id;
   await query(
     `delete from participation
      where liturgy_id = $1 and deacon_id = $2 and activity_id is null and source = 'self'`,
@@ -185,11 +236,14 @@ export async function undoCheckInSelf(
 
 /** Multi-select chip toggle, for allows_multiple activities (e.g. Altar service). */
 export async function toggleMultiActivityAssignment(
-  liturgyId: string,
+  date: string,
+  locationId: string,
+  serviceType: ServiceTypeCode,
   activityId: string,
   deaconId: string,
   source: "admin" | "self"
 ): Promise<LiturgyContext> {
+  const liturgyId = await getOrCreateLiturgy(date, locationId, serviceType);
   await withTransaction(async (client) => {
     const { rows } = await client.query<{ id: string }>(
       `select id from participation where liturgy_id = $1 and activity_id = $2 and deacon_id = $3`,
@@ -209,11 +263,14 @@ export async function toggleMultiActivityAssignment(
 
 /** Single-deacon dropdown, for allows_multiple = false activities: replaces whoever held the slot. */
 export async function setSingleActivityAssignment(
-  liturgyId: string,
+  date: string,
+  locationId: string,
+  serviceType: ServiceTypeCode,
   activityId: string,
   deaconId: string | null,
   source: "admin" | "self"
 ): Promise<LiturgyContext> {
+  const liturgyId = await getOrCreateLiturgy(date, locationId, serviceType);
   await withTransaction(async (client) => {
     await client.query(`delete from participation where liturgy_id = $1 and activity_id = $2`, [
       liturgyId,

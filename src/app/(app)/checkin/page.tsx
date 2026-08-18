@@ -1,6 +1,6 @@
 import { requireSession } from "@/lib/authz";
 import { listLocations } from "@/lib/repo/locations";
-import { getOrCreateLiturgy, getLiturgyContext } from "@/lib/repo/liturgies";
+import { findLiturgyContext } from "@/lib/repo/liturgies";
 import { setStickyLocation } from "@/lib/repo/users";
 import { churchTodayISO, computeDefaultServiceType } from "@/lib/timezone";
 import type { ServiceTypeCode } from "@/lib/constants";
@@ -18,9 +18,10 @@ export default async function CheckinPage() {
   let initialLiturgyId: string | null = null;
   let initialContext = null;
   if (locationId) {
-    initialLiturgyId = await getOrCreateLiturgy(date, locationId, serviceType);
+    const result = await findLiturgyContext(date, locationId, serviceType);
+    initialLiturgyId = result.liturgyId;
+    initialContext = result.context;
     await setStickyLocation(session.user.id, "checkin", locationId);
-    initialContext = await getLiturgyContext(initialLiturgyId);
   }
 
   return (

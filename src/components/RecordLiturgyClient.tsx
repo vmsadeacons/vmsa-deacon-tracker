@@ -55,6 +55,18 @@ export default function RecordLiturgyClient({
   useEffect(() => {
     liturgyIdRef.current = liturgyId;
   }, [liturgyId]);
+  // Since no liturgy row (and so no liturgyId) may exist yet, toggle
+  // handlers key their staleness check off date/location/service instead --
+  // kept in refs so the check compares against the latest value, not the
+  // value closed over when the handler's async call started.
+  const dateRef = useRef(date);
+  const locationIdRef = useRef(locationId);
+  const serviceTypeRef = useRef(serviceType);
+  useEffect(() => {
+    dateRef.current = date;
+    locationIdRef.current = locationId;
+    serviceTypeRef.current = serviceType;
+  }, [date, locationId, serviceType]);
   // Guards against out-of-order responses: an older field-change fetch
   // resolving after a newer one, or a poll/mutation response landing after
   // the selected liturgy has since changed.
@@ -105,8 +117,9 @@ export default function RecordLiturgyClient({
   }
 
   async function handleToggleAttendance(deaconId: string) {
-    if (!liturgyId) return;
-    const targetLiturgyId = liturgyId;
+    const targetDate = date;
+    const targetLocationId = locationId;
+    const targetServiceType = serviceType;
     const wasAttending = attendeeIds.includes(deaconId);
     // optimistic update
     setContext((prev) =>
@@ -119,8 +132,14 @@ export default function RecordLiturgyClient({
           }
         : prev
     );
-    const fresh = await toggleAttendanceAction(targetLiturgyId, deaconId);
-    if (liturgyIdRef.current !== targetLiturgyId) return;
+    const fresh = await toggleAttendanceAction(targetDate, targetLocationId, targetServiceType, deaconId);
+    if (
+      dateRef.current !== targetDate ||
+      locationIdRef.current !== targetLocationId ||
+      serviceTypeRef.current !== targetServiceType
+    )
+      return;
+    setLiturgyId(fresh.liturgyId);
     setContext(fresh);
 
     // Assigning an activity implies attendance (spec §5) -- the chip can
@@ -141,18 +160,32 @@ export default function RecordLiturgyClient({
   }
 
   async function handleToggleAltar(activityId: string, deaconId: string) {
-    if (!liturgyId) return;
-    const targetLiturgyId = liturgyId;
-    const fresh = await toggleAltarAction(targetLiturgyId, activityId, deaconId);
-    if (liturgyIdRef.current !== targetLiturgyId) return;
+    const targetDate = date;
+    const targetLocationId = locationId;
+    const targetServiceType = serviceType;
+    const fresh = await toggleAltarAction(targetDate, targetLocationId, targetServiceType, activityId, deaconId);
+    if (
+      dateRef.current !== targetDate ||
+      locationIdRef.current !== targetLocationId ||
+      serviceTypeRef.current !== targetServiceType
+    )
+      return;
+    setLiturgyId(fresh.liturgyId);
     setContext(fresh);
   }
 
   async function handleSetReading(activityId: string, deaconId: string) {
-    if (!liturgyId) return;
-    const targetLiturgyId = liturgyId;
-    const fresh = await setReadingAction(targetLiturgyId, activityId, deaconId || null);
-    if (liturgyIdRef.current !== targetLiturgyId) return;
+    const targetDate = date;
+    const targetLocationId = locationId;
+    const targetServiceType = serviceType;
+    const fresh = await setReadingAction(targetDate, targetLocationId, targetServiceType, activityId, deaconId || null);
+    if (
+      dateRef.current !== targetDate ||
+      locationIdRef.current !== targetLocationId ||
+      serviceTypeRef.current !== targetServiceType
+    )
+      return;
+    setLiturgyId(fresh.liturgyId);
     setContext(fresh);
   }
 

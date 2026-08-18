@@ -1,19 +1,19 @@
 "use server";
 
 import { assertSession } from "@/lib/authz";
-import { getOrCreateLiturgy, getLiturgyContext, checkInSelf, undoCheckInSelf } from "@/lib/repo/liturgies";
+import { findLiturgyContext, getLiturgyContext, checkInSelf, undoCheckInSelf } from "@/lib/repo/liturgies";
 import { setStickyLocation } from "@/lib/repo/users";
 import type { ServiceTypeCode } from "@/lib/constants";
 
+/** Read-only -- never creates a liturgy row just from viewing a date. */
 export async function openCheckinLiturgyAction(
   date: string,
   locationId: string,
   serviceType: ServiceTypeCode
 ) {
   const session = await assertSession();
-  const liturgyId = await getOrCreateLiturgy(date, locationId, serviceType);
+  const { liturgyId, context } = await findLiturgyContext(date, locationId, serviceType);
   await setStickyLocation(session.user.id, "checkin", locationId);
-  const context = await getLiturgyContext(liturgyId);
   return { liturgyId, context };
 }
 
@@ -22,14 +22,14 @@ export async function refreshCheckinAction(liturgyId: string) {
   return getLiturgyContext(liturgyId);
 }
 
-export async function checkInSelfAction(liturgyId: string) {
+export async function checkInSelfAction(date: string, locationId: string, serviceType: ServiceTypeCode) {
   const session = await assertSession();
   if (!session.user.linkedDeaconId) throw new Error("Your account isn't linked to a deacon record");
-  return checkInSelf(liturgyId, session.user.linkedDeaconId);
+  return checkInSelf(date, locationId, serviceType, session.user.linkedDeaconId);
 }
 
-export async function undoCheckInSelfAction(liturgyId: string) {
+export async function undoCheckInSelfAction(date: string, locationId: string, serviceType: ServiceTypeCode) {
   const session = await assertSession();
   if (!session.user.linkedDeaconId) throw new Error("Your account isn't linked to a deacon record");
-  return undoCheckInSelf(liturgyId, session.user.linkedDeaconId);
+  return undoCheckInSelf(date, locationId, serviceType, session.user.linkedDeaconId);
 }

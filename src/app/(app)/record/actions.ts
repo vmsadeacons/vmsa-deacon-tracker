@@ -2,7 +2,7 @@
 
 import { assertAdmin } from "@/lib/authz";
 import {
-  getOrCreateLiturgy,
+  findLiturgyContext,
   getLiturgyContext,
   toggleAttendance,
   toggleMultiActivityAssignment,
@@ -11,11 +11,11 @@ import {
 import { setStickyLocation } from "@/lib/repo/users";
 import type { ServiceTypeCode } from "@/lib/constants";
 
+/** Read-only -- never creates a liturgy row just from viewing a date. */
 export async function openLiturgyAction(date: string, locationId: string, serviceType: ServiceTypeCode) {
   const session = await assertAdmin();
-  const liturgyId = await getOrCreateLiturgy(date, locationId, serviceType);
+  const { liturgyId, context } = await findLiturgyContext(date, locationId, serviceType);
   await setStickyLocation(session.user.id, "record", locationId);
-  const context = await getLiturgyContext(liturgyId);
   return { liturgyId, context };
 }
 
@@ -24,17 +24,34 @@ export async function refreshLiturgyAction(liturgyId: string) {
   return getLiturgyContext(liturgyId);
 }
 
-export async function toggleAttendanceAction(liturgyId: string, deaconId: string) {
+export async function toggleAttendanceAction(
+  date: string,
+  locationId: string,
+  serviceType: ServiceTypeCode,
+  deaconId: string
+) {
   await assertAdmin();
-  return toggleAttendance(liturgyId, deaconId, "admin");
+  return toggleAttendance(date, locationId, serviceType, deaconId, "admin");
 }
 
-export async function toggleAltarAction(liturgyId: string, activityId: string, deaconId: string) {
+export async function toggleAltarAction(
+  date: string,
+  locationId: string,
+  serviceType: ServiceTypeCode,
+  activityId: string,
+  deaconId: string
+) {
   await assertAdmin();
-  return toggleMultiActivityAssignment(liturgyId, activityId, deaconId, "admin");
+  return toggleMultiActivityAssignment(date, locationId, serviceType, activityId, deaconId, "admin");
 }
 
-export async function setReadingAction(liturgyId: string, activityId: string, deaconId: string | null) {
+export async function setReadingAction(
+  date: string,
+  locationId: string,
+  serviceType: ServiceTypeCode,
+  activityId: string,
+  deaconId: string | null
+) {
   await assertAdmin();
-  return setSingleActivityAssignment(liturgyId, activityId, deaconId, "admin");
+  return setSingleActivityAssignment(date, locationId, serviceType, activityId, deaconId, "admin");
 }

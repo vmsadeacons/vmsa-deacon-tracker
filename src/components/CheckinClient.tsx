@@ -38,6 +38,18 @@ export default function CheckinClient({
   useEffect(() => {
     liturgyIdRef.current = liturgyId;
   }, [liturgyId]);
+  // Since no liturgy row (and so no liturgyId) may exist yet, check-in
+  // handlers key their staleness check off date/location/service instead --
+  // kept in refs so the check compares against the latest value, not the
+  // value closed over when the handler's async call started.
+  const dateRef = useRef(date);
+  const locationIdRef = useRef(locationId);
+  const serviceTypeRef = useRef(serviceType);
+  useEffect(() => {
+    dateRef.current = date;
+    locationIdRef.current = locationId;
+    serviceTypeRef.current = serviceType;
+  }, [date, locationId, serviceType]);
   // Guards against out-of-order responses: an older field-change fetch
   // resolving after a newer one, or a poll/mutation response landing after
   // the selected liturgy has since changed.
@@ -72,12 +84,19 @@ export default function CheckinClient({
   const attending = Boolean(linkedDeaconId && context?.attendeeIds.includes(linkedDeaconId));
 
   async function handleCheckIn() {
-    if (!liturgyId) return;
-    const targetLiturgyId = liturgyId;
+    const targetDate = date;
+    const targetLocationId = locationId;
+    const targetServiceType = serviceType;
     setBusy(true);
     try {
-      const fresh = await checkInSelfAction(targetLiturgyId);
-      if (liturgyIdRef.current !== targetLiturgyId) return;
+      const fresh = await checkInSelfAction(targetDate, targetLocationId, targetServiceType);
+      if (
+        dateRef.current !== targetDate ||
+        locationIdRef.current !== targetLocationId ||
+        serviceTypeRef.current !== targetServiceType
+      )
+        return;
+      setLiturgyId(fresh.liturgyId);
       setContext(fresh);
     } finally {
       setBusy(false);
@@ -85,12 +104,19 @@ export default function CheckinClient({
   }
 
   async function handleUndo() {
-    if (!liturgyId) return;
-    const targetLiturgyId = liturgyId;
+    const targetDate = date;
+    const targetLocationId = locationId;
+    const targetServiceType = serviceType;
     setBusy(true);
     try {
-      const fresh = await undoCheckInSelfAction(targetLiturgyId);
-      if (liturgyIdRef.current !== targetLiturgyId) return;
+      const fresh = await undoCheckInSelfAction(targetDate, targetLocationId, targetServiceType);
+      if (
+        dateRef.current !== targetDate ||
+        locationIdRef.current !== targetLocationId ||
+        serviceTypeRef.current !== targetServiceType
+      )
+        return;
+      setLiturgyId(fresh.liturgyId);
       setContext(fresh);
     } finally {
       setBusy(false);
