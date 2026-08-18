@@ -5,15 +5,32 @@ import { useRouter } from "next/navigation";
 import ChipMultiSelect from "./ChipMultiSelect";
 import PhotoEditor from "./PhotoEditor";
 import { AGE_GROUPS, SERVICE_TYPES, SERVICE_LABELS } from "@/lib/constants";
+import { computeAgeGroup } from "@/lib/ageGroup";
 import type { DeaconWithAgeGroup, DeaconInput } from "@/lib/repo/deacons";
 import type { LocationRow } from "@/lib/repo/locations";
 import type { RankRow } from "@/lib/repo/ranks";
 import { setDeaconPhotoAction, deleteDeaconPhotoAction } from "@/app/(app)/deacons/actions";
 
+// New-deacon rank default: Adults default to Ognostis (Reader), everyone
+// else (Child/Youth/unknown) defaults to Epsaltos (Hymnist). Matched by
+// name since ranks have no dedicated "default for age group" flag; falls
+// back to the first active rank if either name has been renamed away.
+function defaultRankIdForAgeGroup(
+  ageGroup: string | null,
+  ranks: RankRow[]
+): string | undefined {
+  const wanted = ageGroup === "Adult" ? "Ognostis" : "Epsaltos";
+  return (
+    ranks.find((r) => r.status === "Active" && r.name.startsWith(wanted))?.id ??
+    ranks.find((r) => r.status === "Active")?.id
+  );
+}
+
 export default function DeaconForm({
   initial,
   locations,
   ranks,
+  ageGroupThresholds,
   error,
   onCancel,
   onSave,
@@ -21,6 +38,7 @@ export default function DeaconForm({
   initial: DeaconWithAgeGroup | null;
   locations: LocationRow[];
   ranks: RankRow[];
+  ageGroupThresholds: { youthMin: number; adultMin: number };
   error?: string | null;
   onCancel: () => void;
   onSave: (input: DeaconInput, pendingPhotoDataUrl: string | null) => Promise<void>;
@@ -36,7 +54,18 @@ export default function DeaconForm({
   const [email, setEmail] = useState(initial?.email ?? "");
   const [address, setAddress] = useState(initial?.address ?? "");
   const [city, setCity] = useState(initial?.city ?? "");
-  const [rankId, setRankId] = useState(initial?.rank_id ?? ranks.find((r) => r.status === "Active")?.id ?? "");
+  // For a brand-new deacon, the rank tracks the age group live (derived
+  // during render, not via an effect) until the admin picks one themselves;
+  // once picked, that explicit choice always wins. Editing an existing
+  // deacon never auto-changes their rank.
+  const [manualRankId, setManualRankId] = useState<string | null>(initial?.rank_id ?? null);
+  const autoAgeGroup = computeAgeGroup(
+    dob || null,
+    ageGroupOverride ? (ageGroupOverride as (typeof AGE_GROUPS)[number]) : null,
+    ageGroupThresholds.youthMin,
+    ageGroupThresholds.adultMin
+  );
+  const rankId = manualRankId ?? defaultRankIdForAgeGroup(autoAgeGroup, ranks) ?? "";
   const [ordinationYear, setOrdinationYear] = useState(
     initial?.ordination_year ? String(initial.ordination_year) : ""
   );
@@ -205,7 +234,7 @@ export default function DeaconForm({
       <div className="grid-2">
         <div className="field">
           <label>Rank</label>
-          <select value={rankId} onChange={(e) => setRankId(e.target.value)}>
+          <select value={rankId} onChange={(e) => setManualRankId(e.target.value)}>
             {rankOptions.map((r) => (
               <option key={r.id} value={r.id}>
                 {r.name}

@@ -18,10 +18,12 @@ export default function DeaconsClient({
   deacons,
   locations,
   ranks,
+  ageGroupThresholds,
 }: {
   deacons: DeaconWithAgeGroup[];
   locations: LocationRow[];
   ranks: RankRow[];
+  ageGroupThresholds: { youthMin: number; adultMin: number };
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -253,6 +255,7 @@ export default function DeaconsClient({
           initial={null}
           locations={locations}
           ranks={ranks}
+          ageGroupThresholds={ageGroupThresholds}
           error={formError}
           onCancel={() => {
             setAdding(false);
@@ -277,6 +280,7 @@ export default function DeaconsClient({
             initial={editing}
             locations={locations}
             ranks={ranks}
+            ageGroupThresholds={ageGroupThresholds}
             error={formError}
             onCancel={() => {
               setEditing(null);
