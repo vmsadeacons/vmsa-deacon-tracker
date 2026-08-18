@@ -201,7 +201,9 @@ export default function DeaconsClient({
                             )}
                           </div>
                           <div className="muted" style={{ fontSize: "0.85rem" }}>
-                            {[d.age_group, d.rank?.replace(/\s*\(.*\)\s*$/, "")].filter(Boolean).join(" . ") || "—"}
+                            {[d.age_group, d.rank?.replace(/\s*\(.*\)\s*$/, ""), d.ordination_year]
+                              .filter(Boolean)
+                              .join(" . ") || "—"}
                           </div>
                         </div>
                       </div>
