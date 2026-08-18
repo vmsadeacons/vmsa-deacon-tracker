@@ -7,6 +7,7 @@ export default function DeaconAvatar({
   hasPhoto,
   firstName,
   lastName,
+  isGuest = false,
   size = 32,
   updatedAt,
   version,
@@ -15,6 +16,7 @@ export default function DeaconAvatar({
   hasPhoto: boolean;
   firstName: string;
   lastName: string;
+  isGuest?: boolean;
   size?: number;
   // Cache-busting key for the <img> URL. Prefer updatedAt (the deacon
   // row's own updated_at, which the DB bumps on every write including a
@@ -36,8 +38,8 @@ export default function DeaconAvatar({
     fontSize: size * 0.4,
     fontWeight: 600,
     overflow: "hidden",
-    background: "var(--wine-bg)",
-    color: "var(--wine)",
+    background: isGuest ? "var(--gold)" : "var(--wine)",
+    color: "var(--surface)",
   };
 
   if (hasPhoto) {

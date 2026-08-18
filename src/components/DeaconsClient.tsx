@@ -185,6 +185,7 @@ export default function DeaconsClient({
                           hasPhoto={d.has_photo}
                           firstName={d.first_name}
                           lastName={d.last_name}
+                          isGuest={d.is_guest}
                           updatedAt={d.updated_at}
                           size={40}
                         />
