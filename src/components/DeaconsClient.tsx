@@ -197,7 +197,9 @@ export default function DeaconsClient({
                               </span>
                             )}
                           </div>
-                          <div className="muted" style={{ fontSize: "0.85rem" }}>{d.age_group ?? "—"}</div>
+                          <div className="muted" style={{ fontSize: "0.85rem" }}>
+                            {[d.age_group, d.rank?.replace(/\s*\(.*\)\s*$/, "")].filter(Boolean).join(" . ") || "—"}
+                          </div>
                         </div>
                       </div>
                       {d.phone && (
