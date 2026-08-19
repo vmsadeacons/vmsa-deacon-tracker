@@ -28,6 +28,18 @@ export default function LiturgyPicker({
     onChange(newDate, locationId, nextService);
   }
 
+  // Resets to the default ordinal on a location switch too -- otherwise a
+  // "2nd Liturgy" selection left over from a previous location silently
+  // carries into the new one, which (now that any day/location can have a
+  // 2nd liturgy) can create a stray wrong-ordinal record instead of editing
+  // the liturgy that actually happened.
+  async function handleLocationChange(newLocationId: string) {
+    setRecomputing(true);
+    const nextService = await computeDefaultServiceAction(date);
+    setRecomputing(false);
+    onChange(date, newLocationId, nextService);
+  }
+
   return (
     <div className="fieldrow">
       <div className="field">
@@ -39,7 +51,7 @@ export default function LiturgyPicker({
       </div>
       <div className="field">
         <label>Location</label>
-        <select value={locationId} onChange={(e) => onChange(date, e.target.value, serviceType)}>
+        <select value={locationId} onChange={(e) => handleLocationChange(e.target.value)}>
           {locations.map((l) => (
             <option key={l.id} value={l.id}>
               {l.name}
