@@ -4,6 +4,7 @@ import { useState } from "react";
 import { SERVICE_TYPES, SERVICE_LABELS, type ServiceTypeCode } from "@/lib/constants";
 import type { LocationRow } from "@/lib/repo/locations";
 import { computeDefaultServiceAction } from "@/lib/actions/shared";
+import { weekdayLabel } from "@/lib/timezone";
 
 export default function LiturgyPicker({
   date,
@@ -31,7 +32,10 @@ export default function LiturgyPicker({
     <div className="fieldrow">
       <div className="field">
         <label>Date</label>
-        <input type="date" value={date} onChange={(e) => handleDateChange(e.target.value)} />
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
+          <input type="date" value={date} onChange={(e) => handleDateChange(e.target.value)} />
+          {date && <span className="muted">{weekdayLabel(date)}</span>}
+        </div>
       </div>
       <div className="field">
         <label>Location</label>

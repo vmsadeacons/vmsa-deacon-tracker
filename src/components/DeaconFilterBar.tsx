@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { SERVICE_TYPES, SERVICE_LABELS } from "@/lib/constants";
+import { LITURGY_PREF_TYPES, LITURGY_PREF_LABELS } from "@/lib/constants";
 import type { LocationRow } from "@/lib/repo/locations";
 
 export interface DeaconFilters {
@@ -54,9 +54,9 @@ export default function DeaconFilterBar({
         <label>Preferred service</label>
         <select value={filters.service} onChange={(e) => onChange({ ...filters, service: e.target.value })}>
           <option value="">All</option>
-          {SERVICE_TYPES.map((s) => (
+          {LITURGY_PREF_TYPES.map((s) => (
             <option key={s} value={s}>
-              {SERVICE_LABELS[s]}
+              {LITURGY_PREF_LABELS[s]}
             </option>
           ))}
         </select>

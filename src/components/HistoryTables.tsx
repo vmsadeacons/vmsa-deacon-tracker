@@ -1,6 +1,7 @@
 import type { DeaconHistory } from "@/lib/repo/reports";
-import { SERVICE_LABELS, pwServiceLabel, pwActivityLabel, type ServiceTypeCode } from "@/lib/constants";
+import { pwServiceLabel, pwActivityLabel, type ServiceTypeCode } from "@/lib/constants";
 import { withPercent } from "@/lib/percent";
+import { formatLiturgyLabel } from "@/lib/liturgyLabel";
 
 export default function HistoryTables({
   history,
@@ -61,7 +62,15 @@ export default function HistoryTables({
                 {history.records.map((r, i) => (
                   <tr key={i}>
                     <td>{r.date}</td>
-                    <td>{SERVICE_LABELS[r.serviceType as ServiceTypeCode] ?? r.serviceType}</td>
+                    <td>
+                      {formatLiturgyLabel({
+                        date: r.date,
+                        serviceType: r.serviceType as ServiceTypeCode,
+                        isSpecialFeast: r.isSpecialFeast,
+                        feastName: r.feastName,
+                        hasSibling: r.hasSibling,
+                      })}
+                    </td>
                     <td>{r.locationName}</td>
                     <td>{r.activityName ?? "Attended"}</td>
                   </tr>

@@ -7,6 +7,9 @@ import { PW_SERVICES, PW_HOUR_WITH_12TH, type AgeGroup } from "@/lib/constants";
 export interface DeaconHistoryRecord {
   date: string;
   serviceType: string;
+  isSpecialFeast: boolean;
+  feastName: string | null;
+  hasSibling: boolean;
   locationName: string;
   activityName: string | null; // null = plain attendance, no specific activity
 }
@@ -33,6 +36,9 @@ export interface DeaconHistory {
 interface RawHistoryRow {
   date: string;
   service_type: string;
+  is_special_feast: boolean;
+  feast_name: string | null;
+  has_sibling: boolean;
   location_name: string;
   activity_name: string | null;
   allows_multiple: boolean | null;
@@ -52,7 +58,9 @@ export async function getDeaconHistory(
   toDate: string | null
 ): Promise<DeaconHistory> {
   const { rows } = await query<RawHistoryRow>(
-    `select l.date, l.service_type, loc.name as location_name, a.name as activity_name,
+    `select l.date, l.service_type, l.is_special_feast, l.feast_name,
+            exists(select 1 from liturgies l2 where l2.date = l.date and l2.location_id = l.location_id and l2.id <> l.id) as has_sibling,
+            loc.name as location_name, a.name as activity_name,
             a.allows_multiple, p.liturgy_id, a.sort_order as activity_sort_order
      from participation p
      join liturgies l on l.id = p.liturgy_id
@@ -62,7 +70,9 @@ export async function getDeaconHistory(
        and ($2::date is null or l.date >= $2)
        and ($3::date is null or l.date <= $3)
      union all
-     select l.date, l.service_type, loc.name as location_name, a.name as activity_name,
+     select l.date, l.service_type, l.is_special_feast, l.feast_name,
+            exists(select 1 from archive_liturgies l2 where l2.date = l.date and l2.location_id = l.location_id and l2.id <> l.id) as has_sibling,
+            loc.name as location_name, a.name as activity_name,
             a.allows_multiple, p.liturgy_id, a.sort_order as activity_sort_order
      from archive_participation p
      join archive_liturgies l on l.id = p.liturgy_id
@@ -85,6 +95,9 @@ export async function getDeaconHistory(
     return {
       date: r.date,
       serviceType: r.service_type,
+      isSpecialFeast: r.is_special_feast,
+      feastName: r.feast_name,
+      hasSibling: r.has_sibling,
       locationName: r.location_name,
       activityName: r.activity_name,
     };

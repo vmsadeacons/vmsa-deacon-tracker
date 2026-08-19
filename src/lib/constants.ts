@@ -1,17 +1,34 @@
-export const SERVICE_TYPES = ["S1", "S2", "Wed", "Fri", "Sat", "Feast", "Other"] as const;
+// A liturgy is recorded as just an ordinal within its day (1st/2nd) --
+// day-of-week is no longer encoded here (see date instead), and a "Special
+// Feast" is an orthogonal flag on the liturgy (is_special_feast/feast_name),
+// not a service type. This lets any day have up to two liturgies, not just
+// Sunday, and a feast to fall on any day of the week.
+export const SERVICE_TYPES = ["S1", "S2"] as const;
 export type ServiceTypeCode = (typeof SERVICE_TYPES)[number];
 
 export const SERVICE_LABELS: Record<ServiceTypeCode, string> = {
+  S1: "1st Liturgy",
+  S2: "2nd Liturgy",
+};
+
+// Deacon "preferred service" vocabulary -- kept distinct from SERVICE_TYPES
+// (and from its old day-coded values) so existing preferences didn't need
+// re-entry when service types were simplified. S1/S2 here specifically mean
+// Sunday's two liturgies (matched by ordinal); Wed/Fri/Sat mean "any liturgy
+// that day, whichever ordinal" (matched by the liturgy's date); Feast means
+// "any liturgy flagged as a special feast, whatever day it falls on"
+// (matched by is_special_feast) -- see liturgyPrefMatchCodes in timezone.ts.
+export const LITURGY_PREF_TYPES = ["S1", "S2", "Wed", "Fri", "Sat", "Feast"] as const;
+export type LiturgyPrefCode = (typeof LITURGY_PREF_TYPES)[number];
+
+export const LITURGY_PREF_LABELS: Record<LiturgyPrefCode, string> = {
   S1: "Sunday 1st Liturgy",
   S2: "Sunday 2nd Liturgy",
   Wed: "Wednesday Liturgy",
   Fri: "Friday Liturgy",
   Sat: "Saturday Liturgy",
-  Feast: "Special Feast",
-  Other: "Other",
+  Feast: "Special Feast Liturgy",
 };
-
-export const LITURGY_PREF_OPTIONS = [...SERVICE_TYPES, "All"] as const;
 
 // Ranks are now a real admin-editable table (src/lib/repo/ranks.ts), not a
 // fixed list -- see the ranks table in Settings.

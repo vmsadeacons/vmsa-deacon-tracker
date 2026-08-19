@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import type { RecentLiturgyRow } from "@/lib/repo/liturgies";
-import { SERVICE_LABELS, type ServiceTypeCode } from "@/lib/constants";
+import type { ServiceTypeCode } from "@/lib/constants";
+import { formatLiturgyLabel } from "@/lib/liturgyLabel";
 
 export default function RecentActivityTable({ rows }: { rows: RecentLiturgyRow[] }) {
   const router = useRouter();
@@ -43,7 +44,17 @@ export default function RecentActivityTable({ rows }: { rows: RecentLiturgyRow[]
               >
                 <td>{row.locationName}</td>
                 <td>{row.date ?? <span className="muted">No liturgies recorded yet</span>}</td>
-                <td>{row.serviceType ? SERVICE_LABELS[row.serviceType as ServiceTypeCode] : "—"}</td>
+                <td>
+                  {row.serviceType && row.date
+                    ? formatLiturgyLabel({
+                        date: row.date,
+                        serviceType: row.serviceType as ServiceTypeCode,
+                        isSpecialFeast: row.isSpecialFeast,
+                        feastName: row.feastName,
+                        hasSibling: row.hasSibling,
+                      })
+                    : "—"}
+                </td>
                 <td>{clickable ? row.attendeeCount : "—"}</td>
                 <td>{clickable ? row.altarCount : "—"}</td>
                 <td>{clickable ? `${row.readingsFilled} of ${row.readingsTotal}` : "—"}</td>

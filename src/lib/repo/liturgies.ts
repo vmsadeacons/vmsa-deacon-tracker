@@ -30,6 +30,31 @@ export async function getOrCreateLiturgy(
   return rows[0].id;
 }
 
+/**
+ * Marks (or unmarks) a liturgy as a special feast, with its name -- creates
+ * the liturgy row on first use, same as the participation-mutating
+ * functions below, since setting this up is itself worth persisting even
+ * before any attendance is recorded.
+ */
+export async function setSpecialFeast(
+  date: string,
+  locationId: string,
+  serviceType: ServiceTypeCode,
+  isSpecialFeast: boolean,
+  feastName: string | null
+): Promise<LiturgyContext> {
+  if (isSpecialFeast && !feastName?.trim()) {
+    throw new Error("A special feast needs a name");
+  }
+  const liturgyId = await getOrCreateLiturgy(date, locationId, serviceType);
+  await query(`update liturgies set is_special_feast = $2, feast_name = $3 where id = $1`, [
+    liturgyId,
+    isSpecialFeast,
+    isSpecialFeast ? feastName!.trim() : null,
+  ]);
+  return getLiturgyContext(liturgyId);
+}
+
 export interface LiturgyParticipantRow {
   deacon_id: string;
   deacon_name: string;
@@ -42,6 +67,8 @@ export interface LiturgyParticipantRow {
 
 export interface LiturgyContext {
   liturgyId: string;
+  isSpecialFeast: boolean;
+  feastName: string | null;
   attendeeIds: string[];
   attendees: { deaconId: string; name: string; status: string }[];
   assignments: {
@@ -56,7 +83,12 @@ async function buildLiturgyContext(
   liturgyId: string,
   archived: boolean
 ): Promise<LiturgyContext> {
+  const liturgyTable = archived ? "archive_liturgies" : "liturgies";
   const participationTable = archived ? "archive_participation" : "participation";
+  const { rows: liturgyRows } = await query<{ is_special_feast: boolean; feast_name: string | null }>(
+    `select is_special_feast, feast_name from ${liturgyTable} where id = $1`,
+    [liturgyId]
+  );
   const { rows } = await query<LiturgyParticipantRow>(
     `select p.deacon_id, d.name as deacon_name, d.status as deacon_status,
             p.activity_id, a.name as activity_name, a.allows_multiple, a.sort_order as activity_sort_order
@@ -103,6 +135,8 @@ async function buildLiturgyContext(
 
   return {
     liturgyId,
+    isSpecialFeast: liturgyRows[0]?.is_special_feast ?? false,
+    feastName: liturgyRows[0]?.feast_name ?? null,
     attendeeIds: [...attendeeMap.keys()],
     attendees: [...attendeeMap.values()],
     assignments: assignments.map((a) => ({
@@ -120,7 +154,7 @@ export async function getLiturgyContext(liturgyId: string): Promise<LiturgyConte
 }
 
 function emptyLiturgyContext(): LiturgyContext {
-  return { liturgyId: "", attendeeIds: [], attendees: [], assignments: [] };
+  return { liturgyId: "", isSpecialFeast: false, feastName: null, attendeeIds: [], attendees: [], assignments: [] };
 }
 
 /**
@@ -291,6 +325,9 @@ export interface RecentLiturgyRow {
   locationName: string;
   date: string | null;
   serviceType: string | null;
+  isSpecialFeast: boolean;
+  feastName: string | null;
+  hasSibling: boolean;
   attendeeCount: number;
   altarCount: number;
   readingsFilled: number;
@@ -313,11 +350,15 @@ export async function getRecentLiturgiesByLocation(): Promise<RecentLiturgyRow[]
       id: string;
       date: string;
       service_type: string;
+      is_special_feast: boolean;
+      feast_name: string | null;
       archived: boolean;
     }>(
-      `select id, date, service_type, false as archived from liturgies where location_id = $1
+      `select id, date, service_type, is_special_feast, feast_name, false as archived
+         from liturgies where location_id = $1
        union all
-       select id, date, service_type, true as archived from archive_liturgies where location_id = $1
+       select id, date, service_type, is_special_feast, feast_name, true as archived
+         from archive_liturgies where location_id = $1
        order by date desc
        limit 1`,
       [loc.id]
@@ -329,6 +370,9 @@ export async function getRecentLiturgiesByLocation(): Promise<RecentLiturgyRow[]
         locationName: loc.name,
         date: null,
         serviceType: null,
+        isSpecialFeast: false,
+        feastName: null,
+        hasSibling: false,
         attendeeCount: 0,
         altarCount: 0,
         readingsFilled: 0,
@@ -336,7 +380,13 @@ export async function getRecentLiturgiesByLocation(): Promise<RecentLiturgyRow[]
       });
       continue;
     }
+    const liturgyTable = winner.archived ? "archive_liturgies" : "liturgies";
     const participationTable = winner.archived ? "archive_participation" : "participation";
+    const { rows: siblingRows } = await query<{ id: string }>(
+      `select id from ${liturgyTable} where date = $1 and location_id = $2 and id <> $3`,
+      [winner.date, loc.id, winner.id]
+    );
+    const hasSibling = siblingRows.length > 0;
     const { rows: statRows } = await query<{
       attendee_count: string;
       altar_count: string;
@@ -357,6 +407,9 @@ export async function getRecentLiturgiesByLocation(): Promise<RecentLiturgyRow[]
       locationName: loc.name,
       date: winner.date,
       serviceType: winner.service_type,
+      isSpecialFeast: winner.is_special_feast,
+      feastName: winner.feast_name,
+      hasSibling,
       attendeeCount: Number(stat.attendee_count),
       altarCount: Number(stat.altar_count),
       readingsFilled: Number(stat.readings_filled),

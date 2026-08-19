@@ -3,7 +3,7 @@
 import Modal from "./Modal";
 import DeaconAvatar from "./DeaconAvatar";
 import { formatPhone, telHref, smsHref } from "@/lib/formatPhone";
-import { SERVICE_LABELS, ALL_SENTINEL, type ServiceTypeCode } from "@/lib/constants";
+import { LITURGY_PREF_LABELS, ALL_SENTINEL, type LiturgyPrefCode } from "@/lib/constants";
 import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
 import type { LocationRow } from "@/lib/repo/locations";
 
@@ -116,7 +116,7 @@ export default function DeaconDetailModal({
           {deacon.liturgy_prefs.length === 0 && <span className="muted">None set</span>}
           {deacon.liturgy_prefs.map((p) => (
             <span key={p} className="badge badge-wine">
-              {p === ALL_SENTINEL ? "All" : SERVICE_LABELS[p as ServiceTypeCode] ?? p}
+              {p === ALL_SENTINEL ? "All" : LITURGY_PREF_LABELS[p as LiturgyPrefCode] ?? p}
             </span>
           ))}
         </div>

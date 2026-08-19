@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ChipMultiSelect from "./ChipMultiSelect";
 import PhotoEditor from "./PhotoEditor";
-import { AGE_GROUPS, SERVICE_TYPES, SERVICE_LABELS } from "@/lib/constants";
+import { AGE_GROUPS, LITURGY_PREF_TYPES, LITURGY_PREF_LABELS } from "@/lib/constants";
 import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
 import type { LocationRow } from "@/lib/repo/locations";
 import type { RankRow } from "@/lib/repo/ranks";
@@ -168,7 +168,7 @@ export default function MyProfileClient({
           <div className="field">
             <label>Liturgy preferences</label>
             <ChipMultiSelect
-              options={SERVICE_TYPES.map((s) => ({ value: s, label: SERVICE_LABELS[s] }))}
+              options={LITURGY_PREF_TYPES.map((s) => ({ value: s, label: LITURGY_PREF_LABELS[s] }))}
               selected={liturgyPrefs}
               onChange={setLiturgyPrefs}
             />

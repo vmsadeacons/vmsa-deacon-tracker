@@ -7,6 +7,7 @@ import {
   toggleAttendance,
   toggleMultiActivityAssignment,
   setSingleActivityAssignment,
+  setSpecialFeast,
 } from "@/lib/repo/liturgies";
 import { setStickyLocation } from "@/lib/repo/users";
 import type { ServiceTypeCode } from "@/lib/constants";
@@ -54,4 +55,20 @@ export async function setReadingAction(
 ) {
   await assertAdmin();
   return setSingleActivityAssignment(date, locationId, serviceType, activityId, deaconId, "admin");
+}
+
+export async function setSpecialFeastAction(
+  date: string,
+  locationId: string,
+  serviceType: ServiceTypeCode,
+  isSpecialFeast: boolean,
+  feastName: string | null
+) {
+  await assertAdmin();
+  try {
+    const context = await setSpecialFeast(date, locationId, serviceType, isSpecialFeast, feastName);
+    return { ok: true as const, context };
+  } catch (err) {
+    return { ok: false as const, error: (err as Error).message };
+  }
 }

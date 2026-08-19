@@ -5,23 +5,26 @@ import LiturgyPicker from "./LiturgyPicker";
 import Modal from "./Modal";
 import RosterPicker from "./RosterPicker";
 import SingleRosterPickerModal from "./SingleRosterPickerModal";
+import SpecialFeastControl from "./SpecialFeastControl";
 import type { LocationRow } from "@/lib/repo/locations";
 import type { ActivityRow } from "@/lib/repo/activities";
 import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
 import type { LiturgyContext } from "@/lib/repo/liturgies";
 import type { ServiceTypeCode } from "@/lib/constants";
+import { liturgyPrefMatchCodes } from "@/lib/timezone";
 import {
   openLiturgyAction,
   refreshLiturgyAction,
   toggleAttendanceAction,
   toggleAltarAction,
   setReadingAction,
+  setSpecialFeastAction,
 } from "@/app/(app)/record/actions";
 
 const POLL_MS = 20000;
 
-function matchesPrefs(prefs: string[], value: string): boolean {
-  return prefs.includes("All") || prefs.includes(value);
+function matchesPrefs(prefs: string[], codes: string[]): boolean {
+  return prefs.includes("All") || codes.some((c) => prefs.includes(c));
 }
 
 export default function RecordLiturgyClient({
@@ -99,12 +102,16 @@ export default function RecordLiturgyClient({
   }, []);
 
   const attendeeIds = context?.attendeeIds ?? [];
+  const servicePrefCodes = [
+    ...liturgyPrefMatchCodes(date, serviceType),
+    ...(context?.isSpecialFeast ? ["Feast"] : []),
+  ];
   const activeCandidates = deacons.filter(
     (d) =>
       attendeeIds.includes(d.id) ||
       (d.status === "Active" &&
-        matchesPrefs(d.location_prefs, locationId) &&
-        matchesPrefs(d.liturgy_prefs, serviceType))
+        matchesPrefs(d.location_prefs, [locationId]) &&
+        matchesPrefs(d.liturgy_prefs, servicePrefCodes))
   );
   const allRosterSorted = [...deacons]
     .filter((d) => d.status === "Active" || attendeeIds.includes(d.id))
@@ -189,6 +196,24 @@ export default function RecordLiturgyClient({
     setContext(fresh);
   }
 
+  async function handleSaveFeast(isSpecialFeast: boolean, feastName: string | null) {
+    const targetDate = date;
+    const targetLocationId = locationId;
+    const targetServiceType = serviceType;
+    const result = await setSpecialFeastAction(targetDate, targetLocationId, targetServiceType, isSpecialFeast, feastName);
+    if (
+      dateRef.current !== targetDate ||
+      locationIdRef.current !== targetLocationId ||
+      serviceTypeRef.current !== targetServiceType
+    )
+      return result;
+    if (result.ok) {
+      setLiturgyId(result.context.liturgyId);
+      setContext(result.context);
+    }
+    return result;
+  }
+
   const altarActivity = activities.find((a) => a.allows_multiple);
   const readingActivities = activities.filter((a) => !a.allows_multiple);
   const attendees = context?.attendees ?? [];
@@ -205,6 +230,12 @@ export default function RecordLiturgyClient({
           serviceType={serviceType}
           locations={locations}
           onChange={handleFieldChange}
+        />
+        <SpecialFeastControl
+          key={`${date}|${locationId}|${serviceType}`}
+          isSpecialFeast={context?.isSpecialFeast ?? false}
+          feastName={context?.feastName ?? null}
+          onSave={handleSaveFeast}
         />
       </div>
 

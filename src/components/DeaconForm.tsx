@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ChipMultiSelect from "./ChipMultiSelect";
 import PhotoEditor from "./PhotoEditor";
-import { AGE_GROUPS, SERVICE_TYPES, SERVICE_LABELS } from "@/lib/constants";
+import { AGE_GROUPS, LITURGY_PREF_TYPES, LITURGY_PREF_LABELS } from "@/lib/constants";
 import { computeAgeGroup } from "@/lib/ageGroup";
 import type { DeaconWithAgeGroup, DeaconInput } from "@/lib/repo/deacons";
 import type { LocationRow } from "@/lib/repo/locations";
@@ -270,7 +270,7 @@ export default function DeaconForm({
       <div className="field">
         <label>Liturgy preferences</label>
         <ChipMultiSelect
-          options={SERVICE_TYPES.map((s) => ({ value: s, label: SERVICE_LABELS[s] }))}
+          options={LITURGY_PREF_TYPES.map((s) => ({ value: s, label: LITURGY_PREF_LABELS[s] }))}
           selected={liturgyPrefs}
           onChange={setLiturgyPrefs}
         />
