@@ -69,6 +69,16 @@ a {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  /* Own fixed height instead of stretching to match tall main content
+     (which pushed the footer/sign-out button off-screen on pages like
+     Deacons or Passion Week) -- 100dvh accounts for mobile browser
+     chrome so the fixed drawer isn't taller than what's actually
+     visible; 100vh is a fallback for browsers without dvh support. */
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
 }
 
 .sidebar-brand {
