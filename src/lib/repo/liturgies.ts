@@ -180,14 +180,18 @@ export async function getLiturgyReportContext(
   date: string,
   locationId: string,
   serviceType: ServiceTypeCode
-): Promise<(LiturgyContext & { archived: boolean }) | null> {
+): Promise<(LiturgyContext & { archived: boolean; hasSibling: boolean }) | null> {
   const live = await query<{ id: string }>(
     `select id from liturgies where date = $1 and location_id = $2 and service_type = $3`,
     [date, locationId, serviceType]
   );
   if (live.rows[0]) {
     const ctx = await buildLiturgyContext(live.rows[0].id, false);
-    return { ...ctx, archived: false };
+    const { rows: siblingRows } = await query<{ id: string }>(
+      `select id from liturgies where date = $1 and location_id = $2 and id <> $3`,
+      [date, locationId, live.rows[0].id]
+    );
+    return { ...ctx, archived: false, hasSibling: siblingRows.length > 0 };
   }
   const archived = await query<{ id: string }>(
     `select id from archive_liturgies where date = $1 and location_id = $2 and service_type = $3`,
@@ -195,7 +199,11 @@ export async function getLiturgyReportContext(
   );
   if (archived.rows[0]) {
     const ctx = await buildLiturgyContext(archived.rows[0].id, true);
-    return { ...ctx, archived: true };
+    const { rows: siblingRows } = await query<{ id: string }>(
+      `select id from archive_liturgies where date = $1 and location_id = $2 and id <> $3`,
+      [date, locationId, archived.rows[0].id]
+    );
+    return { ...ctx, archived: true, hasSibling: siblingRows.length > 0 };
   }
   return null;
 }
