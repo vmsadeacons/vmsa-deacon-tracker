@@ -117,6 +117,21 @@ export function canDisableOrDeleteUser(actorRole: Role, target: UserRow): boolea
   return true;
 }
 
+/**
+ * Only a SystemAdmin may grant SystemAdmin or GeneralAdmin access.
+ * A GeneralAdmin may only grant/keep the Deacon role.
+ */
+export function canAssignRole(actorRole: Role, role: Role): boolean {
+  if (actorRole === "SystemAdmin") return true;
+  return role === "Deacon";
+}
+
+function roleGrantErrorMessage(role: Role): string {
+  return role === "SystemAdmin"
+    ? "Only a System Admin can grant System Admin access"
+    : "Only a System Admin can grant General Admin access";
+}
+
 export async function grantAccess(params: {
   email: string;
   name: string | null;
@@ -125,8 +140,8 @@ export async function grantAccess(params: {
   pin: string | null;
   actorRole: Role;
 }): Promise<UserRow> {
-  if (params.role === "SystemAdmin" && params.actorRole !== "SystemAdmin") {
-    throw new Error("Only a System Admin can grant System Admin access");
+  if (!canAssignRole(params.actorRole, params.role)) {
+    throw new Error(roleGrantErrorMessage(params.role));
   }
   const pinHash = params.pin ? await hashPin(params.pin) : null;
   const { rows } = await query<UserRow>(
@@ -153,8 +168,8 @@ export async function updateUser(
   if (!canEditUser(actorRole, target)) {
     throw new Error("Not permitted to modify this account");
   }
-  if (patch.role === "SystemAdmin" && actorRole !== "SystemAdmin") {
-    throw new Error("Only a System Admin can grant System Admin access");
+  if (patch.role && patch.role !== target.role && !canAssignRole(actorRole, patch.role)) {
+    throw new Error(roleGrantErrorMessage(patch.role));
   }
 
   const newRole = patch.role ?? target.role;

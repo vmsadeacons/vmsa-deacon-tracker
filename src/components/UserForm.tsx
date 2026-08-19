@@ -93,7 +93,9 @@ export default function UserForm({
         <label>Role</label>
         <select value={role} onChange={(e) => setRole(e.target.value as Role)}>
           <option value="Deacon">Deacon</option>
-          <option value="GeneralAdmin">General Admin</option>
+          {(actorIsSystemAdmin || initial?.role === "GeneralAdmin") && (
+            <option value="GeneralAdmin">General Admin</option>
+          )}
           {actorIsSystemAdmin && <option value="SystemAdmin">System Admin</option>}
         </select>
       </div>
