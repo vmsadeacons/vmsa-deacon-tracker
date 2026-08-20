@@ -46,14 +46,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (account?.provider !== "google") return true;
 
       const dbUser = await getUserByEmail(user.email!);
-      if (!dbUser) {
-        return "/login?error=no-admin-account";
-      }
-      if (dbUser.role === "Deacon") {
-        return "/login?error=deacon-google";
-      }
-      if (dbUser.status !== "Active") {
-        return "/login?error=no-admin-account";
+      if (!dbUser || dbUser.status !== "Active") {
+        return "/login?error=no-account";
       }
       return true;
     },
