@@ -139,6 +139,7 @@ export default function CheckinClient({
           serviceType={serviceType}
           locations={locations}
           onChange={handleFieldChange}
+          dateLocked
         />
       </div>
 

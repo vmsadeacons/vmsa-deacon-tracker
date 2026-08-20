@@ -12,12 +12,15 @@ export default function LiturgyPicker({
   serviceType,
   locations,
   onChange,
+  dateLocked,
 }: {
   date: string;
   locationId: string;
   serviceType: ServiceTypeCode;
   locations: LocationRow[];
   onChange: (date: string, locationId: string, serviceType: ServiceTypeCode) => void;
+  /** Check-in: deacons can only check in for today, so the date isn't editable. */
+  dateLocked?: boolean;
 }) {
   const [recomputing, setRecomputing] = useState(false);
 
@@ -45,7 +48,11 @@ export default function LiturgyPicker({
       <div className="field">
         <label>Date</label>
         <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-          <input type="date" value={date} onChange={(e) => handleDateChange(e.target.value)} />
+          {dateLocked ? (
+            <span>{date}</span>
+          ) : (
+            <input type="date" value={date} onChange={(e) => handleDateChange(e.target.value)} />
+          )}
           {date && <span className="muted">{weekdayLabel(date)}</span>}
         </div>
       </div>
