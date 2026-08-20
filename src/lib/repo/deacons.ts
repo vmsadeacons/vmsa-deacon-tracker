@@ -113,6 +113,19 @@ export interface DeaconInput {
   status?: "Active" | "Archived";
 }
 
+/**
+ * Age group must always be determinable -- either a real DOB, or the
+ * manual override (used as a fallback when DOB is unknown). Enforced here
+ * too, not just by the form, so the Dashboard's Missing Information count
+ * can rely on it and stay removed (rather than needing to keep auditing
+ * for a state the app no longer allows).
+ */
+function assertHasAgeGroup(dob: string | null, ageGroupOverride: AgeGroup | null) {
+  if (!dob && !ageGroupOverride) {
+    throw new Error("Age group is required when there's no date of birth on file");
+  }
+}
+
 function friendlyDuplicateError(err: unknown): never {
   if (
     err &&
@@ -133,6 +146,7 @@ async function fetchById(id: string): Promise<DeaconRow | undefined> {
 }
 
 export async function createDeacon(input: DeaconInput): Promise<DeaconRow> {
+  assertHasAgeGroup(input.dob ?? null, input.ageGroupOverride ?? null);
   const rankId = input.rankId ?? (await getDefaultRankId());
   try {
     const { rows } = await query<{ id: string }>(
@@ -170,6 +184,11 @@ export async function createDeacon(input: DeaconInput): Promise<DeaconRow> {
 export async function updateDeacon(id: string, input: Partial<DeaconInput>): Promise<DeaconRow> {
   const d = await fetchById(id);
   if (!d) throw new Error("Deacon not found");
+
+  assertHasAgeGroup(
+    input.dob !== undefined ? input.dob : d.dob,
+    input.ageGroupOverride !== undefined ? input.ageGroupOverride : d.age_group_override
+  );
 
   try {
     await query(

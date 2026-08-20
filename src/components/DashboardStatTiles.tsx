@@ -33,11 +33,10 @@ function applyFilters(people: DeaconContact[], filters: DeaconFilters): DeaconCo
   });
 }
 
-type MissingTile = "missingAge" | "missingPhone" | "missingEmail";
+type MissingTile = "missingPhone" | "missingEmail";
 type OpenTile = "active" | "absent" | MissingTile;
 
 const MISSING_HEADINGS: Record<MissingTile, string> = {
-  missingAge: "No Age Group",
   missingPhone: "No Phone Number",
   missingEmail: "No Email",
 };
@@ -50,7 +49,6 @@ export default function DashboardStatTiles({
   absentDeacons,
   absencePeriodValue,
   absencePeriodUnit,
-  missingAgeGroupCount,
   missingPhoneCount,
   missingEmailCount,
   locations,
@@ -62,7 +60,6 @@ export default function DashboardStatTiles({
   absentDeacons: DeaconContact[];
   absencePeriodValue: number;
   absencePeriodUnit: AbsencePeriodUnit;
-  missingAgeGroupCount: number;
   missingPhoneCount: number;
   missingEmailCount: number;
   locations: LocationRow[];
@@ -101,8 +98,6 @@ export default function DashboardStatTiles({
         return activeDeacons;
       case "absent":
         return absentData.people;
-      case "missingAge":
-        return activeDeacons.filter((d) => !d.age_group);
       case "missingPhone":
         return activeDeacons.filter((d) => !d.phone);
       case "missingEmail":
@@ -141,11 +136,7 @@ export default function DashboardStatTiles({
         </button>
       </div>
       <div className="stat-group-label">Missing Information</div>
-      <div className="stat-row stat-row-3">
-        <button className="stat-tile small clickable" onClick={() => toggleOpen("missingAge")}>
-          <div className="stat-value">{missingAgeGroupCount}</div>
-          <div className="stat-label">have no Age Group</div>
-        </button>
+      <div className="stat-row">
         <button className="stat-tile small clickable" onClick={() => toggleOpen("missingPhone")}>
           <div className="stat-value">{missingPhoneCount}</div>
           <div className="stat-label">have no Phone #</div>
@@ -204,7 +195,7 @@ export default function DashboardStatTiles({
           <MessageableDeaconList people={filtered} />
         </div>
       )}
-      {(open === "missingAge" || open === "missingPhone" || open === "missingEmail") && (
+      {(open === "missingPhone" || open === "missingEmail") && (
         <div className="card">
           <h3>{MISSING_HEADINGS[open]}</h3>
           <DeaconFilterBar

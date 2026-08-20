@@ -53,7 +53,6 @@ export interface DashboardStats {
   absentDeacons: DeaconContact[];
   absencePeriodValue: number;
   absencePeriodUnit: AbsencePeriodUnit;
-  missingAgeGroupCount: number;
   missingPhoneCount: number;
   missingEmailCount: number;
 }
@@ -157,7 +156,6 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     absentDeacons,
     absencePeriodValue: DEFAULT_ABSENCE_VALUE,
     absencePeriodUnit: DEFAULT_ABSENCE_UNIT,
-    missingAgeGroupCount: activeDeacons.filter((d) => !d.age_group).length,
     missingPhoneCount: activeDeacons.filter((d) => !d.phone).length,
     missingEmailCount: activeDeacons.filter((d) => !d.email).length,
   };

@@ -11,6 +11,17 @@ import type { LocationRow } from "@/lib/repo/locations";
 import type { RankRow } from "@/lib/repo/ranks";
 import { setDeaconPhotoAction, deleteDeaconPhotoAction } from "@/app/(app)/deacons/actions";
 
+// Matches the preview text on Settings -> Age groupings, so the thresholds
+// always reflect whatever's currently configured there.
+function ageGroupOptionLabel(
+  group: (typeof AGE_GROUPS)[number],
+  { youthMin, adultMin }: { youthMin: number; adultMin: number }
+): string {
+  if (group === "Child") return `Child (0–${Math.max(youthMin - 1, 0)})`;
+  if (group === "Youth") return `Youth (${youthMin}–${Math.max(adultMin - 1, youthMin)})`;
+  return `Adult (${adultMin}+)`;
+}
+
 // New-deacon rank default: Adults default to Ognostis (Reader), everyone
 // else (Child/Youth/unknown) defaults to Epsaltos (Hymnist). Matched by
 // name since ranks have no dedicated "default for age group" flag; falls
@@ -189,16 +200,21 @@ export default function DeaconForm({
 
       <div className="grid-2">
         <div className="field">
-          <label>Age group (used only if DOB is blank)</label>
+          <label>Age group {dob ? "(derived from date of birth)" : "(required)"}</label>
           <select
             value={ageGroupOverride}
             onChange={(e) => setAgeGroupOverride(e.target.value)}
             disabled={Boolean(dob)}
+            required={!dob}
           >
-            <option value="">—</option>
+            {!dob && (
+              <option value="" disabled hidden>
+                — select —
+              </option>
+            )}
             {AGE_GROUPS.map((g) => (
               <option key={g} value={g}>
-                {g}
+                {ageGroupOptionLabel(g, ageGroupThresholds)}
               </option>
             ))}
           </select>
