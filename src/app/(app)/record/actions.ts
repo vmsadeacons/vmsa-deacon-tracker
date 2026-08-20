@@ -75,11 +75,11 @@ export async function setSpecialFeastAction(
   locationId: string,
   serviceType: ServiceTypeCode,
   isSpecialFeast: boolean,
-  feastName: string | null
+  feastNameId: string | null
 ) {
   await assertAdmin();
   try {
-    const context = await setSpecialFeast(date, locationId, serviceType, isSpecialFeast, feastName);
+    const context = await setSpecialFeast(date, locationId, serviceType, isSpecialFeast, feastNameId);
     return { ok: true as const, context };
   } catch (err) {
     return { ok: false as const, error: (err as Error).message };

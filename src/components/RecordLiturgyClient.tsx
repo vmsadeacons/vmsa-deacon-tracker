@@ -9,6 +9,7 @@ import SpecialFeastControl from "./SpecialFeastControl";
 import type { LocationRow } from "@/lib/repo/locations";
 import type { ActivityRow } from "@/lib/repo/activities";
 import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
+import type { FeastNameRow } from "@/lib/repo/feastNames";
 import type { LiturgyContext } from "@/lib/repo/liturgies";
 import type { SuggestionEntry } from "@/lib/repo/suggestions";
 import type { ServiceTypeCode } from "@/lib/constants";
@@ -33,6 +34,7 @@ export default function RecordLiturgyClient({
   locations,
   activities,
   deacons,
+  feastNames,
   initialDate,
   initialLocationId,
   initialServiceType,
@@ -42,6 +44,7 @@ export default function RecordLiturgyClient({
   locations: LocationRow[];
   activities: ActivityRow[];
   deacons: DeaconWithAgeGroup[];
+  feastNames: FeastNameRow[];
   initialDate: string;
   initialLocationId: string;
   initialServiceType: ServiceTypeCode;
@@ -218,11 +221,11 @@ export default function RecordLiturgyClient({
     setContext(fresh);
   }
 
-  async function handleSaveFeast(isSpecialFeast: boolean, feastName: string | null) {
+  async function handleSaveFeast(isSpecialFeast: boolean, feastNameId: string | null) {
     const targetDate = date;
     const targetLocationId = locationId;
     const targetServiceType = serviceType;
-    const result = await setSpecialFeastAction(targetDate, targetLocationId, targetServiceType, isSpecialFeast, feastName);
+    const result = await setSpecialFeastAction(targetDate, targetLocationId, targetServiceType, isSpecialFeast, feastNameId);
     if (
       dateRef.current !== targetDate ||
       locationIdRef.current !== targetLocationId ||
@@ -256,7 +259,8 @@ export default function RecordLiturgyClient({
         <SpecialFeastControl
           key={`${date}|${locationId}|${serviceType}`}
           isSpecialFeast={context?.isSpecialFeast ?? false}
-          feastName={context?.feastName ?? null}
+          feastNameId={context?.feastNameId ?? null}
+          feastNames={feastNames}
           onSave={handleSaveFeast}
         />
       </div>

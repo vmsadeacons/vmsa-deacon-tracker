@@ -1,43 +1,35 @@
 "use client";
 
 import { useState } from "react";
+import type { FeastNameRow } from "@/lib/repo/feastNames";
 
-/**
- * Admin-only (Record a Liturgy) -- Check-in and Reports never render this.
- *
- * Both the checkbox and the name field are derived directly off props
- * (isSpecialFeast/feastName), not copied into local state at mount: since
- * selecting a different date/location/service is async (the fresh liturgy
- * data arrives after the field change itself), a local copy seeded at
- * mount would show the *previous* liturgy's feast status/name until the
- * next remount -- sometimes indefinitely, if the fetch resolves after the
- * component already mounted with stale props. Deriving instead means the
- * display self-corrects the instant the real data lands, no matter the
- * timing. `pendingCheck` and `touched`/`manualDraft` exist only to hold the
- * admin's in-progress, unsaved input; they carry no server truth of their
- * own and are discarded (not merged) on the next liturgy switch.
- *
- * The caller should remount this component (e.g. via a `key` tied to
- * date/location/service) whenever the selected liturgy changes, so that
- * in-progress input doesn't leak from one liturgy to another.
- */
+// `checked`/`draftId` are derived from props on every render rather than
+// mirrored into local state at mount time -- date/location/service changes
+// are async, so a local copy would show the *previous* selection's feast
+// status until the fresh liturgy context arrived (a real bug hit during
+// testing). `pendingCheck` (checkbox ticked but not yet saved) and
+// `touched`/`manualDraftId` (dropdown changed but not yet saved) are the
+// only local state, tracking unsaved intent; the caller remounts this
+// component via a `key` on date/location/service so they reset naturally.
 export default function SpecialFeastControl({
   isSpecialFeast,
-  feastName,
+  feastNameId,
+  feastNames,
   onSave,
 }: {
   isSpecialFeast: boolean;
-  feastName: string | null;
-  onSave: (isSpecialFeast: boolean, feastName: string | null) => Promise<{ ok: boolean; error?: string }>;
+  feastNameId: string | null;
+  feastNames: FeastNameRow[];
+  onSave: (isSpecialFeast: boolean, feastNameId: string | null) => Promise<{ ok: boolean; error?: string }>;
 }) {
   const [pendingCheck, setPendingCheck] = useState(false);
   const [touched, setTouched] = useState(false);
-  const [manualDraft, setManualDraft] = useState("");
+  const [manualDraftId, setManualDraftId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const checked = isSpecialFeast || pendingCheck;
-  const draft = touched ? manualDraft : feastName ?? "";
+  const draftId = touched ? manualDraftId : feastNameId ?? "";
 
   async function handleCheckboxChange(next: boolean) {
     setError(null);
@@ -56,7 +48,7 @@ export default function SpecialFeastControl({
   async function handleSaveName() {
     setSaving(true);
     setError(null);
-    const result = await onSave(true, draft.trim());
+    const result = await onSave(true, draftId);
     if (result.ok) {
       setPendingCheck(false);
       setTouched(false);
@@ -80,23 +72,29 @@ export default function SpecialFeastControl({
         </label>
         {checked && (
           <>
-            <input
-              placeholder="Feast name (e.g. Nativity)"
-              value={draft}
+            <select
+              value={draftId}
               disabled={saving}
               onChange={(e) => {
                 setTouched(true);
-                setManualDraft(e.target.value);
+                setManualDraftId(e.target.value);
               }}
-              // .field input is width: 100% globally (so a normal single
-              // input fills its field) -- override it here since this
-              // input shares a row with the checkbox and Save button.
               style={{ width: "auto", flex: "1 1 220px" }}
-            />
+            >
+              <option value="" disabled hidden>
+                — select feast —
+              </option>
+              {feastNames.map((f) => (
+                <option key={f.id} value={f.id} disabled={f.status !== "Active"}>
+                  {f.name}
+                  {f.status !== "Active" ? " (inactive)" : ""}
+                </option>
+              ))}
+            </select>
             <button
               type="button"
               className="btn btn-secondary btn-sm"
-              disabled={saving || !draft.trim() || draft.trim() === feastName}
+              disabled={saving || !draftId || draftId === feastNameId}
               onClick={handleSaveName}
             >
               Save
@@ -104,6 +102,11 @@ export default function SpecialFeastControl({
           </>
         )}
       </div>
+      {checked && feastNames.length === 0 && (
+        <p className="muted" style={{ marginTop: "0.4rem" }}>
+          No feast names configured yet — add one in Settings → Feast Names.
+        </p>
+      )}
       {error && <p className="error-text" style={{ marginTop: "0.4rem" }}>{error}</p>}
     </div>
   );

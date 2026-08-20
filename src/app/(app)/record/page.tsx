@@ -2,6 +2,7 @@ import { requireAdmin } from "@/lib/authz";
 import { listLocations } from "@/lib/repo/locations";
 import { listActivities } from "@/lib/repo/activities";
 import { listDeacons } from "@/lib/repo/deacons";
+import { listFeastNames } from "@/lib/repo/feastNames";
 import { findLiturgyContext } from "@/lib/repo/liturgies";
 import { setStickyLocation } from "@/lib/repo/users";
 import { churchTodayISO, computeDefaultServiceType } from "@/lib/timezone";
@@ -10,10 +11,11 @@ import RecordLiturgyClient from "@/components/RecordLiturgyClient";
 
 export default async function RecordLiturgyPage() {
   const session = await requireAdmin();
-  const [locations, activities, deacons] = await Promise.all([
+  const [locations, activities, deacons, feastNames] = await Promise.all([
     listLocations(false),
     listActivities(false),
     listDeacons(true),
+    listFeastNames(true),
   ]);
 
   const date = churchTodayISO();
@@ -35,6 +37,7 @@ export default async function RecordLiturgyPage() {
       locations={locations}
       activities={activities}
       deacons={deacons}
+      feastNames={feastNames}
       initialDate={date}
       initialLocationId={locationId}
       initialServiceType={serviceType}

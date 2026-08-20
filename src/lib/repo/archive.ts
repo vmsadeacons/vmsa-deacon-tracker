@@ -69,8 +69,8 @@ export async function runArchive(
     ]);
 
     const { rowCount: liturgiesMoved } = await client.query(
-      `insert into archive_liturgies (id, date, location_id, service_type, is_special_feast, feast_name, created_at, updated_at)
-       select id, date, location_id, service_type, is_special_feast, feast_name, created_at, updated_at
+      `insert into archive_liturgies (id, date, location_id, service_type, is_special_feast, feast_name_id, created_at, updated_at)
+       select id, date, location_id, service_type, is_special_feast, feast_name_id, created_at, updated_at
        from liturgies
        where id = any($1::uuid[])`,
       [liturgyIds]

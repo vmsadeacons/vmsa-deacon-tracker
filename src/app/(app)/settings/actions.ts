@@ -7,6 +7,7 @@ import { createActivity, updateActivity } from "@/lib/repo/activities";
 import { setAgeGroupThresholds, setSuggestionSettings } from "@/lib/repo/settings";
 import { updatePWActivity } from "@/lib/repo/passionWeekActivities";
 import { createRank, updateRank } from "@/lib/repo/ranks";
+import { createFeastName, updateFeastName } from "@/lib/repo/feastNames";
 import type { PWActivityId } from "@/lib/constants";
 
 // Settings is view-only for General Admins — every mutation here is
@@ -100,4 +101,33 @@ export async function updateRankAction(
   revalidatePath("/settings");
   revalidatePath("/deacons");
   return { ok: true as const, rank };
+}
+
+export async function createFeastNameAction(name: string) {
+  await assertSystemAdmin();
+  try {
+    const feastName = await createFeastName(name);
+    revalidatePath("/settings");
+    revalidatePath("/record");
+    return { ok: true as const, feastName };
+  } catch (err) {
+    return { ok: false as const, error: (err as Error).message };
+  }
+}
+
+export async function updateFeastNameAction(
+  id: string,
+  patch: { name?: string; sortOrder?: number; status?: "Active" | "Inactive" }
+) {
+  await assertSystemAdmin();
+  try {
+    const feastName = await updateFeastName(id, patch);
+    revalidatePath("/settings");
+    revalidatePath("/record");
+    revalidatePath("/reports");
+    revalidatePath("/history");
+    return { ok: true as const, feastName };
+  } catch (err) {
+    return { ok: false as const, error: (err as Error).message };
+  }
 }

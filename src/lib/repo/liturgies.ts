@@ -41,16 +41,16 @@ export async function setSpecialFeast(
   locationId: string,
   serviceType: ServiceTypeCode,
   isSpecialFeast: boolean,
-  feastName: string | null
+  feastNameId: string | null
 ): Promise<LiturgyContext> {
-  if (isSpecialFeast && !feastName?.trim()) {
+  if (isSpecialFeast && !feastNameId) {
     throw new Error("A special feast needs a name");
   }
   const liturgyId = await getOrCreateLiturgy(date, locationId, serviceType);
-  await query(`update liturgies set is_special_feast = $2, feast_name = $3 where id = $1`, [
+  await query(`update liturgies set is_special_feast = $2, feast_name_id = $3 where id = $1`, [
     liturgyId,
     isSpecialFeast,
-    isSpecialFeast ? feastName!.trim() : null,
+    isSpecialFeast ? feastNameId : null,
   ]);
   return getLiturgyContext(liturgyId);
 }
@@ -68,6 +68,7 @@ export interface LiturgyParticipantRow {
 export interface LiturgyContext {
   liturgyId: string;
   isSpecialFeast: boolean;
+  feastNameId: string | null;
   feastName: string | null;
   attendeeIds: string[];
   attendees: { deaconId: string; name: string; status: string }[];
@@ -85,8 +86,15 @@ async function buildLiturgyContext(
 ): Promise<LiturgyContext> {
   const liturgyTable = archived ? "archive_liturgies" : "liturgies";
   const participationTable = archived ? "archive_participation" : "participation";
-  const { rows: liturgyRows } = await query<{ is_special_feast: boolean; feast_name: string | null }>(
-    `select is_special_feast, feast_name from ${liturgyTable} where id = $1`,
+  const { rows: liturgyRows } = await query<{
+    is_special_feast: boolean;
+    feast_name_id: string | null;
+    feast_name: string | null;
+  }>(
+    `select l.is_special_feast, l.feast_name_id, fn.name as feast_name
+     from ${liturgyTable} l
+     left join feast_names fn on fn.id = l.feast_name_id
+     where l.id = $1`,
     [liturgyId]
   );
   const { rows } = await query<LiturgyParticipantRow>(
@@ -136,6 +144,7 @@ async function buildLiturgyContext(
   return {
     liturgyId,
     isSpecialFeast: liturgyRows[0]?.is_special_feast ?? false,
+    feastNameId: liturgyRows[0]?.feast_name_id ?? null,
     feastName: liturgyRows[0]?.feast_name ?? null,
     attendeeIds: [...attendeeMap.keys()],
     attendees: [...attendeeMap.values()],
@@ -154,7 +163,15 @@ export async function getLiturgyContext(liturgyId: string): Promise<LiturgyConte
 }
 
 function emptyLiturgyContext(): LiturgyContext {
-  return { liturgyId: "", isSpecialFeast: false, feastName: null, attendeeIds: [], attendees: [], assignments: [] };
+  return {
+    liturgyId: "",
+    isSpecialFeast: false,
+    feastNameId: null,
+    feastName: null,
+    attendeeIds: [],
+    attendees: [],
+    assignments: [],
+  };
 }
 
 /**
@@ -362,11 +379,13 @@ export async function getRecentLiturgiesByLocation(): Promise<RecentLiturgyRow[]
       feast_name: string | null;
       archived: boolean;
     }>(
-      `select id, date, service_type, is_special_feast, feast_name, false as archived
-         from liturgies where location_id = $1
+      `select l.id, l.date, l.service_type, l.is_special_feast, fn.name as feast_name, false as archived
+         from liturgies l left join feast_names fn on fn.id = l.feast_name_id
+         where l.location_id = $1
        union all
-       select id, date, service_type, is_special_feast, feast_name, true as archived
-         from archive_liturgies where location_id = $1
+       select l.id, l.date, l.service_type, l.is_special_feast, fn.name as feast_name, true as archived
+         from archive_liturgies l left join feast_names fn on fn.id = l.feast_name_id
+         where l.location_id = $1
        order by date desc
        limit 1`,
       [loc.id]

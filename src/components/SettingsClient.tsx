@@ -7,6 +7,7 @@ import type { ActivityRow } from "@/lib/repo/activities";
 import type { AppSettings } from "@/lib/repo/settings";
 import type { PWActivityRow } from "@/lib/repo/passionWeekActivities";
 import type { RankRow } from "@/lib/repo/ranks";
+import type { FeastNameRow } from "@/lib/repo/feastNames";
 import {
   createLocationAction,
   updateLocationAction,
@@ -17,6 +18,8 @@ import {
   updatePWActivityAction,
   createRankAction,
   updateRankAction,
+  createFeastNameAction,
+  updateFeastNameAction,
 } from "@/app/(app)/settings/actions";
 
 function ViewOnlyNote() {
@@ -295,6 +298,118 @@ function RanksCard({ ranks, canEdit }: { ranks: RankRow[]; canEdit: boolean }) {
   );
 }
 
+function FeastNamesCard({ feastNames, canEdit }: { feastNames: FeastNameRow[]; canEdit: boolean }) {
+  const router = useRouter();
+  const [newName, setNewName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const sorted = [...feastNames].sort((a, b) => a.sort_order - b.sort_order);
+  const [drafts, setDrafts] = useState(
+    Object.fromEntries(sorted.map((f) => [f.id, { name: f.name, sortOrder: f.sort_order }]))
+  );
+
+  async function add() {
+    if (!newName.trim()) return;
+    setError(null);
+    const result = await createFeastNameAction(newName.trim());
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setNewName("");
+    router.refresh();
+  }
+
+  async function saveDraft(id: string) {
+    const draft = drafts[id];
+    setError(null);
+    const result = await updateFeastNameAction(id, { name: draft.name, sortOrder: draft.sortOrder });
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    router.refresh();
+  }
+
+  async function toggleStatus(f: FeastNameRow) {
+    await updateFeastNameAction(f.id, { status: f.status === "Active" ? "Inactive" : "Active" });
+    router.refresh();
+  }
+
+  return (
+    <div className="card">
+      <h3>Feast Names</h3>
+      <p className="muted" style={{ marginBottom: "1rem" }}>
+        The Special Feast dropdown on Record a Liturgy only ever offers names from this list, so
+        every admin records the same feast the same way. Renaming one here updates it everywhere
+        it&apos;s already been recorded.
+      </p>
+      <div className="table-wrap" style={{ marginBottom: "1rem" }}>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Order</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((f) => (
+              <tr key={f.id}>
+                <td>
+                  <input
+                    value={drafts[f.id]?.name ?? f.name}
+                    disabled={!canEdit}
+                    onChange={(e) =>
+                      setDrafts((d) => ({ ...d, [f.id]: { ...d[f.id], name: e.target.value } }))
+                    }
+                  />
+                </td>
+                <td>
+                  <input
+                    type="number"
+                    style={{ width: 70 }}
+                    value={drafts[f.id]?.sortOrder ?? f.sort_order}
+                    disabled={!canEdit}
+                    onChange={(e) =>
+                      setDrafts((d) => ({
+                        ...d,
+                        [f.id]: { ...d[f.id], sortOrder: Number(e.target.value) },
+                      }))
+                    }
+                  />
+                </td>
+                <td>
+                  <span className={`badge ${f.status === "Active" ? "badge-green" : "badge-grey"}`}>{f.status}</span>
+                </td>
+                <td style={{ display: "flex", gap: "0.4rem" }}>
+                  <button className="btn btn-secondary btn-sm" disabled={!canEdit} onClick={() => saveDraft(f.id)}>
+                    Save
+                  </button>
+                  <button className="btn btn-secondary btn-sm" disabled={!canEdit} onClick={() => toggleStatus(f)}>
+                    {f.status === "Active" ? "Deactivate" : "Activate"}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {error && <p className="error-text" style={{ marginBottom: "0.75rem" }}>{error}</p>}
+      {canEdit ? (
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <input placeholder="New feast name" value={newName} onChange={(e) => setNewName(e.target.value)} />
+          <button className="btn btn-primary" onClick={add}>
+            Add
+          </button>
+        </div>
+      ) : (
+        <ViewOnlyNote />
+      )}
+    </div>
+  );
+}
+
 function ServiceSuggestionsCard({ settings, canEdit }: { settings: AppSettings; canEdit: boolean }) {
   const router = useRouter();
   const [windowMonths, setWindowMonths] = useState(settings.suggestionWindowMonths);
@@ -509,6 +624,7 @@ export default function SettingsClient({
   settings,
   pwActivities,
   ranks,
+  feastNames,
   canEdit,
 }: {
   locations: LocationRow[];
@@ -516,6 +632,7 @@ export default function SettingsClient({
   settings: AppSettings;
   pwActivities: PWActivityRow[];
   ranks: RankRow[];
+  feastNames: FeastNameRow[];
   canEdit: boolean;
 }) {
   return (
@@ -527,6 +644,7 @@ export default function SettingsClient({
       <LocationsCard locations={locations} canEdit={canEdit} />
       <ActivitiesCard activities={activities} canEdit={canEdit} />
       <PassionWeekActivitiesCard pwActivities={pwActivities} canEdit={canEdit} />
+      <FeastNamesCard feastNames={feastNames} canEdit={canEdit} />
     </div>
   );
 }

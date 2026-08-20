@@ -58,7 +58,7 @@ export async function getDeaconHistory(
   toDate: string | null
 ): Promise<DeaconHistory> {
   const { rows } = await query<RawHistoryRow>(
-    `select l.date, l.service_type, l.is_special_feast, l.feast_name,
+    `select l.date, l.service_type, l.is_special_feast, fn.name as feast_name,
             exists(select 1 from liturgies l2 where l2.date = l.date and l2.location_id = l.location_id and l2.id <> l.id) as has_sibling,
             loc.name as location_name, a.name as activity_name,
             a.allows_multiple, p.liturgy_id, a.sort_order as activity_sort_order
@@ -66,11 +66,12 @@ export async function getDeaconHistory(
      join liturgies l on l.id = p.liturgy_id
      join locations loc on loc.id = l.location_id
      left join activities a on a.id = p.activity_id
+     left join feast_names fn on fn.id = l.feast_name_id
      where p.deacon_id = $1
        and ($2::date is null or l.date >= $2)
        and ($3::date is null or l.date <= $3)
      union all
-     select l.date, l.service_type, l.is_special_feast, l.feast_name,
+     select l.date, l.service_type, l.is_special_feast, fn.name as feast_name,
             exists(select 1 from archive_liturgies l2 where l2.date = l.date and l2.location_id = l.location_id and l2.id <> l.id) as has_sibling,
             loc.name as location_name, a.name as activity_name,
             a.allows_multiple, p.liturgy_id, a.sort_order as activity_sort_order
@@ -78,6 +79,7 @@ export async function getDeaconHistory(
      join archive_liturgies l on l.id = p.liturgy_id
      join locations loc on loc.id = l.location_id
      left join activities a on a.id = p.activity_id
+     left join feast_names fn on fn.id = l.feast_name_id
      where p.deacon_id = $1
        and ($2::date is null or l.date >= $2)
        and ($3::date is null or l.date <= $3)
