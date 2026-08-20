@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { assertSystemAdmin } from "@/lib/authz";
 import { createLocation, updateLocation } from "@/lib/repo/locations";
 import { createActivity, updateActivity } from "@/lib/repo/activities";
-import { setAgeGroupThresholds } from "@/lib/repo/settings";
+import { setAgeGroupThresholds, setSuggestionSettings } from "@/lib/repo/settings";
 import { updatePWActivity } from "@/lib/repo/passionWeekActivities";
 import { createRank, updateRank } from "@/lib/repo/ranks";
 import type { PWActivityId } from "@/lib/constants";
@@ -53,6 +53,18 @@ export async function setAgeGroupThresholdsAction(youthMin: number, adultMin: nu
     await setAgeGroupThresholds(youthMin, adultMin);
     revalidatePath("/settings");
     revalidatePath("/deacons");
+    return { ok: true as const };
+  } catch (err) {
+    return { ok: false as const, error: (err as Error).message };
+  }
+}
+
+export async function setSuggestionSettingsAction(windowMonths: number, minAttendance: number) {
+  await assertSystemAdmin();
+  try {
+    await setSuggestionSettings(windowMonths, minAttendance);
+    revalidatePath("/settings");
+    revalidatePath("/record");
     return { ok: true as const };
   } catch (err) {
     return { ok: false as const, error: (err as Error).message };

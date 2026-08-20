@@ -10,6 +10,7 @@ import type { LocationRow } from "@/lib/repo/locations";
 import type { ActivityRow } from "@/lib/repo/activities";
 import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
 import type { LiturgyContext } from "@/lib/repo/liturgies";
+import type { SuggestionEntry } from "@/lib/repo/suggestions";
 import type { ServiceTypeCode } from "@/lib/constants";
 import { liturgyPrefMatchCodes } from "@/lib/timezone";
 import {
@@ -19,6 +20,7 @@ import {
   toggleAltarAction,
   setReadingAction,
   setSpecialFeastAction,
+  getServiceSuggestionsAction,
 } from "@/app/(app)/record/actions";
 
 const POLL_MS = 20000;
@@ -116,6 +118,26 @@ export default function RecordLiturgyClient({
   const allRosterSorted = [...deacons]
     .filter((d) => d.status === "Active" || attendeeIds.includes(d.id))
     .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Who's most overdue for Altar Service / Readings, among whoever's
+  // currently marked present -- re-fetched whenever the actual set of
+  // attendees changes (a stable string key, not the array reference, so an
+  // unrelated context update like an assignment change doesn't re-fetch).
+  const [suggestions, setSuggestions] = useState<{
+    altar: SuggestionEntry[];
+    readings: SuggestionEntry[];
+    windowMonths: number;
+  }>({ altar: [], readings: [], windowMonths: 0 });
+  const suggestionSeqRef = useRef(0);
+  const attendeeIdsKey = attendeeIds.join(",");
+  useEffect(() => {
+    const seq = ++suggestionSeqRef.current;
+    getServiceSuggestionsAction(attendeeIds).then((res) => {
+      if (seq !== suggestionSeqRef.current) return;
+      setSuggestions(res);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attendeeIdsKey]);
 
   function showNotice(text: string) {
     setNotice(text);
@@ -281,6 +303,31 @@ export default function RecordLiturgyClient({
       {altarActivity && (
         <div className="card">
           <div className="step-header">3 · Altar Service</div>
+          {suggestions.altar.length > 0 && (
+            <>
+              <p className="muted" style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.5rem" }}>
+                Suggested (lowest altar % over the last {suggestions.windowMonths} month
+                {suggestions.windowMonths === 1 ? "" : "s"}) — tap to add
+              </p>
+              <div className="chip-row" style={{ marginBottom: "1rem" }}>
+                {suggestions.altar.map((s) => {
+                  const name = attendees.find((a) => a.deaconId === s.deaconId)?.name;
+                  if (!name) return null;
+                  return (
+                    <button
+                      key={s.deaconId}
+                      type="button"
+                      className="chip chip-suggested"
+                      onClick={() => handleToggleAltar(altarActivity.id, s.deaconId)}
+                    >
+                      {name} ({Math.round(s.percent * 100)}%)
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{ borderTop: "1px solid var(--border)", marginBottom: "1rem" }} />
+            </>
+          )}
           <div className="chip-row">
             {attendees.length === 0 && <p className="muted">Mark attendance first.</p>}
             {attendees.map((a) => {
@@ -302,14 +349,34 @@ export default function RecordLiturgyClient({
       )}
 
       {readingActivities.length > 0 && (
-        <div>
-          <h3>4 · Readings</h3>
+        <div className="card">
+          <div className="step-header">4 · Readings</div>
+          {suggestions.readings.length > 0 && (
+            <>
+              <p className="muted" style={{ fontSize: "0.8rem", fontWeight: 600, marginBottom: "0.5rem" }}>
+                Suggested (lowest readings % over the last {suggestions.windowMonths} month
+                {suggestions.windowMonths === 1 ? "" : "s"}, across all reading roles)
+              </p>
+              <div className="chip-row" style={{ marginBottom: "1.1rem" }}>
+                {suggestions.readings.map((s) => {
+                  const name = attendees.find((a) => a.deaconId === s.deaconId)?.name;
+                  if (!name) return null;
+                  return (
+                    <span key={s.deaconId} className="badge badge-gold">
+                      {name} ({Math.round(s.percent * 100)}%)
+                    </span>
+                  );
+                })}
+              </div>
+              <div style={{ borderTop: "1px solid var(--border)", marginBottom: "1.1rem" }} />
+            </>
+          )}
           <div className="grid-2">
-            {readingActivities.map((act) => {
+            {readingActivities.map((act, i) => {
               const assignment = context?.assignments.find((x) => x.activityId === act.id);
               const current = assignment?.deaconIds[0] ?? "";
               return (
-                <div key={act.id} className="card">
+                <div key={act.id} style={i === 0 ? { gridColumn: "1 / -1" } : undefined}>
                   <div className="step-header">{act.name}</div>
                   <SingleRosterPickerModal
                     items={attendees.map((a) => ({ id: a.deaconId, name: a.name }))}

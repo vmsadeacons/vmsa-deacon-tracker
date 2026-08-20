@@ -10,6 +10,8 @@ import {
   setSpecialFeast,
 } from "@/lib/repo/liturgies";
 import { setStickyLocation } from "@/lib/repo/users";
+import { getAppSettings } from "@/lib/repo/settings";
+import { getServiceSuggestions } from "@/lib/repo/suggestions";
 import type { ServiceTypeCode } from "@/lib/constants";
 
 /** Read-only -- never creates a liturgy row just from viewing a date. */
@@ -55,6 +57,17 @@ export async function setReadingAction(
 ) {
   await assertAdmin();
   return setSingleActivityAssignment(date, locationId, serviceType, activityId, deaconId, "admin");
+}
+
+export async function getServiceSuggestionsAction(deaconIds: string[]) {
+  await assertAdmin();
+  const settings = await getAppSettings();
+  const result = await getServiceSuggestions(
+    deaconIds,
+    settings.suggestionWindowMonths,
+    settings.suggestionMinAttendance
+  );
+  return { ...result, windowMonths: settings.suggestionWindowMonths };
 }
 
 export async function setSpecialFeastAction(

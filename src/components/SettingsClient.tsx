@@ -13,6 +13,7 @@ import {
   createActivityAction,
   updateActivityAction,
   setAgeGroupThresholdsAction,
+  setSuggestionSettingsAction,
   updatePWActivityAction,
   createRankAction,
   updateRankAction,
@@ -294,6 +295,66 @@ function RanksCard({ ranks, canEdit }: { ranks: RankRow[]; canEdit: boolean }) {
   );
 }
 
+function ServiceSuggestionsCard({ settings, canEdit }: { settings: AppSettings; canEdit: boolean }) {
+  const router = useRouter();
+  const [windowMonths, setWindowMonths] = useState(settings.suggestionWindowMonths);
+  const [minAttendance, setMinAttendance] = useState(settings.suggestionMinAttendance);
+  const [error, setError] = useState<string | null>(null);
+
+  const valid = Number.isInteger(windowMonths) && windowMonths >= 1 && Number.isInteger(minAttendance) && minAttendance >= 1;
+
+  async function save() {
+    setError(null);
+    const result = await setSuggestionSettingsAction(windowMonths, minAttendance);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    router.refresh();
+  }
+
+  return (
+    <div className="card">
+      <h3>Service Suggestions based on historical % participation</h3>
+      <p className="muted" style={{ marginBottom: "0.75rem" }}>
+        On Record a Liturgy, the Altar Service and Readings sections suggest whoever currently
+        attending has the lowest historical participation, so service rotates fairly.
+      </p>
+      <div className="grid-2" style={{ marginBottom: "0.75rem" }}>
+        <div className="field">
+          <label>Rolling window (months)</label>
+          <input
+            type="number"
+            min={1}
+            disabled={!canEdit}
+            value={windowMonths}
+            onChange={(e) => setWindowMonths(Number(e.target.value))}
+          />
+        </div>
+        <div className="field">
+          <label>Minimum attendances to qualify</label>
+          <input
+            type="number"
+            min={1}
+            disabled={!canEdit}
+            value={minAttendance}
+            onChange={(e) => setMinAttendance(Number(e.target.value))}
+          />
+        </div>
+      </div>
+      {!valid && <p className="error-text" style={{ marginBottom: "0.75rem" }}>Both values must be whole numbers of at least 1.</p>}
+      {error && <p className="error-text" style={{ marginBottom: "0.75rem" }}>{error}</p>}
+      {canEdit ? (
+        <button className="btn btn-primary" disabled={!valid} onClick={save}>
+          Save
+        </button>
+      ) : (
+        <ViewOnlyNote />
+      )}
+    </div>
+  );
+}
+
 function AgeGroupsCard({ settings, canEdit }: { settings: AppSettings; canEdit: boolean }) {
   const router = useRouter();
   const [youthMin, setYouthMin] = useState(settings.ageGroupYouthMin);
@@ -460,6 +521,7 @@ export default function SettingsClient({
   return (
     <div>
       <h1>Settings</h1>
+      <ServiceSuggestionsCard settings={settings} canEdit={canEdit} />
       <AgeGroupsCard settings={settings} canEdit={canEdit} />
       <RanksCard ranks={ranks} canEdit={canEdit} />
       <LocationsCard locations={locations} canEdit={canEdit} />

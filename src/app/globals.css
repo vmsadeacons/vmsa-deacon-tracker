@@ -386,6 +386,19 @@ textarea:focus {
   cursor: not-allowed;
 }
 
+/* Tappable suggestion (Record a Liturgy's Altar Service) -- visually
+   distinct from a plain chip so it reads as "recommended", not "selected". */
+.chip-suggested {
+  border-style: dashed;
+  border-color: var(--gold);
+  color: var(--gold);
+  background: var(--gold-bg);
+}
+
+.chip-suggested:hover {
+  border-color: var(--gold);
+}
+
 .chip-row {
   display: flex;
   flex-wrap: wrap;
