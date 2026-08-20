@@ -18,7 +18,23 @@ export interface UserRow {
   created_at: string;
 }
 
-export interface UserWithPerson extends UserRow {
+/**
+ * Client-facing shape for Access & Roles -- deliberately omits pin_hash.
+ * PINs are short (a handful of digits), so shipping the bcrypt hash to the
+ * browser would make them practical to brute-force offline; has_pin is all
+ * the UI actually needs (to know whether "leave blank" means "no PIN
+ * exists yet" or "keep the current one").
+ */
+export interface UserWithPerson {
+  id: string;
+  email: string;
+  name: string | null;
+  role: Role;
+  linked_deacon_id: string | null;
+  has_pin: boolean;
+  status: "Active" | "Disabled";
+  is_primary_admin: boolean;
+  created_at: string;
   person_name: string; // linked deacon's name, else own name/email
 }
 
@@ -90,7 +106,9 @@ export async function setStickyLocation(
 
 export async function listUsers(): Promise<UserWithPerson[]> {
   const { rows } = await query<UserWithPerson>(
-    `select u.*, coalesce(d.name, u.name, u.email) as person_name
+    `select u.id, u.email, u.name, u.role, u.linked_deacon_id, (u.pin_hash is not null) as has_pin,
+            u.status, u.is_primary_admin, u.created_at,
+            coalesce(d.name, u.name, u.email) as person_name
      from users u
      left join deacons d on d.id = u.linked_deacon_id
      order by person_name`
@@ -143,6 +161,9 @@ export async function grantAccess(params: {
   if (!canAssignRole(params.actorRole, params.role)) {
     throw new Error(roleGrantErrorMessage(params.role));
   }
+  if (params.role === "Deacon" && !params.pin) {
+    throw new Error("Deacons need a PIN before they can sign in -- set one before saving");
+  }
   const pinHash = params.pin ? await hashPin(params.pin) : null;
   const { rows } = await query<UserRow>(
     `insert into users (email, name, role, linked_deacon_id, pin_hash)
@@ -183,6 +204,10 @@ export async function updateUser(
     pinHash = null;
   } else {
     pinHash = undefined;
+  }
+
+  if (newRole === "Deacon" && pinHash === undefined && !target.pin_hash) {
+    throw new Error("Deacons need a PIN before they can sign in -- set one before saving");
   }
 
   const { rows } = await query<UserRow>(

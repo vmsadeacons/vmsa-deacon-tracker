@@ -44,10 +44,18 @@ export default function UserForm({
   const emailLocked = Boolean(selectedDeacon?.email);
   const effectiveEmail = emailLocked ? selectedDeacon!.email! : email;
   const pinEnabled = role === "Deacon";
+  // A Deacon can never sign in without a PIN, so one is required unless
+  // this account already has one and the admin is just leaving it unchanged.
+  const hasExistingPin = Boolean(initial?.has_pin);
+  const pinRequired = pinEnabled && !hasExistingPin;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (pinRequired && !pin) {
+      setError("Deacons need a PIN before they can sign in -- enter one to continue.");
+      return;
+    }
     setSaving(true);
     try {
       await onSave({
@@ -101,10 +109,13 @@ export default function UserForm({
       </div>
 
       <div className="field">
-        <label>PIN {initial ? "(leave blank to keep unchanged)" : "(optional — can be set later)"}</label>
+        <label>
+          PIN {pinRequired ? "(required)" : hasExistingPin ? "(leave blank to keep unchanged)" : ""}
+        </label>
         <input
           type="password"
           inputMode="numeric"
+          required={pinRequired}
           value={pin}
           disabled={!pinEnabled}
           onChange={(e) => setPin(e.target.value)}
