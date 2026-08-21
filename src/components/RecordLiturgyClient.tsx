@@ -376,11 +376,11 @@ export default function RecordLiturgyClient({
             </>
           )}
           <div className="grid-2">
-            {readingActivities.map((act, i) => {
+            {readingActivities.map((act) => {
               const assignment = context?.assignments.find((x) => x.activityId === act.id);
               const current = assignment?.deaconIds[0] ?? "";
               return (
-                <div key={act.id} style={i === 0 ? { gridColumn: "1 / -1" } : undefined}>
+                <div key={act.id}>
                   <div className="step-header">{act.name}</div>
                   <SingleRosterPickerModal
                     items={attendees.map((a) => ({ id: a.deaconId, name: a.name }))}
