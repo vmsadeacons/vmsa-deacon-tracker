@@ -1,12 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { LocationRow } from "@/lib/repo/locations";
 import type { RankRow } from "@/lib/repo/ranks";
 import type { DayFilterOptionRow } from "@/lib/repo/dayFilterOptions";
 import type { SummaryRow } from "@/lib/repo/reports";
 import { getSummaryReportAction } from "@/app/(app)/reports/actions";
-import { useLatestRequest } from "@/lib/useLatestRequest";
 import { churchTodayAction, monthsAgoAction, yearStartAction } from "@/lib/actions/shared";
 import { SERVICE_TYPES, SERVICE_LABELS, AGE_GROUPS, type ServiceTypeCode } from "@/lib/constants";
 import { withPercent } from "@/lib/percent";
@@ -24,7 +23,7 @@ export default function SummaryTab({
   ranks: RankRow[];
   dayFilterOptions: DayFilterOptionRow[];
 }) {
-  const [period, setPeriod] = useState<Period>("3");
+  const [period, setPeriod] = useState<Period>("ytd");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [locationId, setLocationId] = useState(""); // "" = All locations, per spec §6.5
@@ -36,18 +35,71 @@ export default function SummaryTab({
   const [includeZeroAttendance, setIncludeZeroAttendance] = useState(false);
   const [rows, setRows] = useState<SummaryRow[] | null>(null);
   const [rangeLabel, setRangeLabel] = useState<string | null>(null);
-  const [appliedFilters, setAppliedFilters] = useState<{ label: string; value: string }[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [fetching, setFetching] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<1 | -1>(1);
-  const runLatest = useLatestRequest<{ rows: SummaryRow[]; minDate: string | null }>();
+  // Guards against an older field-change's response landing after a newer
+  // one -- e.g. a slow "Location" fetch resolving after a faster
+  // subsequent "Rank" fetch.
+  const fetchSeqRef = useRef(0);
 
-  // Snapshot of every filter as it stood when "View" was clicked -- shown
-  // above the results and baked into the CSV export, so the criteria behind
-  // a set of numbers is never ambiguous (spec ask: exports were hard to
-  // interpret without seeing the filters that produced them).
-  function currentFilterSummary(): { label: string; value: string }[] {
-    return [
+  // Location/Service/Rank/Day/Period change which rows the server
+  // aggregates, so they need a fresh fetch -- once on mount with the
+  // defaults, then again on every change, with no "View" button needed.
+  // Age group, Guests, and 0-attendance only re-slice rows already in the
+  // browser (see `sorted` below), so they stay instant and never trigger
+  // this. Every setState below runs inside a .then() callback, never
+  // synchronously in the effect body itself.
+  useEffect(() => {
+    const seq = ++fetchSeqRef.current;
+
+    const datePromise: Promise<{ from: string | null; to: string | null }> =
+      period === "custom"
+        ? (toDate ? Promise.resolve(toDate) : churchTodayAction()).then((to) => ({
+            from: fromDate || null,
+            to,
+          }))
+        : period === "ytd"
+        ? Promise.all([yearStartAction(), churchTodayAction()]).then(([from, to]) => ({ from, to }))
+        : Promise.all([monthsAgoAction(Number(period)), churchTodayAction()]).then(([from, to]) => ({
+            from,
+            to,
+          }));
+
+    datePromise
+      .then(({ from, to }) => {
+        if (seq !== fetchSeqRef.current) return null;
+        setFetching(true);
+        return getSummaryReportAction(
+          from,
+          to,
+          locationId || null,
+          (serviceType as ServiceTypeCode) || null,
+          rankId || null,
+          dayFilterId || null
+        ).then((res) => ({ from, to, res }));
+      })
+      .then((result) => {
+        if (!result || seq !== fetchSeqRef.current) return;
+        const { from, to, res } = result;
+        setRows(res.rows);
+        setRangeLabel(dateRangeLabel(from ?? res.minDate, to));
+        setFetching(false);
+      });
+  }, [period, fromDate, toDate, locationId, serviceType, rankId, dayFilterId]);
+
+  // While a fetch is in flight, the whole page shows a wait cursor -- the
+  // previous results stay on screen (see render below) rather than
+  // disappearing, so switching a filter never flashes an empty table.
+  useEffect(() => {
+    document.body.style.cursor = fetching ? "wait" : "";
+    return () => {
+      document.body.style.cursor = "";
+    };
+  }, [fetching]);
+
+  const appliedFilters = useMemo(
+    () => [
       { label: "Location", value: locations.find((l) => l.id === locationId)?.name ?? "All locations" },
       {
         label: "Service",
@@ -58,48 +110,28 @@ export default function SummaryTab({
       { label: "Day", value: dayFilterOptions.find((o) => o.id === dayFilterId)?.label ?? "All days" },
       { label: "Guests", value: includeGuests ? "Included" : "Excluded" },
       { label: "0-attendance deacons", value: includeZeroAttendance ? "Included" : "Excluded" },
-    ];
-  }
-
-  async function handleView() {
-    let from: string | null;
-    let to: string | null;
-    if (period === "custom") {
-      from = fromDate || null;
-      to = toDate || (await churchTodayAction());
-    } else if (period === "ytd") {
-      from = await yearStartAction();
-      to = await churchTodayAction();
-    } else {
-      from = await monthsAgoAction(Number(period));
-      to = await churchTodayAction();
-    }
-    setLoading(true);
-    runLatest(
-      getSummaryReportAction(
-        from,
-        to,
-        locationId || null,
-        (serviceType as ServiceTypeCode) || null,
-        includeGuests,
-        rankId || null,
-        dayFilterId || null
-      ),
-      (res) => {
-        setRows(res.rows);
-        setRangeLabel(dateRangeLabel(from ?? res.minDate, to));
-        setAppliedFilters(currentFilterSummary());
-        setLoading(false);
-      }
-    );
-  }
+    ],
+    [
+      locations,
+      locationId,
+      serviceType,
+      ranks,
+      rankId,
+      ageGroupFilter,
+      dayFilterOptions,
+      dayFilterId,
+      includeGuests,
+      includeZeroAttendance,
+    ]
+  );
 
   const sorted = useMemo(() => {
     if (!rows) return null;
     const filtered = rows.filter(
       (r) =>
         (!ageGroupFilter || r.ageGroup === ageGroupFilter) &&
-        (includeZeroAttendance || r.attended > 0)
+        (includeZeroAttendance || r.attended > 0) &&
+        (includeGuests || !r.isGuest)
     );
     const copy = [...filtered];
     copy.sort((a, b) => {
@@ -109,7 +141,7 @@ export default function SummaryTab({
       return String(av ?? "").localeCompare(String(bv ?? "")) * sortDir;
     });
     return copy;
-  }, [rows, ageGroupFilter, includeZeroAttendance, sortKey, sortDir]);
+  }, [rows, ageGroupFilter, includeZeroAttendance, includeGuests, sortKey, sortDir]);
 
   function toggleSort(key: SortKey) {
     if (key === sortKey) {
@@ -128,7 +160,7 @@ export default function SummaryTab({
   function exportCsv() {
     if (!sorted) return;
     const escapeCell = (v: string) => `"${v.replace(/"/g, '""')}"`;
-    const meta = ["Summary Report", ...(rangeLabel ? [rangeLabel] : [])];
+    const meta = ["Summary Report", ...(rangeLabel ? [rangeLabel] : []), `Rows: ${sorted.length}`];
     for (const f of appliedFilters) meta.push(`${f.label}: ${f.value}`);
     const header = ["Name", "Age group", "Attended", "Altar", "Readings"];
     const lines = [...meta.map(escapeCell), "", header.join(",")];
@@ -259,25 +291,34 @@ export default function SummaryTab({
           </div>
         </div>
         <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
-          <button className="btn btn-primary" onClick={handleView}>
-            View
-          </button>
           <button className="btn btn-secondary" disabled={!sorted} onClick={exportCsv}>
             Export CSV
           </button>
         </div>
       </div>
 
-      {loading && <p className="muted">Loading…</p>}
+      {!sorted && fetching && <p className="muted">Loading…</p>}
 
-      {sorted && !loading && (
+      {sorted && (
         <div className="card">
-          {rangeLabel && <p className="muted" style={{ marginBottom: "0.35rem" }}>{rangeLabel}</p>}
-          {appliedFilters.length > 0 && (
-            <p className="muted" style={{ marginBottom: "0.75rem", fontSize: "0.85rem" }}>
-              {appliedFilters.map((f) => `${f.label}: ${f.value}`).join(" · ")}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "baseline",
+              gap: "0.6rem",
+              flexWrap: "wrap",
+              marginBottom: "0.35rem",
+            }}
+          >
+            {rangeLabel && <p className="muted" style={{ margin: 0 }}>{rangeLabel}</p>}
+            <p className="muted" style={{ margin: 0, fontWeight: 600 }}>
+              {sorted.length} row{sorted.length === 1 ? "" : "s"}
             </p>
-          )}
+            {fetching && <span className="muted" style={{ fontSize: "0.8rem" }}>Updating…</span>}
+          </div>
+          <p className="muted" style={{ marginBottom: "0.75rem", fontSize: "0.85rem" }}>
+            {appliedFilters.map((f) => `${f.label}: ${f.value}`).join(" · ")}
+          </p>
           <div className="table-wrap">
             <table className="table">
               <thead>

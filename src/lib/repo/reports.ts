@@ -164,10 +164,12 @@ export interface SummaryReport {
   minDate: string | null;
 }
 
-// $7 (day filter mode: 'none' | 'weekdays' | 'specialFeast') and $8 (the
+// $6 (day filter mode: 'none' | 'weekdays' | 'specialFeast') and $7 (the
 // weekday set for the 'weekdays' mode) let the Summary report restrict to a
 // configurable day-of-week combination (see day_filter_options) -- 'none'
-// applies no restriction, matching the pre-existing behavior.
+// applies no restriction, matching the pre-existing behavior. Guests are
+// never excluded here -- that filter is applied client-side (like Age
+// group), so toggling it doesn't need a fresh fetch.
 const SUMMARY_COMBINED_CTE = `
   with combined as (
     select p.deacon_id, p.liturgy_id, l.date, l.location_id, l.service_type, a.allows_multiple
@@ -179,9 +181,9 @@ const SUMMARY_COMBINED_CTE = `
       and ($3::uuid is null or l.location_id = $3)
       and ($4::text is null or l.service_type = $4)
       and (
-        $7::text = 'none'
-        or ($7 = 'specialFeast' and l.is_special_feast)
-        or ($7 = 'weekdays' and extract(dow from l.date)::int = any($8::int[]))
+        $6::text = 'none'
+        or ($6 = 'specialFeast' and l.is_special_feast)
+        or ($6 = 'weekdays' and extract(dow from l.date)::int = any($7::int[]))
       )
     union all
     select p.deacon_id, p.liturgy_id, l.date, l.location_id, l.service_type, a.allows_multiple
@@ -193,9 +195,9 @@ const SUMMARY_COMBINED_CTE = `
       and ($3::uuid is null or l.location_id = $3)
       and ($4::text is null or l.service_type = $4)
       and (
-        $7::text = 'none'
-        or ($7 = 'specialFeast' and l.is_special_feast)
-        or ($7 = 'weekdays' and extract(dow from l.date)::int = any($8::int[]))
+        $6::text = 'none'
+        or ($6 = 'specialFeast' and l.is_special_feast)
+        or ($6 = 'weekdays' and extract(dow from l.date)::int = any($7::int[]))
       )
   )
 `;
@@ -206,7 +208,6 @@ export async function getSummaryReport(
   toDate: string | null,
   locationId: string | null,
   serviceType: string | null = null,
-  includeGuests: boolean = false,
   rankId: string | null = null,
   dayFilterOptionId: string | null = null
 ): Promise<SummaryReport> {
@@ -226,16 +227,7 @@ export async function getSummaryReport(
     }
   }
 
-  const params = [
-    fromDate,
-    toDate,
-    locationId,
-    serviceType,
-    includeGuests,
-    rankId,
-    dayFilterMode,
-    dayFilterWeekdays,
-  ];
+  const params = [fromDate, toDate, locationId, serviceType, rankId, dayFilterMode, dayFilterWeekdays];
 
   const { rows } = await query<{
     id: string;
@@ -254,20 +246,20 @@ export async function getSummaryReport(
        count(*) filter (where c.allows_multiple = false) as readings
      from deacons d
      left join combined c on c.deacon_id = d.id
-     where d.status = 'Active' and ($5 or not d.is_guest) and ($6::uuid is null or d.rank_id = $6)
+     where d.status = 'Active' and ($5::uuid is null or d.rank_id = $5)
      group by d.id
      order by d.name`,
     params
   );
 
-  // Earliest date among the exact same filtered set (location/service/guest/rank),
+  // Earliest date among the exact same filtered set (location/service/rank/day),
   // so an open-ended "From" resolves to a real date rather than an approximation.
   const { rows: minDateRows } = await query<{ min_date: string | null }>(
     `${SUMMARY_COMBINED_CTE}
      select min(c.date) as min_date
      from combined c
      join deacons d on d.id = c.deacon_id
-     where d.status = 'Active' and ($5 or not d.is_guest) and ($6::uuid is null or d.rank_id = $6)`,
+     where d.status = 'Active' and ($5::uuid is null or d.rank_id = $5)`,
     params
   );
 
