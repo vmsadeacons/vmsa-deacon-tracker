@@ -132,7 +132,7 @@ export default function ByDeaconTab({
       {history && !loading && (
         <>
           {rangeLabel && <p className="muted" style={{ margin: "0 0 0.75rem" }}>{rangeLabel}</p>}
-          <HistoryTables history={history} pwLabels={pwLabels} showParticipationPercent />
+          <HistoryTables history={history} pwLabels={pwLabels} showParticipationPercent sortable />
         </>
       )}
     </div>

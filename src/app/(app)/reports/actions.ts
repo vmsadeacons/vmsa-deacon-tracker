@@ -28,10 +28,11 @@ export async function getSummaryReportAction(
   locationId: string | null,
   serviceType: ServiceTypeCode | null,
   includeGuests: boolean,
-  rankId: string | null
+  rankId: string | null,
+  dayFilterOptionId: string | null
 ) {
   await assertAdmin();
-  return getSummaryReport(fromDate, toDate, locationId, serviceType, includeGuests, rankId);
+  return getSummaryReport(fromDate, toDate, locationId, serviceType, includeGuests, rankId, dayFilterOptionId);
 }
 
 export async function getPassionWeekFullScheduleAction(year: number, locationId: string) {

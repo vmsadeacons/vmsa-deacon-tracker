@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { LocationRow } from "@/lib/repo/locations";
 import type { RankRow } from "@/lib/repo/ranks";
+import type { DayFilterOptionRow } from "@/lib/repo/dayFilterOptions";
 import type { SummaryRow } from "@/lib/repo/reports";
 import { getSummaryReportAction } from "@/app/(app)/reports/actions";
 import { useLatestRequest } from "@/lib/useLatestRequest";
@@ -14,7 +15,15 @@ import { dateRangeLabel } from "@/lib/dateRange";
 type Period = "3" | "6" | "12" | "ytd" | "custom";
 type SortKey = "name" | "ageGroup" | "attended" | "altar" | "readings";
 
-export default function SummaryTab({ locations, ranks }: { locations: LocationRow[]; ranks: RankRow[] }) {
+export default function SummaryTab({
+  locations,
+  ranks,
+  dayFilterOptions,
+}: {
+  locations: LocationRow[];
+  ranks: RankRow[];
+  dayFilterOptions: DayFilterOptionRow[];
+}) {
   const [period, setPeriod] = useState<Period>("3");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -22,7 +31,9 @@ export default function SummaryTab({ locations, ranks }: { locations: LocationRo
   const [serviceType, setServiceType] = useState(""); // "" = All services
   const [rankId, setRankId] = useState(""); // "" = All ranks
   const [ageGroupFilter, setAgeGroupFilter] = useState(""); // "" = All age groups
+  const [dayFilterId, setDayFilterId] = useState(""); // "" = All days
   const [includeGuests, setIncludeGuests] = useState(false);
+  const [includeZeroAttendance, setIncludeZeroAttendance] = useState(false);
   const [rows, setRows] = useState<SummaryRow[] | null>(null);
   const [rangeLabel, setRangeLabel] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -51,7 +62,8 @@ export default function SummaryTab({ locations, ranks }: { locations: LocationRo
         locationId || null,
         (serviceType as ServiceTypeCode) || null,
         includeGuests,
-        rankId || null
+        rankId || null,
+        dayFilterId || null
       ),
       (res) => {
         setRows(res.rows);
@@ -63,7 +75,11 @@ export default function SummaryTab({ locations, ranks }: { locations: LocationRo
 
   const sorted = useMemo(() => {
     if (!rows) return null;
-    const filtered = ageGroupFilter ? rows.filter((r) => r.ageGroup === ageGroupFilter) : rows;
+    const filtered = rows.filter(
+      (r) =>
+        (!ageGroupFilter || r.ageGroup === ageGroupFilter) &&
+        (includeZeroAttendance || r.attended > 0)
+    );
     const copy = [...filtered];
     copy.sort((a, b) => {
       const av = a[sortKey];
@@ -72,7 +88,7 @@ export default function SummaryTab({ locations, ranks }: { locations: LocationRo
       return String(av ?? "").localeCompare(String(bv ?? "")) * sortDir;
     });
     return copy;
-  }, [rows, ageGroupFilter, sortKey, sortDir]);
+  }, [rows, ageGroupFilter, includeZeroAttendance, sortKey, sortDir]);
 
   function toggleSort(key: SortKey) {
     if (key === sortKey) {
@@ -187,6 +203,17 @@ export default function SummaryTab({ locations, ranks }: { locations: LocationRo
             </select>
           </div>
           <div className="field">
+            <label>Day</label>
+            <select value={dayFilterId} onChange={(e) => setDayFilterId(e.target.value)}>
+              <option value="">All days</option>
+              {dayFilterOptions.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
             <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
               <input
                 type="checkbox"
@@ -194,6 +221,16 @@ export default function SummaryTab({ locations, ranks }: { locations: LocationRo
                 onChange={(e) => setIncludeGuests(e.target.checked)}
               />
               Include Guests
+            </label>
+          </div>
+          <div className="field">
+            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <input
+                type="checkbox"
+                checked={includeZeroAttendance}
+                onChange={(e) => setIncludeZeroAttendance(e.target.checked)}
+              />
+              Include 0 attendance
             </label>
           </div>
         </div>

@@ -8,6 +8,11 @@ import { setAgeGroupThresholds, setSuggestionSettings } from "@/lib/repo/setting
 import { updatePWActivity } from "@/lib/repo/passionWeekActivities";
 import { createRank, updateRank } from "@/lib/repo/ranks";
 import { createFeastName, updateFeastName } from "@/lib/repo/feastNames";
+import {
+  createDayFilterOption,
+  updateDayFilterOption,
+  deleteDayFilterOption,
+} from "@/lib/repo/dayFilterOptions";
 import type { PWActivityId } from "@/lib/constants";
 
 // Settings is view-only for General Admins — every mutation here is
@@ -101,6 +106,45 @@ export async function updateRankAction(
   revalidatePath("/settings");
   revalidatePath("/deacons");
   return { ok: true as const, rank };
+}
+
+export async function createDayFilterOptionAction(
+  label: string,
+  weekdays: number[],
+  isSpecialFeast: boolean
+) {
+  await assertSystemAdmin();
+  try {
+    const option = await createDayFilterOption(label, weekdays, isSpecialFeast);
+    revalidatePath("/settings");
+    revalidatePath("/reports");
+    return { ok: true as const, option };
+  } catch (err) {
+    return { ok: false as const, error: (err as Error).message };
+  }
+}
+
+export async function updateDayFilterOptionAction(
+  id: string,
+  patch: { label?: string; weekdays?: number[]; isSpecialFeast?: boolean; sortOrder?: number }
+) {
+  await assertSystemAdmin();
+  try {
+    const option = await updateDayFilterOption(id, patch);
+    revalidatePath("/settings");
+    revalidatePath("/reports");
+    return { ok: true as const, option };
+  } catch (err) {
+    return { ok: false as const, error: (err as Error).message };
+  }
+}
+
+export async function deleteDayFilterOptionAction(id: string) {
+  await assertSystemAdmin();
+  await deleteDayFilterOption(id);
+  revalidatePath("/settings");
+  revalidatePath("/reports");
+  return { ok: true as const };
 }
 
 export async function createFeastNameAction(name: string) {

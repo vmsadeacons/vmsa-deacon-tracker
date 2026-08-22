@@ -8,6 +8,8 @@ import type { AppSettings } from "@/lib/repo/settings";
 import type { PWActivityRow } from "@/lib/repo/passionWeekActivities";
 import type { RankRow } from "@/lib/repo/ranks";
 import type { FeastNameRow } from "@/lib/repo/feastNames";
+import type { DayFilterOptionRow } from "@/lib/repo/dayFilterOptions";
+import { WEEKDAY_NAMES } from "@/lib/timezone";
 import {
   createLocationAction,
   updateLocationAction,
@@ -20,6 +22,9 @@ import {
   updateRankAction,
   createFeastNameAction,
   updateFeastNameAction,
+  createDayFilterOptionAction,
+  updateDayFilterOptionAction,
+  deleteDayFilterOptionAction,
 } from "@/app/(app)/settings/actions";
 
 function ViewOnlyNote() {
@@ -290,6 +295,221 @@ function RanksCard({ ranks, canEdit }: { ranks: RankRow[]; canEdit: boolean }) {
           <button className="btn btn-primary" onClick={add}>
             Add
           </button>
+        </div>
+      ) : (
+        <ViewOnlyNote />
+      )}
+    </div>
+  );
+}
+
+function DayCheckboxes({
+  weekdays,
+  isSpecialFeast,
+  disabled,
+  onChange,
+}: {
+  weekdays: number[];
+  isSpecialFeast: boolean;
+  disabled: boolean;
+  onChange: (weekdays: number[], isSpecialFeast: boolean) => void;
+}) {
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center" }}>
+      {WEEKDAY_NAMES.map((name, i) => (
+        <label key={i} style={{ display: "flex", alignItems: "center", gap: "0.25rem", fontSize: "0.85rem" }}>
+          <input
+            type="checkbox"
+            disabled={disabled || isSpecialFeast}
+            checked={weekdays.includes(i)}
+            onChange={(e) => {
+              const next = e.target.checked
+                ? [...weekdays, i].sort((a, b) => a - b)
+                : weekdays.filter((d) => d !== i);
+              onChange(next, false);
+            }}
+          />
+          {name.slice(0, 3)}
+        </label>
+      ))}
+      <label
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "0.25rem",
+          fontSize: "0.85rem",
+          marginLeft: "0.5rem",
+        }}
+      >
+        <input
+          type="checkbox"
+          disabled={disabled}
+          checked={isSpecialFeast}
+          onChange={(e) => onChange(e.target.checked ? [] : weekdays, e.target.checked)}
+        />
+        Special Feast
+      </label>
+    </div>
+  );
+}
+
+function DayFiltersCard({
+  dayFilterOptions,
+  canEdit,
+}: {
+  dayFilterOptions: DayFilterOptionRow[];
+  canEdit: boolean;
+}) {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const sorted = [...dayFilterOptions].sort((a, b) => a.sort_order - b.sort_order);
+  const [drafts, setDrafts] = useState(
+    Object.fromEntries(
+      sorted.map((o) => [
+        o.id,
+        { label: o.label, weekdays: o.weekdays, isSpecialFeast: o.is_special_feast, sortOrder: o.sort_order },
+      ])
+    )
+  );
+  const [newLabel, setNewLabel] = useState("");
+  const [newWeekdays, setNewWeekdays] = useState<number[]>([]);
+  const [newIsSpecialFeast, setNewIsSpecialFeast] = useState(false);
+
+  async function add() {
+    if (!newLabel.trim()) return;
+    if (!newIsSpecialFeast && newWeekdays.length === 0) {
+      setError("Pick at least one day, or mark it as Special Feast.");
+      return;
+    }
+    setError(null);
+    const result = await createDayFilterOptionAction(newLabel.trim(), newWeekdays, newIsSpecialFeast);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setNewLabel("");
+    setNewWeekdays([]);
+    setNewIsSpecialFeast(false);
+    router.refresh();
+  }
+
+  async function saveDraft(id: string) {
+    const draft = drafts[id];
+    if (!draft.isSpecialFeast && draft.weekdays.length === 0) {
+      setError("Pick at least one day, or mark it as Special Feast.");
+      return;
+    }
+    setError(null);
+    const result = await updateDayFilterOptionAction(id, {
+      label: draft.label,
+      weekdays: draft.weekdays,
+      isSpecialFeast: draft.isSpecialFeast,
+      sortOrder: draft.sortOrder,
+    });
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    router.refresh();
+  }
+
+  async function remove(o: DayFilterOptionRow) {
+    if (!confirm(`Delete the "${o.label}" day filter? This can't be undone.`)) return;
+    await deleteDayFilterOptionAction(o.id);
+    router.refresh();
+  }
+
+  return (
+    <div className="card">
+      <h3>Day Filters</h3>
+      <p className="muted" style={{ marginBottom: "1rem" }}>
+        These options power the Day filter on Reports → Summary. Add any day combination you need,
+        or delete ones you don&apos;t.
+      </p>
+      <div className="table-wrap" style={{ marginBottom: "1rem" }}>
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Label</th>
+              <th>Days</th>
+              <th>Order</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((o) => {
+              const draft =
+                drafts[o.id] ??
+                { label: o.label, weekdays: o.weekdays, isSpecialFeast: o.is_special_feast, sortOrder: o.sort_order };
+              return (
+                <tr key={o.id}>
+                  <td>
+                    <input
+                      value={draft.label}
+                      disabled={!canEdit}
+                      onChange={(e) =>
+                        setDrafts((d) => ({ ...d, [o.id]: { ...draft, label: e.target.value } }))
+                      }
+                    />
+                  </td>
+                  <td>
+                    <DayCheckboxes
+                      weekdays={draft.weekdays}
+                      isSpecialFeast={draft.isSpecialFeast}
+                      disabled={!canEdit}
+                      onChange={(weekdays, isSpecialFeast) =>
+                        setDrafts((d) => ({ ...d, [o.id]: { ...draft, weekdays, isSpecialFeast } }))
+                      }
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      style={{ width: 70 }}
+                      value={draft.sortOrder}
+                      disabled={!canEdit}
+                      onChange={(e) =>
+                        setDrafts((d) => ({ ...d, [o.id]: { ...draft, sortOrder: Number(e.target.value) } }))
+                      }
+                    />
+                  </td>
+                  <td style={{ display: "flex", gap: "0.4rem" }}>
+                    <button className="btn btn-secondary btn-sm" disabled={!canEdit} onClick={() => saveDraft(o.id)}>
+                      Save
+                    </button>
+                    <button className="btn btn-secondary btn-sm" disabled={!canEdit} onClick={() => remove(o)}>
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {error && <p className="error-text" style={{ marginBottom: "0.75rem" }}>{error}</p>}
+      {canEdit ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <input
+              placeholder="New filter label"
+              value={newLabel}
+              onChange={(e) => setNewLabel(e.target.value)}
+              style={{ flex: "1 1 220px" }}
+            />
+            <button className="btn btn-primary" onClick={add}>
+              Add
+            </button>
+          </div>
+          <DayCheckboxes
+            weekdays={newWeekdays}
+            isSpecialFeast={newIsSpecialFeast}
+            disabled={false}
+            onChange={(weekdays, isSpecialFeast) => {
+              setNewWeekdays(weekdays);
+              setNewIsSpecialFeast(isSpecialFeast);
+            }}
+          />
         </div>
       ) : (
         <ViewOnlyNote />
@@ -625,6 +845,7 @@ export default function SettingsClient({
   pwActivities,
   ranks,
   feastNames,
+  dayFilterOptions,
   canEdit,
 }: {
   locations: LocationRow[];
@@ -633,6 +854,7 @@ export default function SettingsClient({
   pwActivities: PWActivityRow[];
   ranks: RankRow[];
   feastNames: FeastNameRow[];
+  dayFilterOptions: DayFilterOptionRow[];
   canEdit: boolean;
 }) {
   return (
@@ -644,6 +866,7 @@ export default function SettingsClient({
       <LocationsCard locations={locations} canEdit={canEdit} />
       <ActivitiesCard activities={activities} canEdit={canEdit} />
       <PassionWeekActivitiesCard pwActivities={pwActivities} canEdit={canEdit} />
+      <DayFiltersCard dayFilterOptions={dayFilterOptions} canEdit={canEdit} />
       <FeastNamesCard feastNames={feastNames} canEdit={canEdit} />
     </div>
   );

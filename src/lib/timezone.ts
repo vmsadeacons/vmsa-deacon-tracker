@@ -6,7 +6,7 @@ const TZ = process.env.CHURCH_TIMEZONE || "America/New_York";
 
 export type ServiceType = "S1" | "S2";
 
-const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+export const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 export function churchTodayISO(): string {
   return new Intl.DateTimeFormat("en-CA", {

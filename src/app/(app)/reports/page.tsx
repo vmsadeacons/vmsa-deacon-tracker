@@ -5,17 +5,19 @@ import { listDeacons } from "@/lib/repo/deacons";
 import { listPWActivities } from "@/lib/repo/passionWeekActivities";
 import { listRanks } from "@/lib/repo/ranks";
 import { getUserById } from "@/lib/repo/users";
+import { listDayFilterOptions } from "@/lib/repo/dayFilterOptions";
 import { churchTodayISO, computeDefaultServiceType } from "@/lib/timezone";
 import type { ServiceTypeCode } from "@/lib/constants";
 import ReportsClient from "@/components/ReportsClient";
 
 export default async function ReportsPage() {
   const session = await requireAdmin();
-  const [locations, deacons, pwActivities, ranks] = await Promise.all([
+  const [locations, deacons, pwActivities, ranks, dayFilterOptions] = await Promise.all([
     listLocations(false),
     listDeacons(true),
     listPWActivities(),
     listRanks(false),
+    listDayFilterOptions(),
   ]);
 
   const date = churchTodayISO();
@@ -40,6 +42,7 @@ export default async function ReportsPage() {
         currentYear={currentYear}
         pwActivities={pwActivities}
         ranks={ranks}
+        dayFilterOptions={dayFilterOptions}
       />
     </Suspense>
   );

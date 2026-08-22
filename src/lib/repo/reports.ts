@@ -164,6 +164,10 @@ export interface SummaryReport {
   minDate: string | null;
 }
 
+// $7 (day filter mode: 'none' | 'weekdays' | 'specialFeast') and $8 (the
+// weekday set for the 'weekdays' mode) let the Summary report restrict to a
+// configurable day-of-week combination (see day_filter_options) -- 'none'
+// applies no restriction, matching the pre-existing behavior.
 const SUMMARY_COMBINED_CTE = `
   with combined as (
     select p.deacon_id, p.liturgy_id, l.date, l.location_id, l.service_type, a.allows_multiple
@@ -174,6 +178,11 @@ const SUMMARY_COMBINED_CTE = `
       and ($2::date is null or l.date <= $2)
       and ($3::uuid is null or l.location_id = $3)
       and ($4::text is null or l.service_type = $4)
+      and (
+        $7::text = 'none'
+        or ($7 = 'specialFeast' and l.is_special_feast)
+        or ($7 = 'weekdays' and extract(dow from l.date)::int = any($8::int[]))
+      )
     union all
     select p.deacon_id, p.liturgy_id, l.date, l.location_id, l.service_type, a.allows_multiple
     from archive_participation p
@@ -183,6 +192,11 @@ const SUMMARY_COMBINED_CTE = `
       and ($2::date is null or l.date <= $2)
       and ($3::uuid is null or l.location_id = $3)
       and ($4::text is null or l.service_type = $4)
+      and (
+        $7::text = 'none'
+        or ($7 = 'specialFeast' and l.is_special_feast)
+        or ($7 = 'weekdays' and extract(dow from l.date)::int = any($8::int[]))
+      )
   )
 `;
 
@@ -193,10 +207,35 @@ export async function getSummaryReport(
   locationId: string | null,
   serviceType: string | null = null,
   includeGuests: boolean = false,
-  rankId: string | null = null
+  rankId: string | null = null,
+  dayFilterOptionId: string | null = null
 ): Promise<SummaryReport> {
   const settings = await getAppSettings();
-  const params = [fromDate, toDate, locationId, serviceType, includeGuests, rankId];
+
+  let dayFilterMode: "none" | "weekdays" | "specialFeast" = "none";
+  let dayFilterWeekdays: number[] = [];
+  if (dayFilterOptionId) {
+    const { rows: dayFilterRows } = await query<{ weekdays: number[]; is_special_feast: boolean }>(
+      `select weekdays, is_special_feast from day_filter_options where id = $1`,
+      [dayFilterOptionId]
+    );
+    const option = dayFilterRows[0];
+    if (option) {
+      dayFilterMode = option.is_special_feast ? "specialFeast" : "weekdays";
+      dayFilterWeekdays = option.weekdays;
+    }
+  }
+
+  const params = [
+    fromDate,
+    toDate,
+    locationId,
+    serviceType,
+    includeGuests,
+    rankId,
+    dayFilterMode,
+    dayFilterWeekdays,
+  ];
 
   const { rows } = await query<{
     id: string;
