@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import type { LocationRow } from "@/lib/repo/locations";
 import type { RankRow } from "@/lib/repo/ranks";
 import type { DayFilterOptionRow } from "@/lib/repo/dayFilterOptions";
@@ -183,6 +185,52 @@ export default function SummaryTab({
     URL.revokeObjectURL(url);
   }
 
+  /** Always mirrors exactly what's on screen -- same rows, sort order, and filters as the CSV export. */
+  function exportPdf() {
+    if (!sorted) return;
+    const doc = new jsPDF();
+    const marginX = 14;
+    let y = 18;
+
+    doc.setFontSize(16);
+    doc.text("Deacon Service Summary Report", marginX, y);
+    y += 8;
+
+    doc.setFontSize(10);
+    doc.setTextColor(90);
+    if (rangeLabel) {
+      doc.text(rangeLabel, marginX, y);
+      y += 5;
+    }
+    const filtersText = appliedFilters.map((f) => `${f.label}: ${f.value}`).join("  ·  ");
+    const filtersLines = doc.splitTextToSize(filtersText, 180);
+    doc.text(filtersLines, marginX, y);
+    y += filtersLines.length * 5;
+    doc.text(`Rows: ${sorted.length}`, marginX, y);
+    y += 5;
+    doc.text(`Generated on ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`, marginX, y);
+    y += 4;
+    doc.setTextColor(0);
+
+    autoTable(doc, {
+      startY: y + 4,
+      margin: { left: marginX, right: marginX },
+      head: [["Name", "Age group", "Attended", "Altar", "Readings"]],
+      body: sorted.map((r) => [
+        r.name + (r.isGuest ? " (Guest)" : ""),
+        r.ageGroup ?? "—",
+        String(r.attended),
+        withPercent(r.altar, r.attended),
+        withPercent(r.readings, r.attended),
+      ]),
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: [122, 46, 60] },
+      alternateRowStyles: { fillColor: [246, 244, 239] },
+    });
+
+    doc.save("summary-report.pdf");
+  }
+
   const columns: { key: SortKey; label: string }[] = [
     { key: "name", label: "Name" },
     { key: "ageGroup", label: "Age group" },
@@ -296,6 +344,9 @@ export default function SummaryTab({
         <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem" }}>
           <button className="btn btn-secondary" disabled={!sorted} onClick={exportCsv}>
             Export CSV
+          </button>
+          <button className="btn btn-secondary" disabled={!sorted} onClick={exportPdf}>
+            Export PDF
           </button>
         </div>
       </div>
