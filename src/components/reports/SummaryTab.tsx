@@ -36,10 +36,30 @@ export default function SummaryTab({
   const [includeZeroAttendance, setIncludeZeroAttendance] = useState(false);
   const [rows, setRows] = useState<SummaryRow[] | null>(null);
   const [rangeLabel, setRangeLabel] = useState<string | null>(null);
+  const [appliedFilters, setAppliedFilters] = useState<{ label: string; value: string }[]>([]);
   const [loading, setLoading] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<1 | -1>(1);
   const runLatest = useLatestRequest<{ rows: SummaryRow[]; minDate: string | null }>();
+
+  // Snapshot of every filter as it stood when "View" was clicked -- shown
+  // above the results and baked into the CSV export, so the criteria behind
+  // a set of numbers is never ambiguous (spec ask: exports were hard to
+  // interpret without seeing the filters that produced them).
+  function currentFilterSummary(): { label: string; value: string }[] {
+    return [
+      { label: "Location", value: locations.find((l) => l.id === locationId)?.name ?? "All locations" },
+      {
+        label: "Service",
+        value: serviceType ? SERVICE_LABELS[serviceType as ServiceTypeCode] : "All services",
+      },
+      { label: "Rank", value: ranks.find((r) => r.id === rankId)?.name ?? "All ranks" },
+      { label: "Age group", value: ageGroupFilter || "All age groups" },
+      { label: "Day", value: dayFilterOptions.find((o) => o.id === dayFilterId)?.label ?? "All days" },
+      { label: "Guests", value: includeGuests ? "Included" : "Excluded" },
+      { label: "0-attendance deacons", value: includeZeroAttendance ? "Included" : "Excluded" },
+    ];
+  }
 
   async function handleView() {
     let from: string | null;
@@ -68,6 +88,7 @@ export default function SummaryTab({
       (res) => {
         setRows(res.rows);
         setRangeLabel(dateRangeLabel(from ?? res.minDate, to));
+        setAppliedFilters(currentFilterSummary());
         setLoading(false);
       }
     );
@@ -106,8 +127,11 @@ export default function SummaryTab({
 
   function exportCsv() {
     if (!sorted) return;
+    const escapeCell = (v: string) => `"${v.replace(/"/g, '""')}"`;
+    const meta = ["Summary Report", ...(rangeLabel ? [rangeLabel] : [])];
+    for (const f of appliedFilters) meta.push(`${f.label}: ${f.value}`);
     const header = ["Name", "Age group", "Attended", "Altar", "Readings"];
-    const lines = [header.join(",")];
+    const lines = [...meta.map(escapeCell), "", header.join(",")];
     for (const r of sorted) {
       lines.push(
         [r.name, r.ageGroup ?? "", r.attended, r.altar, r.readings]
@@ -248,7 +272,12 @@ export default function SummaryTab({
 
       {sorted && !loading && (
         <div className="card">
-          {rangeLabel && <p className="muted" style={{ marginBottom: "0.75rem" }}>{rangeLabel}</p>}
+          {rangeLabel && <p className="muted" style={{ marginBottom: "0.35rem" }}>{rangeLabel}</p>}
+          {appliedFilters.length > 0 && (
+            <p className="muted" style={{ marginBottom: "0.75rem", fontSize: "0.85rem" }}>
+              {appliedFilters.map((f) => `${f.label}: ${f.value}`).join(" · ")}
+            </p>
+          )}
           <div className="table-wrap">
             <table className="table">
               <thead>
