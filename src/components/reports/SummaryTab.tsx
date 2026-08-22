@@ -171,7 +171,10 @@ export default function SummaryTab({
           .join(",")
       );
     }
-    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    // Leading BOM so Excel recognizes the file as UTF-8 -- without it, the
+    // en dash/middle dot in the date range and filter lines render as
+    // mojibake ("Ã¢â‚¬â€œ") since Excel otherwise assumes Windows-1252.
+    const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
