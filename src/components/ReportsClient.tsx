@@ -71,7 +71,7 @@ export default function ReportsClient({
           initialServiceType={prefillService}
         />
       )}
-      {tab === "by-deacon" && <ByDeaconTab deacons={deacons} pwLabels={pwLabels} />}
+      {tab === "by-deacon" && <ByDeaconTab deacons={deacons} locations={locations} pwLabels={pwLabels} />}
       {tab === "summary" && (
         <SummaryTab locations={locations} ranks={ranks} dayFilterOptions={dayFilterOptions} />
       )}

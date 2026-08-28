@@ -3,6 +3,11 @@ import { computeAgeGroup } from "@/lib/ageGroup";
 import { getAppSettings } from "@/lib/repo/settings";
 import { passionWeekYearOverlapsRange } from "@/lib/timezone";
 import { PW_SERVICES, PW_HOUR_WITH_12TH, type AgeGroup } from "@/lib/constants";
+import {
+  COMBINED_VM_SA_ID,
+  VIRGIN_MARY_LOCATION_NAME,
+  ST_ATHANASIUS_LOCATION_NAME,
+} from "@/lib/locationGroups";
 
 export interface DeaconHistoryRecord {
   date: string;
@@ -169,7 +174,9 @@ export interface SummaryReport {
 // configurable day-of-week combination (see day_filter_options) -- 'none'
 // applies no restriction, matching the pre-existing behavior. Guests are
 // never excluded here -- that filter is applied client-side (like Age
-// group), so toggling it doesn't need a fresh fetch.
+// group), so toggling it doesn't need a fresh fetch. $3 is always an array
+// (even for a single location) so it can also carry the combined "Virgin
+// Mary + St Athanasius" pseudo-location's two real ids uniformly.
 const SUMMARY_COMBINED_CTE = `
   with combined as (
     select p.deacon_id, p.liturgy_id, l.date, l.location_id, l.service_type, a.allows_multiple
@@ -178,7 +185,7 @@ const SUMMARY_COMBINED_CTE = `
     left join activities a on a.id = p.activity_id
     where ($1::date is null or l.date >= $1)
       and ($2::date is null or l.date <= $2)
-      and ($3::uuid is null or l.location_id = $3)
+      and ($3::uuid[] is null or l.location_id = any($3::uuid[]))
       and ($4::text is null or l.service_type = $4)
       and (
         $6::text = 'none'
@@ -192,7 +199,7 @@ const SUMMARY_COMBINED_CTE = `
     left join activities a on a.id = p.activity_id
     where ($1::date is null or l.date >= $1)
       and ($2::date is null or l.date <= $2)
-      and ($3::uuid is null or l.location_id = $3)
+      and ($3::uuid[] is null or l.location_id = any($3::uuid[]))
       and ($4::text is null or l.service_type = $4)
       and (
         $6::text = 'none'
@@ -227,7 +234,18 @@ export async function getSummaryReport(
     }
   }
 
-  const params = [fromDate, toDate, locationId, serviceType, rankId, dayFilterMode, dayFilterWeekdays];
+  let locationIds: string[] | null = null;
+  if (locationId === COMBINED_VM_SA_ID) {
+    const { rows: combinedRows } = await query<{ id: string }>(
+      `select id from locations where name in ($1, $2)`,
+      [VIRGIN_MARY_LOCATION_NAME, ST_ATHANASIUS_LOCATION_NAME]
+    );
+    locationIds = combinedRows.map((r) => r.id);
+  } else if (locationId) {
+    locationIds = [locationId];
+  }
+
+  const params = [fromDate, toDate, locationIds, serviceType, rankId, dayFilterMode, dayFilterWeekdays];
 
   const { rows } = await query<{
     id: string;

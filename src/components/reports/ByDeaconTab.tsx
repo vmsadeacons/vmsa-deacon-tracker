@@ -5,38 +5,44 @@ import HistoryTables from "@/components/HistoryTables";
 import SingleRosterPickerModal from "@/components/SingleRosterPickerModal";
 import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
 import type { DeaconHistory } from "@/lib/repo/reports";
+import type { LocationRow } from "@/lib/repo/locations";
 import { getDeaconHistoryReportAction } from "@/app/(app)/reports/actions";
 import { churchTodayAction, monthsAgoAction, yearStartAction } from "@/lib/actions/shared";
 import { useLatestRequest } from "@/lib/useLatestRequest";
-import { AGE_GROUPS } from "@/lib/constants";
+import { COMBINED_VM_SA_ID, COMBINED_VM_SA_LABEL, combinedLocationIds, matchesLocationFilter } from "@/lib/locationGroups";
 import { dateRangeLabel } from "@/lib/dateRange";
 
 type Period = "3" | "6" | "12" | "ytd" | "custom";
 
 export default function ByDeaconTab({
   deacons,
+  locations,
   pwLabels,
 }: {
   deacons: DeaconWithAgeGroup[];
+  locations: LocationRow[];
   pwLabels: Record<string, string>;
 }) {
   const [deaconId, setDeaconId] = useState("");
   const [period, setPeriod] = useState<Period>("3");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [ageGroupFilter, setAgeGroupFilter] = useState(""); // "" = All age groups
+  const [locationFilter, setLocationFilter] = useState(""); // "" = All locations
   const [includeGuests, setIncludeGuests] = useState(false);
   const [history, setHistory] = useState<DeaconHistory | null>(null);
   const [rangeLabel, setRangeLabel] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const runLatest = useLatestRequest<DeaconHistory>();
 
+  const combinedIds = useMemo(() => combinedLocationIds(locations), [locations]);
   const pickableDeacons = useMemo(
     () =>
       deacons.filter(
-        (d) => (includeGuests || !d.is_guest) && (!ageGroupFilter || d.age_group === ageGroupFilter)
+        (d) =>
+          (includeGuests || !d.is_guest) &&
+          matchesLocationFilter(d.location_prefs, locationFilter, combinedIds)
       ),
-    [deacons, includeGuests, ageGroupFilter]
+    [deacons, includeGuests, locationFilter, combinedIds]
   );
 
   async function handleView() {
@@ -102,12 +108,13 @@ export default function ByDeaconTab({
             </>
           )}
           <div className="field">
-            <label>Age group</label>
-            <select value={ageGroupFilter} onChange={(e) => setAgeGroupFilter(e.target.value)}>
-              <option value="">All age groups</option>
-              {AGE_GROUPS.map((g) => (
-                <option key={g} value={g}>
-                  {g}
+            <label>Location</label>
+            <select value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)}>
+              <option value="">All locations</option>
+              <option value={COMBINED_VM_SA_ID}>{COMBINED_VM_SA_LABEL}</option>
+              {locations.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name}
                 </option>
               ))}
             </select>

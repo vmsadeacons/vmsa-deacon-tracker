@@ -10,6 +10,7 @@ import type { SummaryRow } from "@/lib/repo/reports";
 import { getSummaryReportAction } from "@/app/(app)/reports/actions";
 import { churchTodayAction, monthsAgoAction, yearStartAction } from "@/lib/actions/shared";
 import { SERVICE_TYPES, SERVICE_LABELS, AGE_GROUPS, type ServiceTypeCode } from "@/lib/constants";
+import { COMBINED_VM_SA_ID, COMBINED_VM_SA_LABEL } from "@/lib/locationGroups";
 import { withPercent } from "@/lib/percent";
 import { dateRangeLabel } from "@/lib/dateRange";
 
@@ -102,7 +103,13 @@ export default function SummaryTab({
 
   const appliedFilters = useMemo(
     () => [
-      { label: "Location", value: locations.find((l) => l.id === locationId)?.name ?? "All locations" },
+      {
+        label: "Location",
+        value:
+          locationId === COMBINED_VM_SA_ID
+            ? COMBINED_VM_SA_LABEL
+            : locations.find((l) => l.id === locationId)?.name ?? "All locations",
+      },
       {
         label: "Service",
         value: serviceType ? SERVICE_LABELS[serviceType as ServiceTypeCode] : "All services",
@@ -269,6 +276,7 @@ export default function SummaryTab({
             <label>Location</label>
             <select value={locationId} onChange={(e) => setLocationId(e.target.value)}>
               <option value="">All locations</option>
+              <option value={COMBINED_VM_SA_ID}>{COMBINED_VM_SA_LABEL}</option>
               {locations.map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.name}
