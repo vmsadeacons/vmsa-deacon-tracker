@@ -28,7 +28,9 @@ export default function DeaconsClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
-  const [editing, setEditing] = useState<DeaconWithAgeGroup | null>(null);
+  const [editing, setEditing] = useState<DeaconWithAgeGroup | null>(
+    () => deacons.find((d) => d.id === searchParams.get("edit")) ?? null
+  );
   const [viewing, setViewing] = useState<DeaconWithAgeGroup | null>(null);
   const [adding, setAdding] = useState(searchParams.get("add") === "1");
   const [error, setError] = useState<string | null>(null);

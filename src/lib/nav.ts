@@ -26,6 +26,7 @@ export const NAV_GROUPS: NavGroup[] = [
     adminOnly: true,
     items: [
       { href: "/deacons", label: "Deacons" },
+      { href: "/member-updates", label: "Member Updates" },
       { href: "/access", label: "Access & Roles" },
       { href: "/archive", label: "Archive" },
       { href: "/settings", label: "Settings" },
