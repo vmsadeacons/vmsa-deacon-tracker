@@ -16,10 +16,11 @@ export async function getLiturgyReportAction(date: string, locationId: string, s
 export async function getDeaconHistoryReportAction(
   deaconId: string,
   fromDate: string | null,
-  toDate: string | null
+  toDate: string | null,
+  locationId: string | null
 ) {
   await assertAdmin();
-  return getDeaconHistory(deaconId, fromDate, toDate);
+  return getDeaconHistory(deaconId, fromDate, toDate, locationId);
 }
 
 export async function getSummaryReportAction(

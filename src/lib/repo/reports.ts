@@ -60,8 +60,11 @@ interface RawHistoryRow {
 export async function getDeaconHistory(
   deaconId: string,
   fromDate: string | null,
-  toDate: string | null
+  toDate: string | null,
+  locationId: string | null = null
 ): Promise<DeaconHistory> {
+  const locationIds = await resolveLocationIds(locationId);
+
   const { rows } = await query<RawHistoryRow>(
     `select l.date, l.service_type, l.is_special_feast, fn.name as feast_name,
             exists(select 1 from liturgies l2 where l2.date = l.date and l2.location_id = l.location_id and l2.id <> l.id) as has_sibling,
@@ -75,6 +78,7 @@ export async function getDeaconHistory(
      where p.deacon_id = $1
        and ($2::date is null or l.date >= $2)
        and ($3::date is null or l.date <= $3)
+       and ($4::uuid[] is null or l.location_id = any($4::uuid[]))
      union all
      select l.date, l.service_type, l.is_special_feast, fn.name as feast_name,
             exists(select 1 from archive_liturgies l2 where l2.date = l.date and l2.location_id = l.location_id and l2.id <> l.id) as has_sibling,
@@ -88,8 +92,9 @@ export async function getDeaconHistory(
      where p.deacon_id = $1
        and ($2::date is null or l.date >= $2)
        and ($3::date is null or l.date <= $3)
+       and ($4::uuid[] is null or l.location_id = any($4::uuid[]))
      order by date desc, activity_sort_order nulls first`,
-    [deaconId, fromDate, toDate]
+    [deaconId, fromDate, toDate, locationIds]
   );
 
   const liturgyIds = new Set<string>();
@@ -120,8 +125,9 @@ export async function getDeaconHistory(
     `select p.year, p.service_id, p.hour, p.activity_id, loc.name as location_name
      from passion_week_participation p
      join locations loc on loc.id = p.location_id
-     where p.deacon_id = $1`,
-    [deaconId]
+     where p.deacon_id = $1
+       and ($2::uuid[] is null or p.location_id = any($2::uuid[]))`,
+    [deaconId, locationIds]
   );
   const passionWeek: DeaconHistoryPW[] = rawPwRows
     .map((r) => ({
@@ -209,6 +215,25 @@ const SUMMARY_COMBINED_CTE = `
   )
 `;
 
+/**
+ * Resolves a Location filter value -- a real location id, the combined
+ * "Virgin Mary + St Athanasius" pseudo-id, or null/"" for no filter -- into
+ * the array of real location ids to match against actual attendance
+ * records. Shared by every report filter that offers the combined option,
+ * so "combined" always means exactly the sum of the two real churches.
+ */
+async function resolveLocationIds(locationId: string | null): Promise<string[] | null> {
+  if (!locationId) return null;
+  if (locationId === COMBINED_VM_SA_ID) {
+    const { rows } = await query<{ id: string }>(
+      `select id from locations where name in ($1, $2)`,
+      [VIRGIN_MARY_LOCATION_NAME, ST_ATHANASIUS_LOCATION_NAME]
+    );
+    return rows.map((r) => r.id);
+  }
+  return [locationId];
+}
+
 /** One aggregated query, not a per-deacon loop — avoids the N+1 the original build had (spec §8.1). */
 export async function getSummaryReport(
   fromDate: string | null,
@@ -234,16 +259,7 @@ export async function getSummaryReport(
     }
   }
 
-  let locationIds: string[] | null = null;
-  if (locationId === COMBINED_VM_SA_ID) {
-    const { rows: combinedRows } = await query<{ id: string }>(
-      `select id from locations where name in ($1, $2)`,
-      [VIRGIN_MARY_LOCATION_NAME, ST_ATHANASIUS_LOCATION_NAME]
-    );
-    locationIds = combinedRows.map((r) => r.id);
-  } else if (locationId) {
-    locationIds = [locationId];
-  }
+  const locationIds = await resolveLocationIds(locationId);
 
   const params = [fromDate, toDate, locationIds, serviceType, rankId, dayFilterMode, dayFilterWeekdays];
 

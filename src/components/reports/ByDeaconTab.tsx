@@ -9,7 +9,7 @@ import type { LocationRow } from "@/lib/repo/locations";
 import { getDeaconHistoryReportAction } from "@/app/(app)/reports/actions";
 import { churchTodayAction, monthsAgoAction, yearStartAction } from "@/lib/actions/shared";
 import { useLatestRequest } from "@/lib/useLatestRequest";
-import { COMBINED_VM_SA_ID, COMBINED_VM_SA_LABEL, combinedLocationIds, matchesLocationFilter } from "@/lib/locationGroups";
+import { COMBINED_VM_SA_ID, COMBINED_VM_SA_LABEL } from "@/lib/locationGroups";
 import { dateRangeLabel } from "@/lib/dateRange";
 
 type Period = "3" | "6" | "12" | "ytd" | "custom";
@@ -27,6 +27,10 @@ export default function ByDeaconTab({
   const [period, setPeriod] = useState<Period>("3");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  // Filters the deacon's records by where they actually happened (the
+  // liturgy's real location), same as Summary's Location filter -- not by
+  // the deacon's stated location preference, which is a different concept
+  // entirely and was the wrong filter to use here.
   const [locationFilter, setLocationFilter] = useState(""); // "" = All locations
   const [includeGuests, setIncludeGuests] = useState(false);
   const [history, setHistory] = useState<DeaconHistory | null>(null);
@@ -34,15 +38,11 @@ export default function ByDeaconTab({
   const [loading, setLoading] = useState(false);
   const runLatest = useLatestRequest<DeaconHistory>();
 
-  const combinedIds = useMemo(() => combinedLocationIds(locations), [locations]);
+  // The picker just offers every deacon (guest-filtered) -- Location is a
+  // filter on the selected deacon's records, not on who's selectable.
   const pickableDeacons = useMemo(
-    () =>
-      deacons.filter(
-        (d) =>
-          (includeGuests || !d.is_guest) &&
-          matchesLocationFilter(d.location_prefs, locationFilter, combinedIds)
-      ),
-    [deacons, includeGuests, locationFilter, combinedIds]
+    () => deacons.filter((d) => includeGuests || !d.is_guest),
+    [deacons, includeGuests]
   );
 
   async function handleView() {
@@ -60,7 +60,7 @@ export default function ByDeaconTab({
       to = await churchTodayAction();
     }
     setLoading(true);
-    runLatest(getDeaconHistoryReportAction(deaconId, from, to), (res) => {
+    runLatest(getDeaconHistoryReportAction(deaconId, from, to, locationFilter || null), (res) => {
       setHistory(res);
       // Records are sorted date desc, so the last one is the earliest --
       // resolves an open "From" to the deacon's actual earliest record.
