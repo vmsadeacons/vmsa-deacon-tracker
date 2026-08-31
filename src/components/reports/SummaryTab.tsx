@@ -276,12 +276,12 @@ export default function SummaryTab({
             <label>Location</label>
             <select value={locationId} onChange={(e) => setLocationId(e.target.value)}>
               <option value="">All locations</option>
-              <option value={COMBINED_VM_SA_ID}>{COMBINED_VM_SA_LABEL}</option>
               {locations.map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.name}
                 </option>
               ))}
+              <option value={COMBINED_VM_SA_ID}>{COMBINED_VM_SA_LABEL}</option>
             </select>
           </div>
           <div className="field">
