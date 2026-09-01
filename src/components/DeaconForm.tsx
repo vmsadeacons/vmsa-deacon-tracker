@@ -77,6 +77,14 @@ export default function DeaconForm({
     ageGroupThresholds.adultMin
   );
   const rankId = manualRankId ?? defaultRankIdForAgeGroup(autoAgeGroup, ranks) ?? "";
+  // Once a DOB is on file it always wins over the stored override (see
+  // computeAgeGroup) -- but the override column itself used to keep
+  // whatever stale value it last held (e.g. "Child" from before a DOB was
+  // known), which looked wrong in this disabled dropdown even though it
+  // was never actually used. Show -- and on save, persist -- the freshly
+  // derived value instead, so the stored override self-corrects the next
+  // time this record is saved.
+  const effectiveAgeGroupOverride = dob ? autoAgeGroup : ageGroupOverride ? (ageGroupOverride as (typeof AGE_GROUPS)[number]) : null;
   const [ordinationYear, setOrdinationYear] = useState(
     initial?.ordination_year ? String(initial.ordination_year) : ""
   );
@@ -137,7 +145,7 @@ export default function DeaconForm({
           ordinationYear: ordinationYear ? Number(ordinationYear) : null,
           isGuest,
           status,
-          ageGroupOverride: ageGroupOverride ? (ageGroupOverride as (typeof AGE_GROUPS)[number]) : null,
+          ageGroupOverride: effectiveAgeGroupOverride,
           locationPrefs,
           liturgyPrefs,
           notes: notes || null,
@@ -202,7 +210,7 @@ export default function DeaconForm({
         <div className="field">
           <label>Age group {dob ? "(derived from date of birth)" : "(required)"}</label>
           <select
-            value={ageGroupOverride}
+            value={dob ? effectiveAgeGroupOverride ?? "" : ageGroupOverride}
             onChange={(e) => setAgeGroupOverride(e.target.value)}
             disabled={Boolean(dob)}
             required={!dob}

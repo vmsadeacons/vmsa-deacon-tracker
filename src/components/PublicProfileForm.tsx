@@ -4,6 +4,7 @@ import { useState } from "react";
 import PhotoEditor from "./PhotoEditor";
 import ChipMultiSelect from "./ChipMultiSelect";
 import { AGE_GROUPS, LITURGY_PREF_TYPES, LITURGY_PREF_LABELS } from "@/lib/constants";
+import { computeAgeGroup } from "@/lib/ageGroup";
 import type { PublicDeaconProfile, PublicProfileInput } from "@/lib/repo/publicProfile";
 import type { LocationRow } from "@/lib/repo/locations";
 import type { RankRow } from "@/lib/repo/ranks";
@@ -58,6 +59,20 @@ export default function PublicProfileForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Once a DOB is on file it always wins over the stored override (see
+  // computeAgeGroup) -- but the override column itself could otherwise keep
+  // a stale value (e.g. "Child" from before a DOB was known), which would
+  // look wrong in this disabled dropdown even though it's never actually
+  // used. Show -- and on save, persist -- the freshly derived value
+  // instead, so the stored override self-corrects on every save.
+  const autoAgeGroup = computeAgeGroup(
+    dob || null,
+    ageGroupOverride ? (ageGroupOverride as (typeof AGE_GROUPS)[number]) : null,
+    ageGroupThresholds.youthMin,
+    ageGroupThresholds.adultMin
+  );
+  const effectiveAgeGroupOverride = dob ? autoAgeGroup : ageGroupOverride ? (ageGroupOverride as (typeof AGE_GROUPS)[number]) : null;
+
   // Existing (matched) record: photo uploads immediately. New record: held until Save.
   const [hasPhoto, setHasPhoto] = useState(initial?.hasPhoto ?? false);
   const [photoVersion, setPhotoVersion] = useState(0);
@@ -107,7 +122,7 @@ export default function PublicProfileForm({
           rankId,
           ordinationYear: ordinationYear ? Number(ordinationYear) : null,
           isGuest,
-          ageGroupOverride: ageGroupOverride ? (ageGroupOverride as (typeof AGE_GROUPS)[number]) : null,
+          ageGroupOverride: effectiveAgeGroupOverride,
           locationPrefs,
           liturgyPrefs,
         },
@@ -173,7 +188,7 @@ export default function PublicProfileForm({
         <div className="field">
           <label>Age group {dob ? "(derived from date of birth)" : "(required)"}</label>
           <select
-            value={ageGroupOverride}
+            value={dob ? effectiveAgeGroupOverride ?? "" : ageGroupOverride}
             onChange={(e) => setAgeGroupOverride(e.target.value)}
             disabled={Boolean(dob)}
             required={!dob}
