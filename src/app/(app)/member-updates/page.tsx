@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/authz";
 import { listProfileUpdates } from "@/lib/repo/publicProfile";
+import MemberUpdatesTable from "@/components/MemberUpdatesTable";
 
 export default async function MemberUpdatesPage() {
   await requireAdmin();
@@ -21,36 +22,7 @@ export default async function MemberUpdatesPage() {
       </p>
 
       <div className="card">
-        {updates.length === 0 ? (
-          <p className="muted">No submissions yet.</p>
-        ) : (
-          <div className="table-wrap">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Action</th>
-                  <th>Submitted</th>
-                </tr>
-              </thead>
-              <tbody>
-                {updates.map((u) => (
-                  <tr key={u.id}>
-                    <td>
-                      <Link href={`/deacons?edit=${u.deaconId}`}>{u.deaconName}</Link>
-                    </td>
-                    <td>
-                      <span className={`badge ${u.action === "created" ? "badge-gold" : "badge-green"}`}>
-                        {u.action === "created" ? "New" : "Updated"}
-                      </span>
-                    </td>
-                    <td>{new Date(u.submittedAt).toLocaleString("en-US")}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <MemberUpdatesTable updates={updates} />
       </div>
     </div>
   );
