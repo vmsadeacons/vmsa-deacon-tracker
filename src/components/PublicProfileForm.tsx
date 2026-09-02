@@ -84,19 +84,19 @@ export default function PublicProfileForm({
   }
   function conflictNote(fieldKey: string) {
     if (!conflictKeys.has(fieldKey)) return null;
+    const requested = overrideKeys.has(fieldKey);
     return (
-      <div style={{ marginTop: "0.35rem", fontSize: "0.8rem" }}>
-        <p className="error-text" style={{ margin: "0 0 0.3rem" }}>
+      <div style={{ marginTop: "0.4rem" }}>
+        <p className="error-text" style={{ margin: "0 0 0.4rem", fontSize: "0.8rem" }}>
           This doesn&apos;t match what we already have on file.
         </p>
-        <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontWeight: 400 }}>
-          <input
-            type="checkbox"
-            checked={overrideKeys.has(fieldKey)}
-            onChange={() => toggleOverride(fieldKey)}
-          />
-          This is correct — ask an admin to update it
-        </label>
+        <button
+          type="button"
+          className={`btn btn-sm ${requested ? "btn-primary" : "btn-secondary"}`}
+          onClick={() => toggleOverride(fieldKey)}
+        >
+          {requested ? "✓ Override requested — click Save my profile" : "This is correct — override it"}
+        </button>
       </div>
     );
   }
@@ -170,17 +170,20 @@ export default function PublicProfileForm({
           <input
             required
             value={firstName}
-            style={fieldStyle("firstName")}
+            disabled={Boolean(initial)}
             onChange={(e) => setFirstName(e.target.value)}
           />
-          {conflictNote("firstName")}
         </div>
         <div className="field">
           <label>Last name</label>
-          <input value={lastName} style={fieldStyle("lastName")} onChange={(e) => setLastName(e.target.value)} />
-          {conflictNote("lastName")}
+          <input value={lastName} disabled={Boolean(initial)} onChange={(e) => setLastName(e.target.value)} />
         </div>
       </div>
+      {initial && (
+        <p className="muted" style={{ fontSize: "0.8rem", marginTop: "-0.6rem" }}>
+          Your name is locked once matched to an existing record — contact an admin if it needs correcting.
+        </p>
+      )}
 
       <div className="field">
         <label>Name qualifier</label>

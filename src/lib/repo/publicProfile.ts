@@ -150,8 +150,11 @@ const FIELD_LABELS: Record<string, string> = {
 function normText(v: string | null | undefined): string {
   return (v ?? "").trim().toLowerCase();
 }
+// Compares by the last 10 digits only, so a leading "1" country code (or
+// any formatting -- dashes, parens, spaces) never causes a false conflict
+// between e.g. "416-930-1659" and a stored "14169301659".
 function normPhone(v: string | null | undefined): string {
-  return (v ?? "").replace(/\D/g, "");
+  return (v ?? "").replace(/\D/g, "").slice(-10);
 }
 function normArray(v: string[] | undefined): string[] {
   return [...(v ?? [])].sort();
@@ -212,8 +215,9 @@ export async function resolveProfileUpdate(
     }
   }
 
-  resolveText("firstName", current.first_name, input.firstName, normText);
-  resolveText("lastName", current.last_name, input.lastName, normText);
+  // firstName/lastName are locked once a record is matched -- same as
+  // nameQualifier, never submitted for an existing record at all, so
+  // there's nothing to compare or apply here.
   resolveText("phone", current.phone, input.phone, normPhone);
   resolveText("address", current.address, input.address, normText);
   resolveText("city", current.city, input.city, normText);

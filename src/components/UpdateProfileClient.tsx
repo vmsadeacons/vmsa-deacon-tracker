@@ -32,6 +32,10 @@ export default function UpdateProfileClient({
   const [loadingMeta, setLoadingMeta] = useState(false);
   const [meta, setMeta] = useState<PublicDeaconMeta | null>(null);
   const [isNew, setIsNew] = useState(false);
+  // The matched record's actual name (not just what was typed to search) --
+  // shown locked in the form, since first/last name can't be changed once
+  // matched to an existing record.
+  const [matchedName, setMatchedName] = useState<{ firstName: string; lastName: string } | null>(null);
 
   async function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -43,18 +47,20 @@ export default function UpdateProfileClient({
     setStep("matches");
   }
 
-  async function handlePickMatch(id: string) {
+  async function handlePickMatch(match: NameMatch) {
     setLoadingMeta(true);
-    const fetched = await getPublicDeaconMetaAction(id);
+    const fetched = await getPublicDeaconMetaAction(match.id);
     setLoadingMeta(false);
     if (!fetched) return; // record went away (e.g. archived) between search and pick -- stay on this step
     setMeta(fetched);
+    setMatchedName({ firstName: match.firstName, lastName: match.lastName });
     setIsNew(false);
     setStep("form");
   }
 
   function handleNoneOfThese() {
     setMeta(null);
+    setMatchedName(null);
     setIsNew(true);
     setStep("form");
   }
@@ -87,6 +93,7 @@ export default function UpdateProfileClient({
     setLastName("");
     setMatches([]);
     setMeta(null);
+    setMatchedName(null);
     setIsNew(false);
   }
 
@@ -130,7 +137,7 @@ export default function UpdateProfileClient({
                 className="btn btn-secondary"
                 style={{ justifyContent: "flex-start" }}
                 disabled={loadingMeta}
-                onClick={() => handlePickMatch(m.id)}
+                onClick={() => handlePickMatch(m)}
               >
                 {m.firstName} {m.lastName}
                 {m.nameQualifier && ` (${m.nameQualifier})`}
@@ -161,8 +168,8 @@ export default function UpdateProfileClient({
           )}
           <PublicProfileForm
             initial={meta}
-            initialFirstName={firstName}
-            initialLastName={lastName}
+            initialFirstName={matchedName?.firstName ?? firstName}
+            initialLastName={matchedName?.lastName ?? lastName}
             locations={locations}
             ranks={ranks}
             ageGroupThresholds={ageGroupThresholds}
