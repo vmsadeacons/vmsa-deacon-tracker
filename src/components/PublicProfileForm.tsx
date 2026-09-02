@@ -60,20 +60,17 @@ export default function PublicProfileForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Every field this submission conflicted with, and which of those the
-  // deacon has explicitly chosen to request an override for rather than
-  // just correct. Resubmitting carries the override picks along; anything
-  // still conflicting and not overridden blocks the save again.
+  // Every field this submission conflicted with, and whether the deacon has
+  // chosen to override all of them at once (one button covers every
+  // currently-flagged field, rather than a separate pick per field).
+  // Resubmitting carries that choice along; conflicting fields left
+  // un-overridden block the save again.
   const [conflicts, setConflicts] = useState<ConflictField[]>([]);
   const [overrideKeys, setOverrideKeys] = useState<Set<string>>(new Set());
+  const overridingAll = conflicts.length > 0 && conflicts.every((c) => overrideKeys.has(c.key));
 
-  function toggleOverride(key: string) {
-    setOverrideKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+  function toggleOverrideAll() {
+    setOverrideKeys(overridingAll ? new Set() : new Set(conflicts.map((c) => c.key)));
   }
 
   const conflictKeys = new Set(conflicts.map((c) => c.key));
@@ -84,20 +81,10 @@ export default function PublicProfileForm({
   }
   function conflictNote(fieldKey: string) {
     if (!conflictKeys.has(fieldKey)) return null;
-    const requested = overrideKeys.has(fieldKey);
     return (
-      <div style={{ marginTop: "0.4rem" }}>
-        <p className="error-text" style={{ margin: "0 0 0.4rem", fontSize: "0.8rem" }}>
-          This doesn&apos;t match what we already have on file.
-        </p>
-        <button
-          type="button"
-          className={`btn btn-sm ${requested ? "btn-primary" : "btn-secondary"}`}
-          onClick={() => toggleOverride(fieldKey)}
-        >
-          {requested ? "✓ Override requested — click Save my profile" : "This is correct — override it"}
-        </button>
-      </div>
+      <p className="error-text" style={{ margin: "0.4rem 0 0", fontSize: "0.8rem" }}>
+        This doesn&apos;t match what we already have on file.
+      </p>
     );
   }
 
@@ -302,7 +289,6 @@ export default function PublicProfileForm({
       <div className="field">
         <label>Location preferences</label>
         <ChipMultiSelect options={locationOptions} selected={locationPrefs} onChange={setLocationPrefs} />
-        {conflictNote("locationPrefs")}
       </div>
 
       <div className="field">
@@ -312,10 +298,19 @@ export default function PublicProfileForm({
           selected={liturgyPrefs}
           onChange={setLiturgyPrefs}
         />
-        {conflictNote("liturgyPrefs")}
       </div>
 
-      <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
+      <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end", alignItems: "center" }}>
+        {conflicts.length > 0 && (
+          <button
+            type="button"
+            className={`btn ${overridingAll ? "btn-primary" : "btn-danger"}`}
+            style={{ marginRight: "auto" }}
+            onClick={toggleOverrideAll}
+          >
+            {overridingAll ? "✓ Overriding conflicting fields" : "Override conflicting fields"}
+          </button>
+        )}
         <button type="button" className="btn btn-secondary" onClick={onCancel}>
           Back
         </button>

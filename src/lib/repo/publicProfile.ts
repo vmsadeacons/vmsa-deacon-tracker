@@ -1,8 +1,7 @@
 import { query } from "@/lib/db";
 import { createDeacon, updateDeacon, getDeacon, type DeaconInput } from "@/lib/repo/deacons";
-import { listLocations } from "@/lib/repo/locations";
 import { listRanks } from "@/lib/repo/ranks";
-import { LITURGY_PREF_LABELS, ALL_SENTINEL, type AgeGroup, type LiturgyPrefCode } from "@/lib/constants";
+import type { AgeGroup } from "@/lib/constants";
 
 // ---------------------------------------------------------------------------
 // Public, no-login self-service profile form ("Update Your Profile" / admin
@@ -159,9 +158,6 @@ function normPhone(v: string | null | undefined): string {
 function normArray(v: string[] | undefined): string[] {
   return [...(v ?? [])].sort();
 }
-function arraysEqual(a: string[], b: string[]): boolean {
-  return a.length === b.length && a.every((v, i) => v === b[i]);
-}
 
 interface FieldResolution {
   key: string;
@@ -188,11 +184,8 @@ export async function resolveProfileUpdate(
   );
   const emailLocked = emailLockRows[0]?.email_locked ?? false;
 
-  const [locations, ranks] = await Promise.all([listLocations(true), listRanks(true)]);
-  const locationName = (id: string) => (id === ALL_SENTINEL ? "All" : locations.find((l) => l.id === id)?.name ?? id);
+  const ranks = await listRanks(true);
   const rankName = (id: string | null) => (id ? ranks.find((r) => r.id === id)?.name ?? id : "—");
-  const liturgyLabel = (code: string) =>
-    code === ALL_SENTINEL ? "All" : LITURGY_PREF_LABELS[code as LiturgyPrefCode] ?? code;
 
   const resolutions: FieldResolution[] = [];
 
@@ -332,30 +325,20 @@ export async function resolveProfileUpdate(
     }
   }
 
-  // locationPrefs / liturgyPrefs -- compared as sets; blank selection means "no change requested."
-  function resolveArray(key: "locationPrefs" | "liturgyPrefs", currentArr: string[], labelFor: (v: string) => string) {
+  // locationPrefs / liturgyPrefs -- these are fluid (people's preferences
+  // change often), so a mismatch here is never treated as a conflict: a
+  // non-blank selection is simply applied, overwriting whatever was there.
+  function resolveArray(key: "locationPrefs" | "liturgyPrefs") {
     const label = FIELD_LABELS[key];
     const entered = normArray(input[key]);
-    const currentNorm = normArray(currentArr);
     if (entered.length === 0) {
       resolutions.push({ key, label, action: "skip" });
-    } else if (currentNorm.length === 0 || arraysEqual(entered, currentNorm)) {
-      resolutions.push({ key, label, action: "apply", applyValue: input[key] });
-    } else if (overrideFields.includes(key)) {
-      resolutions.push({
-        key,
-        label,
-        action: "override",
-        applyValue: input[key],
-        currentDisplay: currentNorm.map(labelFor).join(", "),
-        requestedDisplay: entered.map(labelFor).join(", "),
-      });
     } else {
-      resolutions.push({ key, label, action: "conflict" });
+      resolutions.push({ key, label, action: "apply", applyValue: input[key] });
     }
   }
-  resolveArray("locationPrefs", current.location_prefs, locationName);
-  resolveArray("liturgyPrefs", current.liturgy_prefs, liturgyLabel);
+  resolveArray("locationPrefs");
+  resolveArray("liturgyPrefs");
 
   const conflicts = resolutions.filter((r) => r.action === "conflict").map((r) => ({ key: r.key, label: r.label }));
   if (conflicts.length > 0) {
