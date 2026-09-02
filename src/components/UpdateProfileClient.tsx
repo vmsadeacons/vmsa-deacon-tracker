@@ -4,10 +4,10 @@ import { useState } from "react";
 import PublicProfileForm from "./PublicProfileForm";
 import type { LocationRow } from "@/lib/repo/locations";
 import type { RankRow } from "@/lib/repo/ranks";
-import type { NameMatch, PublicDeaconProfile, PublicProfileInput } from "@/lib/repo/publicProfile";
+import type { NameMatch, PublicDeaconMeta, PublicProfileInput, ConflictField } from "@/lib/repo/publicProfile";
 import {
   searchDeaconsByNameAction,
-  getPublicDeaconProfileAction,
+  getPublicDeaconMetaAction,
   submitNewProfileAction,
   submitProfileUpdateAction,
   setPublicDeaconPhotoAction,
@@ -29,8 +29,8 @@ export default function UpdateProfileClient({
   const [lastName, setLastName] = useState("");
   const [searching, setSearching] = useState(false);
   const [matches, setMatches] = useState<NameMatch[]>([]);
-  const [loadingProfile, setLoadingProfile] = useState(false);
-  const [profile, setProfile] = useState<PublicDeaconProfile | null>(null);
+  const [loadingMeta, setLoadingMeta] = useState(false);
+  const [meta, setMeta] = useState<PublicDeaconMeta | null>(null);
   const [isNew, setIsNew] = useState(false);
 
   async function handleSearch(e: React.FormEvent) {
@@ -44,22 +44,26 @@ export default function UpdateProfileClient({
   }
 
   async function handlePickMatch(id: string) {
-    setLoadingProfile(true);
-    const fetched = await getPublicDeaconProfileAction(id);
-    setLoadingProfile(false);
+    setLoadingMeta(true);
+    const fetched = await getPublicDeaconMetaAction(id);
+    setLoadingMeta(false);
     if (!fetched) return; // record went away (e.g. archived) between search and pick -- stay on this step
-    setProfile(fetched);
+    setMeta(fetched);
     setIsNew(false);
     setStep("form");
   }
 
   function handleNoneOfThese() {
-    setProfile(null);
+    setMeta(null);
     setIsNew(true);
     setStep("form");
   }
 
-  async function handleFormSubmit(input: PublicProfileInput, pendingPhotoDataUrl: string | null) {
+  async function handleFormSubmit(
+    input: PublicProfileInput,
+    overrideFields: string[],
+    pendingPhotoDataUrl: string | null
+  ): Promise<{ ok: boolean; error?: string; conflicts?: ConflictField[] }> {
     if (isNew) {
       const result = await submitNewProfileAction(input);
       if (!result.ok) return result;
@@ -67,13 +71,14 @@ export default function UpdateProfileClient({
         await setPublicDeaconPhotoAction(result.id, pendingPhotoDataUrl);
       }
       setStep("done");
-      return { ok: true as const };
+      return { ok: true };
     }
-    if (!profile) return { ok: false as const, error: "Something went wrong — please start over." };
-    const result = await submitProfileUpdateAction(profile.id, input);
+    if (!meta) return { ok: false, error: "Something went wrong — please start over." };
+    const result = await submitProfileUpdateAction(meta.id, input, overrideFields);
+    if (result.conflicts && result.conflicts.length > 0) return result;
     if (!result.ok) return result;
     setStep("done");
-    return { ok: true as const };
+    return { ok: true };
   }
 
   function startOver() {
@@ -81,7 +86,7 @@ export default function UpdateProfileClient({
     setFirstName("");
     setLastName("");
     setMatches([]);
-    setProfile(null);
+    setMeta(null);
     setIsNew(false);
   }
 
@@ -124,10 +129,11 @@ export default function UpdateProfileClient({
                 type="button"
                 className="btn btn-secondary"
                 style={{ justifyContent: "flex-start" }}
-                disabled={loadingProfile}
+                disabled={loadingMeta}
                 onClick={() => handlePickMatch(m.id)}
               >
                 {m.firstName} {m.lastName}
+                {m.nameQualifier && ` (${m.nameQualifier})`}
               </button>
             ))}
             {matches.length === 0 && <p className="muted">No close matches found.</p>}
@@ -136,7 +142,7 @@ export default function UpdateProfileClient({
             <button type="button" className="btn btn-secondary" onClick={() => setStep("name")}>
               Back
             </button>
-            <button type="button" className="btn btn-primary" disabled={loadingProfile} onClick={handleNoneOfThese}>
+            <button type="button" className="btn btn-primary" disabled={loadingMeta} onClick={handleNoneOfThese}>
               None of these are me
             </button>
           </div>
@@ -146,13 +152,22 @@ export default function UpdateProfileClient({
       {step === "form" && (
         <div className="card">
           <h3 style={{ marginTop: 0 }}>{isNew ? "New profile" : "Update your profile"}</h3>
+          {!isNew && (
+            <p className="muted" style={{ marginBottom: "1rem", fontSize: "0.85rem" }}>
+              For your privacy, this form starts blank rather than showing what we already have on file. Fill in
+              your information below — anything that doesn&apos;t match our existing records will be flagged so
+              you can confirm or request a change.
+            </p>
+          )}
           <PublicProfileForm
-            initial={profile}
+            initial={meta}
+            initialFirstName={firstName}
+            initialLastName={lastName}
             locations={locations}
             ranks={ranks}
             ageGroupThresholds={ageGroupThresholds}
             onSubmit={handleFormSubmit}
-            onCancel={() => setStep(isNew ? "matches" : "matches")}
+            onCancel={() => setStep("matches")}
           />
         </div>
       )}

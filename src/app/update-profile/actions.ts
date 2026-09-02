@@ -6,9 +6,9 @@
 
 import {
   searchDeaconsByName,
-  getPublicDeaconProfile,
+  getPublicDeaconMeta,
   createDeaconPublic,
-  updateDeaconPublic,
+  resolveProfileUpdate,
   type PublicProfileInput,
 } from "@/lib/repo/publicProfile";
 import { setDeaconPhoto, deleteDeaconPhoto } from "@/lib/repo/deacons";
@@ -33,8 +33,8 @@ export async function searchDeaconsByNameAction(firstName: string, lastName: str
   return searchDeaconsByName(firstName, lastName);
 }
 
-export async function getPublicDeaconProfileAction(id: string) {
-  return getPublicDeaconProfile(id);
+export async function getPublicDeaconMetaAction(id: string) {
+  return getPublicDeaconMeta(id);
 }
 
 export async function submitNewProfileAction(input: PublicProfileInput) {
@@ -46,15 +46,20 @@ export async function submitNewProfileAction(input: PublicProfileInput) {
   }
 }
 
-export async function submitProfileUpdateAction(id: string, input: PublicProfileInput) {
+export async function submitProfileUpdateAction(id: string, input: PublicProfileInput, overrideFields: string[]) {
   try {
-    await updateDeaconPublic(id, input);
-    return { ok: true as const };
+    const result = await resolveProfileUpdate(id, input, overrideFields);
+    return result.ok
+      ? { ok: true as const }
+      : { ok: false as const, conflicts: result.conflicts };
   } catch (err) {
     return { ok: false as const, error: err instanceof Error ? err.message : "Save failed" };
   }
 }
 
+// Only ever used for a brand-new record -- a matched (existing) record's
+// photo is never shown or replaceable through this form (see
+// PublicProfileForm), so there's nothing to leak or silently overwrite.
 export async function setPublicDeaconPhotoAction(id: string, dataUrl: string) {
   const base64 = dataUrl.split(",")[1] ?? "";
   await setDeaconPhoto(id, Buffer.from(base64, "base64"));
