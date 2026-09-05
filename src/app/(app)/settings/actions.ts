@@ -18,6 +18,7 @@ import {
   getMergePreview,
   mergeDeacons,
   listMergeLog,
+  detectDuplicateCandidates,
   type MergeFieldPatch,
 } from "@/lib/repo/mergeDeacons";
 import type { PWActivityId } from "@/lib/constants";
@@ -220,6 +221,11 @@ export async function mergeDeaconsAction(survivorId: string, mergedId: string, p
 export async function listMergeLogAction() {
   await assertSystemAdmin();
   return listMergeLog();
+}
+
+export async function detectDuplicateCandidatesAction() {
+  await assertSystemAdmin();
+  return detectDuplicateCandidates();
 }
 
 export async function updateFeastNameAction(

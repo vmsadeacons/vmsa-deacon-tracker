@@ -108,6 +108,77 @@ async function getMergeCandidateDetail(id: string): Promise<MergeCandidateDetail
   };
 }
 
+export interface DuplicateCandidate {
+  aId: string;
+  aName: string; // includes the qualifier
+  aStatus: "Active" | "Archived";
+  bId: string;
+  bName: string;
+  bStatus: "Active" | "Archived";
+  reasons: string[]; // e.g. ["Same name", "Same phone"]
+}
+
+/**
+ * Self-joins the roster to surface pairs that share a first+last name
+ * (qualifier ignored -- that's exactly the field that's supposed to tell
+ * two otherwise-identical names apart), a phone number, or an email
+ * address. Purely a suggestion list for the admin to eyeball -- nothing
+ * here is applied automatically. Considers every status (a duplicate is
+ * just as likely to be one Active + one already-Archived record).
+ */
+export async function detectDuplicateCandidates(): Promise<DuplicateCandidate[]> {
+  const { rows } = await query<{
+    a_id: string;
+    a_name: string;
+    a_status: "Active" | "Archived";
+    b_id: string;
+    b_name: string;
+    b_status: "Active" | "Archived";
+    same_name: boolean;
+    same_phone: boolean;
+    same_email: boolean;
+  }>(
+    `with norm as (
+       select id, name, status,
+              lower(trim(first_name)) as fn, lower(trim(last_name)) as ln,
+              nullif(regexp_replace(coalesce(phone, ''), '\\D', '', 'g'), '') as phone_digits,
+              nullif(lower(trim(coalesce(email, ''))), '') as email_norm
+       from deacons
+     )
+     select a.id as a_id, a.name as a_name, a.status as a_status,
+            b.id as b_id, b.name as b_name, b.status as b_status,
+            (a.fn = b.fn and a.ln = b.ln) as same_name,
+            (
+              a.phone_digits is not null and length(a.phone_digits) >= 7
+              and right(a.phone_digits, 10) = right(b.phone_digits, 10)
+            ) as same_phone,
+            (a.email_norm is not null and a.email_norm = b.email_norm) as same_email
+     from norm a
+     join norm b on a.id < b.id
+     where (a.fn = b.fn and a.ln = b.ln)
+        or (
+          a.phone_digits is not null and length(a.phone_digits) >= 7
+          and right(a.phone_digits, 10) = right(b.phone_digits, 10)
+        )
+        or (a.email_norm is not null and a.email_norm = b.email_norm)
+     order by a.name
+     limit 500`
+  );
+  return rows.map((r) => ({
+    aId: r.a_id,
+    aName: r.a_name,
+    aStatus: r.a_status,
+    bId: r.b_id,
+    bName: r.b_name,
+    bStatus: r.b_status,
+    reasons: [
+      r.same_name && "Same name",
+      r.same_phone && "Same phone",
+      r.same_email && "Same email",
+    ].filter((v): v is string => Boolean(v)),
+  }));
+}
+
 /** Both records' full detail, for the side-by-side diff screen. Either can come back null if deleted out from under the picker. */
 export async function getMergePreview(
   idA: string,

@@ -4,9 +4,13 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
 import type { LocationRow } from "@/lib/repo/locations";
-import type { MergeCandidateDetail, MergeFieldPatch, MergeLogRow } from "@/lib/repo/mergeDeacons";
+import type { DuplicateCandidate, MergeCandidateDetail, MergeFieldPatch, MergeLogRow } from "@/lib/repo/mergeDeacons";
 import { ALL_SENTINEL, LITURGY_PREF_LABELS, type LiturgyPrefCode } from "@/lib/constants";
-import { getMergePreviewAction, mergeDeaconsAction } from "@/app/(app)/settings/actions";
+import {
+  detectDuplicateCandidatesAction,
+  getMergePreviewAction,
+  mergeDeaconsAction,
+} from "@/app/(app)/settings/actions";
 import SingleRosterPickerModal from "./SingleRosterPickerModal";
 
 // Which record's value survives, per field. "combine" is only offered for
@@ -192,6 +196,10 @@ export default function MergeDeaconsCard({
   const [mergeError, setMergeError] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
 
+  const [detecting, setDetecting] = useState(false);
+  const [detectError, setDetectError] = useState<string | null>(null);
+  const [duplicates, setDuplicates] = useState<DuplicateCandidate[] | null>(null);
+
   async function loadPreview(a: string, b: string) {
     setLoading(true);
     setLoadError(null);
@@ -223,6 +231,26 @@ export default function MergeDeaconsCard({
     setPreview(null);
     setMergeError(null);
     if (id && idA && id !== idA) void loadPreview(idA, id);
+  }
+
+  function selectPair(aId: string, bId: string) {
+    setIdA(aId);
+    setIdB(bId);
+    setMergeError(null);
+    void loadPreview(aId, bId);
+  }
+
+  async function detectDuplicates() {
+    setDetecting(true);
+    setDetectError(null);
+    try {
+      const result = await detectDuplicateCandidatesAction();
+      setDuplicates(result);
+    } catch (err) {
+      setDetectError((err as Error).message);
+    } finally {
+      setDetecting(false);
+    }
   }
 
   const survivor = preview ? (survivorIsA ? preview.a : preview.b) : null;
@@ -270,6 +298,56 @@ export default function MergeDeaconsCard({
         <p className="muted">Only a System Admin can merge records.</p>
       ) : (
         <>
+          <div style={{ marginBottom: "1rem" }}>
+            <button type="button" className="btn btn-secondary" disabled={detecting} onClick={detectDuplicates}>
+              {detecting ? "Scanning…" : "Detect Duplicates"}
+            </button>
+            {detectError && <p className="error-text" style={{ marginTop: "0.5rem" }}>{detectError}</p>}
+
+            {duplicates && (
+              <div className="table-wrap" style={{ marginTop: "0.75rem" }}>
+                {duplicates.length === 0 ? (
+                  <p className="muted">No likely duplicates found — no two records share a name, phone, or email.</p>
+                ) : (
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Record</th>
+                        <th>Record</th>
+                        <th>Matched on</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {duplicates.map((d) => (
+                        <tr key={`${d.aId}-${d.bId}`}>
+                          <td>
+                            {d.aName}
+                            {d.aStatus === "Archived" && <span className="badge badge-grey" style={{ marginLeft: "0.4rem" }}>Archived</span>}
+                          </td>
+                          <td>
+                            {d.bName}
+                            {d.bStatus === "Archived" && <span className="badge badge-grey" style={{ marginLeft: "0.4rem" }}>Archived</span>}
+                          </td>
+                          <td>{d.reasons.join(", ")}</td>
+                          <td>
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => selectPair(d.aId, d.bId)}
+                            >
+                              Review this pair
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="grid-2" style={{ marginBottom: "1rem" }}>
             <CandidatePicker label="Record A" items={items} selectedId={idA} disabledId={idB} onSelect={selectA} />
             <CandidatePicker label="Record B" items={items} selectedId={idB} disabledId={idA} onSelect={selectB} />
