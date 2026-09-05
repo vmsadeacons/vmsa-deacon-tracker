@@ -300,29 +300,57 @@ export default function MergeDeaconsCard({
                         <th>Field</th>
                         <th>{survivor.name} (kept)</th>
                         <th>{other.name} (merged in)</th>
-                        <th>Use</th>
+                        {diffFields.some((f) => f.combinable) && <th>Combine</th>}
                       </tr>
                     </thead>
                     <tbody>
                       {diffFields.map((f) => {
-                        const choice = choices[f.key as string] ?? "a";
+                        const key = f.key as string;
+                        const choice = choices[key] ?? "a";
+                        const name = `merge-field-${key}`;
+                        function setChoice(v: FieldChoice) {
+                          setChoices((c) => ({ ...c, [key]: v }));
+                        }
                         return (
-                          <tr key={f.key as string}>
+                          <tr key={key}>
                             <td>{f.label}</td>
-                            <td>{f.display(survivor)}</td>
-                            <td>{f.display(other)}</td>
                             <td>
-                              <select
-                                value={choice}
-                                onChange={(e) =>
-                                  setChoices((c) => ({ ...c, [f.key as string]: e.target.value as FieldChoice }))
-                                }
-                              >
-                                <option value="a">{survivor.name}&apos;s</option>
-                                <option value="b">{other.name}&apos;s</option>
-                                {f.combinable && <option value="combine">Combine both</option>}
-                              </select>
+                              <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                <input
+                                  type="radio"
+                                  name={name}
+                                  checked={choice === "a"}
+                                  onChange={() => setChoice("a")}
+                                />
+                                {f.display(survivor)}
+                              </label>
                             </td>
+                            <td>
+                              <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                <input
+                                  type="radio"
+                                  name={name}
+                                  checked={choice === "b"}
+                                  onChange={() => setChoice("b")}
+                                />
+                                {f.display(other)}
+                              </label>
+                            </td>
+                            {diffFields.some((d) => d.combinable) && (
+                              <td>
+                                {f.combinable && (
+                                  <label style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                                    <input
+                                      type="radio"
+                                      name={name}
+                                      checked={choice === "combine"}
+                                      onChange={() => setChoice("combine")}
+                                    />
+                                    Both
+                                  </label>
+                                )}
+                              </td>
+                            )}
                           </tr>
                         );
                       })}
