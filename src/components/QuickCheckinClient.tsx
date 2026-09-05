@@ -432,25 +432,51 @@ export default function QuickCheckinClient() {
                 >
                   Change Name
                 </button>
-                <select
-                  className="btn btn-secondary"
-                  style={{ fontSize: "1.1rem", padding: "0.9rem", textAlign: "center" }}
-                  value=""
-                  disabled={loadingLocations}
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    if (id) handleChangeChurch(id);
-                  }}
-                >
-                  <option value="" disabled hidden>
+                {/*
+                  A plain <select> renders its closed-box text left-aligned
+                  on most platforms no matter what text-align CSS says (a
+                  native-control quirk, not something this app's CSS
+                  controls) -- so the visible "button" here is an ordinary
+                  centered div matching the other two exactly, with a fully
+                  transparent <select> stacked on top of it to capture the
+                  tap/click and open the real (still native, still
+                  accessible) picker.
+                */}
+                <div style={{ position: "relative", width: "100%" }}>
+                  <div
+                    className="btn btn-secondary"
+                    style={{ fontSize: "1.1rem", padding: "0.9rem", width: "100%" }}
+                    aria-hidden="true"
+                  >
                     {loadingLocations ? "Loading churches…" : "Change Church"}
-                  </option>
-                  {allLocations.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.name}
+                  </div>
+                  <select
+                    aria-label="Change Church"
+                    value=""
+                    disabled={loadingLocations}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      if (id) handleChangeChurch(id);
+                    }}
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      width: "100%",
+                      height: "100%",
+                      opacity: 0,
+                      cursor: "pointer",
+                    }}
+                  >
+                    <option value="" disabled hidden>
+                      {loadingLocations ? "Loading churches…" : "Change Church"}
                     </option>
-                  ))}
-                </select>
+                    {allLocations.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <button
                   type="button"
                   className="btn btn-secondary"
