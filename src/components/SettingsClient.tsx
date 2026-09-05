@@ -1122,7 +1122,7 @@ export default function SettingsClient({
       <FeastNamesCard feastNames={feastNames} canEdit={canEdit} />
       <QuickCheckinLocationsCard locations={locations} canEdit={canEdit} />
       <LiturgyTimeCutoffsCard locations={locations} cutoffsByLocation={cutoffsByLocation} canEdit={canEdit} />
-      <MergeDeaconsCard deacons={deacons} mergeLog={mergeLog} canEdit={canEdit} />
+      <MergeDeaconsCard deacons={deacons} locations={locations} mergeLog={mergeLog} canEdit={canEdit} />
     </div>
   );
 }

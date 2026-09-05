@@ -3,7 +3,9 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
+import type { LocationRow } from "@/lib/repo/locations";
 import type { MergeCandidateDetail, MergeFieldPatch, MergeLogRow } from "@/lib/repo/mergeDeacons";
+import { ALL_SENTINEL, LITURGY_PREF_LABELS, type LiturgyPrefCode } from "@/lib/constants";
 import { getMergePreviewAction, mergeDeaconsAction } from "@/app/(app)/settings/actions";
 import SingleRosterPickerModal from "./SingleRosterPickerModal";
 
@@ -11,46 +13,59 @@ import SingleRosterPickerModal from "./SingleRosterPickerModal";
 // fields where joining both sides makes sense (notes, preferences).
 type FieldChoice = "a" | "b" | "combine";
 
+function locationPrefLabel(pref: string, locations: LocationRow[]): string {
+  if (pref === ALL_SENTINEL) return "All";
+  return locations.find((l) => l.id === pref)?.name ?? pref;
+}
+
+function liturgyPrefLabel(pref: string): string {
+  if (pref === ALL_SENTINEL) return "All";
+  return LITURGY_PREF_LABELS[pref as LiturgyPrefCode] ?? pref;
+}
+
 interface FieldDef {
   key: keyof MergeCandidateDetail;
   label: string;
-  display: (v: MergeCandidateDetail) => string;
+  display: (v: MergeCandidateDetail, locations: LocationRow[]) => string;
   combinable?: boolean;
 }
 
-const FIELDS: FieldDef[] = [
-  { key: "firstName", label: "First name", display: (d) => d.firstName },
-  { key: "lastName", label: "Last name", display: (d) => d.lastName || "—" },
-  { key: "nameQualifier", label: "Name qualifier", display: (d) => d.nameQualifier || "—" },
-  { key: "phone", label: "Phone", display: (d) => d.phone || "—" },
-  { key: "email", label: "Email", display: (d) => d.email || "—" },
-  { key: "address", label: "Address", display: (d) => d.address || "—" },
-  { key: "city", label: "City", display: (d) => d.city || "—" },
-  { key: "dob", label: "Date of birth", display: (d) => d.dob || "—" },
-  { key: "ageGroupOverride", label: "Age group override", display: (d) => d.ageGroupOverride || "—" },
-  { key: "rankId", label: "Rank", display: (d) => d.rankName },
-  { key: "ordinationYear", label: "Year of ordination", display: (d) => d.ordinationYear?.toString() || "—" },
-  { key: "isGuest", label: "Guest", display: (d) => (d.isGuest ? "Guest" : "Not a guest") },
-  { key: "status", label: "Status", display: (d) => d.status },
-  {
-    key: "locationPrefs",
-    label: "Location preferences",
-    display: (d) => (d.locationPrefs.length ? d.locationPrefs.join(", ") : "—"),
-    combinable: true,
-  },
-  {
-    key: "liturgyPrefs",
-    label: "Liturgy preferences",
-    display: (d) => (d.liturgyPrefs.length ? d.liturgyPrefs.join(", ") : "—"),
-    combinable: true,
-  },
-  {
-    key: "notes",
-    label: "Notes",
-    display: (d) => d.notes || "—",
-    combinable: true,
-  },
-];
+function buildFields(locations: LocationRow[]): FieldDef[] {
+  return [
+    { key: "firstName", label: "First name", display: (d) => d.firstName },
+    { key: "lastName", label: "Last name", display: (d) => d.lastName || "—" },
+    { key: "nameQualifier", label: "Name qualifier", display: (d) => d.nameQualifier || "—" },
+    { key: "phone", label: "Phone", display: (d) => d.phone || "—" },
+    { key: "email", label: "Email", display: (d) => d.email || "—" },
+    { key: "address", label: "Address", display: (d) => d.address || "—" },
+    { key: "city", label: "City", display: (d) => d.city || "—" },
+    { key: "dob", label: "Date of birth", display: (d) => d.dob || "—" },
+    { key: "ageGroupOverride", label: "Age group override", display: (d) => d.ageGroupOverride || "—" },
+    { key: "rankId", label: "Rank", display: (d) => d.rankName },
+    { key: "ordinationYear", label: "Year of ordination", display: (d) => d.ordinationYear?.toString() || "—" },
+    { key: "isGuest", label: "Guest", display: (d) => (d.isGuest ? "Guest" : "Not a guest") },
+    { key: "status", label: "Status", display: (d) => d.status },
+    {
+      key: "locationPrefs",
+      label: "Location preferences",
+      display: (d) =>
+        d.locationPrefs.length ? d.locationPrefs.map((p) => locationPrefLabel(p, locations)).join(", ") : "—",
+      combinable: true,
+    },
+    {
+      key: "liturgyPrefs",
+      label: "Liturgy preferences",
+      display: (d) => (d.liturgyPrefs.length ? d.liturgyPrefs.map(liturgyPrefLabel).join(", ") : "—"),
+      combinable: true,
+    },
+    {
+      key: "notes",
+      label: "Notes",
+      display: (d) => d.notes || "—",
+      combinable: true,
+    },
+  ];
+}
 
 function differs(a: MergeCandidateDetail, b: MergeCandidateDetail, key: keyof MergeCandidateDetail): boolean {
   const av = a[key];
@@ -146,10 +161,12 @@ function CandidatePicker({
 
 export default function MergeDeaconsCard({
   deacons,
+  locations,
   mergeLog,
   canEdit,
 }: {
   deacons: DeaconWithAgeGroup[];
+  locations: LocationRow[];
   mergeLog: MergeLogRow[];
   canEdit: boolean;
 }) {
@@ -158,6 +175,7 @@ export default function MergeDeaconsCard({
     () => [...deacons].sort((a, b) => a.name.localeCompare(b.name)).map((d) => ({ id: d.id, name: d.name })),
     [deacons]
   );
+  const fields = useMemo(() => buildFields(locations), [locations]);
 
   const [idA, setIdA] = useState<string | null>(null);
   const [idB, setIdB] = useState<string | null>(null);
@@ -234,7 +252,7 @@ export default function MergeDeaconsCard({
     router.refresh();
   }
 
-  const diffFields = preview && survivor && other ? FIELDS.filter((f) => differs(survivor, other, f.key)) : [];
+  const diffFields = preview && survivor && other ? fields.filter((f) => differs(survivor, other, f.key)) : [];
 
   return (
     <div className="card">
@@ -322,7 +340,7 @@ export default function MergeDeaconsCard({
                                   checked={choice === "a"}
                                   onChange={() => setChoice("a")}
                                 />
-                                {f.display(survivor)}
+                                {f.display(survivor, locations)}
                               </label>
                             </td>
                             <td>
@@ -333,7 +351,7 @@ export default function MergeDeaconsCard({
                                   checked={choice === "b"}
                                   onChange={() => setChoice("b")}
                                 />
-                                {f.display(other)}
+                                {f.display(other, locations)}
                               </label>
                             </td>
                             {diffFields.some((d) => d.combinable) && (
