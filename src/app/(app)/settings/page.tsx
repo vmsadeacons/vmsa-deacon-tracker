@@ -6,6 +6,7 @@ import { listPWActivities } from "@/lib/repo/passionWeekActivities";
 import { listRanks } from "@/lib/repo/ranks";
 import { listFeastNames } from "@/lib/repo/feastNames";
 import { listDayFilterOptions } from "@/lib/repo/dayFilterOptions";
+import { listCutoffsForLocation, type CutoffRow } from "@/lib/repo/liturgyTimeCutoffs";
 import SettingsClient from "@/components/SettingsClient";
 
 export default async function SettingsPage() {
@@ -21,6 +22,14 @@ export default async function SettingsPage() {
       listDayFilterOptions(),
     ]);
 
+  const activeLocations = locations.filter((l) => l.status === "Active");
+  const cutoffsByLocation: Record<string, CutoffRow[]> = {};
+  await Promise.all(
+    activeLocations.map(async (l) => {
+      cutoffsByLocation[l.id] = await listCutoffsForLocation(l.id);
+    })
+  );
+
   return (
     <SettingsClient
       locations={locations}
@@ -30,6 +39,7 @@ export default async function SettingsPage() {
       ranks={ranks}
       feastNames={feastNames}
       dayFilterOptions={dayFilterOptions}
+      cutoffsByLocation={cutoffsByLocation}
       canEdit={session.user.role === "SystemAdmin"}
     />
   );

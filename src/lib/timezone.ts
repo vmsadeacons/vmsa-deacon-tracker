@@ -32,6 +32,16 @@ export function churchNowHour(): number {
   return parseInt(hourStr, 10) % 24;
 }
 
+/** Current time in the church's local timezone, as "HH:MM" (24-hour) -- for comparing against a configured cutoff. */
+export function churchNowTimeString(): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: TZ,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date());
+}
+
 /** 0 = Sunday ... 6 = Saturday, for a plain YYYY-MM-DD calendar date. */
 export function weekdayOfDateString(dateStr: string): number {
   const [y, m, d] = dateStr.split("-").map(Number);

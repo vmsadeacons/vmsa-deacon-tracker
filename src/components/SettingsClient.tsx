@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { LocationRow } from "@/lib/repo/locations";
 import type { ActivityRow } from "@/lib/repo/activities";
 import type { AppSettings } from "@/lib/repo/settings";
@@ -9,10 +10,13 @@ import type { PWActivityRow } from "@/lib/repo/passionWeekActivities";
 import type { RankRow } from "@/lib/repo/ranks";
 import type { FeastNameRow } from "@/lib/repo/feastNames";
 import type { DayFilterOptionRow } from "@/lib/repo/dayFilterOptions";
+import type { CutoffRow } from "@/lib/repo/liturgyTimeCutoffs";
 import { WEEKDAY_NAMES } from "@/lib/timezone";
 import {
   createLocationAction,
   updateLocationAction,
+  setLocationGeofenceAction,
+  setCutoffAction,
   createActivityAction,
   updateActivityAction,
   setAgeGroupThresholdsAction,
@@ -838,6 +842,245 @@ function PassionWeekActivitiesCard({
   );
 }
 
+function QuickCheckinLocationsCard({ locations, canEdit }: { locations: LocationRow[]; canEdit: boolean }) {
+  const router = useRouter();
+  const active = locations.filter((l) => l.status === "Active");
+  const [drafts, setDrafts] = useState(
+    Object.fromEntries(
+      active.map((l) => [
+        l.id,
+        {
+          latitude: l.latitude != null ? String(l.latitude) : "",
+          longitude: l.longitude != null ? String(l.longitude) : "",
+          radius: l.geofence_radius_ft != null ? String(l.geofence_radius_ft) : "",
+        },
+      ])
+    )
+  );
+  const [capturing, setCapturing] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  function capture(id: string) {
+    if (!navigator.geolocation) {
+      setError("This device doesn't support location detection.");
+      return;
+    }
+    setCapturing(id);
+    setError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setDrafts((d) => ({
+          ...d,
+          [id]: {
+            ...d[id],
+            latitude: pos.coords.latitude.toFixed(6),
+            longitude: pos.coords.longitude.toFixed(6),
+          },
+        }));
+        setCapturing(null);
+      },
+      () => {
+        setError("Couldn't get your current location — check that location access is allowed for this site.");
+        setCapturing(null);
+      },
+      { enableHighAccuracy: true, timeout: 15000 }
+    );
+  }
+
+  async function save(id: string) {
+    const draft = drafts[id];
+    setError(null);
+    const result = await setLocationGeofenceAction(
+      id,
+      draft.latitude ? Number(draft.latitude) : null,
+      draft.longitude ? Number(draft.longitude) : null,
+      draft.radius ? Number(draft.radius) : null
+    );
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    router.refresh();
+  }
+
+  return (
+    <div className="card">
+      <h3>Quick Check-in Locations</h3>
+      <p className="muted" style={{ marginBottom: "1rem" }}>
+        Pin each church&apos;s real-world coordinates so{" "}
+        <Link href="/quick-checkin" target="_blank">
+          Quick Check-in
+        </Link>{" "}
+        can confirm a deacon is physically there. Stand inside the church with your own phone and tap &quot;Use
+        my current location,&quot; or enter coordinates manually. Radius is in feet — how far from the pin a
+        phone can be and still check in.
+      </p>
+      {error && <p className="error-text" style={{ marginBottom: "0.75rem" }}>{error}</p>}
+      <div className="table-wrap">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Location</th>
+              <th>Latitude</th>
+              <th>Longitude</th>
+              <th>Radius (ft)</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {active.map((l) => {
+              const draft = drafts[l.id] ?? { latitude: "", longitude: "", radius: "" };
+              return (
+                <tr key={l.id}>
+                  <td>{l.name}</td>
+                  <td>
+                    <input
+                      style={{ width: 110 }}
+                      value={draft.latitude}
+                      disabled={!canEdit}
+                      onChange={(e) => setDrafts((d) => ({ ...d, [l.id]: { ...draft, latitude: e.target.value } }))}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      style={{ width: 110 }}
+                      value={draft.longitude}
+                      disabled={!canEdit}
+                      onChange={(e) => setDrafts((d) => ({ ...d, [l.id]: { ...draft, longitude: e.target.value } }))}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      min={1}
+                      style={{ width: 70 }}
+                      value={draft.radius}
+                      disabled={!canEdit}
+                      onChange={(e) => setDrafts((d) => ({ ...d, [l.id]: { ...draft, radius: e.target.value } }))}
+                    />
+                  </td>
+                  <td style={{ display: "flex", gap: "0.4rem" }}>
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      disabled={!canEdit || capturing === l.id}
+                      onClick={() => capture(l.id)}
+                    >
+                      {capturing === l.id ? "Locating…" : "Use my current location"}
+                    </button>
+                    <button className="btn btn-primary btn-sm" disabled={!canEdit} onClick={() => save(l.id)}>
+                      Save
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {!canEdit && <ViewOnlyNote />}
+    </div>
+  );
+}
+
+function LiturgyTimeCutoffsCard({
+  locations,
+  cutoffsByLocation,
+  canEdit,
+}: {
+  locations: LocationRow[];
+  cutoffsByLocation: Record<string, CutoffRow[]>;
+  canEdit: boolean;
+}) {
+  const router = useRouter();
+  const active = locations.filter((l) => l.status === "Active");
+  const [locationId, setLocationId] = useState(active[0]?.id ?? "");
+  const rows = cutoffsByLocation[locationId] ?? [];
+  const [drafts, setDrafts] = useState<Record<number, string>>(
+    Object.fromEntries(rows.map((r) => [r.weekday, r.cutoffTime]))
+  );
+  const [error, setError] = useState<string | null>(null);
+  const [savingWeekday, setSavingWeekday] = useState<number | null>(null);
+
+  function selectLocation(id: string) {
+    setLocationId(id);
+    const nextRows = cutoffsByLocation[id] ?? [];
+    setDrafts(Object.fromEntries(nextRows.map((r) => [r.weekday, r.cutoffTime])));
+    setError(null);
+  }
+
+  async function save(weekday: number) {
+    setSavingWeekday(weekday);
+    setError(null);
+    const result = await setCutoffAction(locationId, weekday, drafts[weekday]);
+    setSavingWeekday(null);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    router.refresh();
+  }
+
+  const rowLabels = [...WEEKDAY_NAMES, "Special Feast (any day)"];
+
+  return (
+    <div className="card">
+      <h3>Liturgy Time Cutoffs</h3>
+      <p className="muted" style={{ marginBottom: "1rem" }}>
+        For each location, the time of day that separates the 1st Liturgy from the 2nd — used to predict which
+        one is happening right now (e.g. for Quick Check-in). Special Feast has its own cutoff that applies
+        instead, on whichever day a feast falls.
+      </p>
+      <div className="field" style={{ maxWidth: 320, marginBottom: "1rem" }}>
+        <label>Location</label>
+        <select value={locationId} onChange={(e) => selectLocation(e.target.value)}>
+          {active.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      {error && <p className="error-text" style={{ marginBottom: "0.75rem" }}>{error}</p>}
+      <div className="table-wrap">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Day</th>
+              <th>1st/2nd cutoff time</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {rowLabels.map((label, weekday) => (
+              <tr key={weekday}>
+                <td>{label}</td>
+                <td>
+                  <input
+                    type="time"
+                    value={drafts[weekday] ?? "12:00"}
+                    disabled={!canEdit}
+                    onChange={(e) => setDrafts((d) => ({ ...d, [weekday]: e.target.value }))}
+                  />
+                </td>
+                <td>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    disabled={!canEdit || savingWeekday === weekday}
+                    onClick={() => save(weekday)}
+                  >
+                    Save
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {!canEdit && <ViewOnlyNote />}
+    </div>
+  );
+}
+
 export default function SettingsClient({
   locations,
   activities,
@@ -846,6 +1089,7 @@ export default function SettingsClient({
   ranks,
   feastNames,
   dayFilterOptions,
+  cutoffsByLocation,
   canEdit,
 }: {
   locations: LocationRow[];
@@ -855,6 +1099,7 @@ export default function SettingsClient({
   ranks: RankRow[];
   feastNames: FeastNameRow[];
   dayFilterOptions: DayFilterOptionRow[];
+  cutoffsByLocation: Record<string, CutoffRow[]>;
   canEdit: boolean;
 }) {
   return (
@@ -868,6 +1113,8 @@ export default function SettingsClient({
       <PassionWeekActivitiesCard pwActivities={pwActivities} canEdit={canEdit} />
       <DayFiltersCard dayFilterOptions={dayFilterOptions} canEdit={canEdit} />
       <FeastNamesCard feastNames={feastNames} canEdit={canEdit} />
+      <QuickCheckinLocationsCard locations={locations} canEdit={canEdit} />
+      <LiturgyTimeCutoffsCard locations={locations} cutoffsByLocation={cutoffsByLocation} canEdit={canEdit} />
     </div>
   );
 }

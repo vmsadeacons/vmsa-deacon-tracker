@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { assertSystemAdmin } from "@/lib/authz";
-import { createLocation, updateLocation } from "@/lib/repo/locations";
+import { createLocation, updateLocation, setLocationGeofence } from "@/lib/repo/locations";
+import { setCutoff } from "@/lib/repo/liturgyTimeCutoffs";
 import { createActivity, updateActivity } from "@/lib/repo/activities";
 import { setAgeGroupThresholds, setSuggestionSettings } from "@/lib/repo/settings";
 import { updatePWActivity } from "@/lib/repo/passionWeekActivities";
@@ -34,6 +35,33 @@ export async function updateLocationAction(
   const location = await updateLocation(id, patch);
   revalidatePath("/settings");
   return { ok: true as const, location };
+}
+
+export async function setLocationGeofenceAction(
+  id: string,
+  latitude: number | null,
+  longitude: number | null,
+  geofenceRadiusFt: number | null
+) {
+  await assertSystemAdmin();
+  try {
+    const location = await setLocationGeofence(id, latitude, longitude, geofenceRadiusFt);
+    revalidatePath("/settings");
+    return { ok: true as const, location };
+  } catch (err) {
+    return { ok: false as const, error: (err as Error).message };
+  }
+}
+
+export async function setCutoffAction(locationId: string, weekday: number, cutoffTime: string) {
+  await assertSystemAdmin();
+  try {
+    await setCutoff(locationId, weekday, cutoffTime);
+    revalidatePath("/settings");
+    return { ok: true as const };
+  } catch (err) {
+    return { ok: false as const, error: (err as Error).message };
+  }
 }
 
 export async function createActivityAction(name: string, allowsMultiple: boolean) {
