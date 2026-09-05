@@ -1,0 +1,10 @@
+{
+  "name": "Quick Check-in",
+  "short_name": "Check In",
+  "description": "Check in to a liturgy without logging in",
+  "start_url": "/quick-checkin",
+  "display": "standalone",
+  "background_color": "#f6f4ef",
+  "theme_color": "#7a2e3c",
+  "icons": [{ "src": "/quick-checkin/icon.png", "sizes": "512x512", "type": "image/png" }]
+}
