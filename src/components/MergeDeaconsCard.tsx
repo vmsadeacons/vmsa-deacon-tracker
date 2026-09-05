@@ -64,6 +64,9 @@ function buildFields(locations: LocationRow[]): FieldDef[] {
       display: (d) => d.notes || "—",
       combinable: true,
     },
+    // Not combinable -- there's no sensible way to merge two photos into
+    // one, unlike text/list fields above.
+    { key: "hasPhoto", label: "Photo", display: (d) => (d.hasPhoto ? "Has a photo" : "No photo") },
   ];
 }
 
@@ -88,8 +91,7 @@ function combinedArray(a: string[], b: string[]): string[] {
 function buildPatch(
   survivor: MergeCandidateDetail,
   other: MergeCandidateDetail,
-  choices: Record<string, FieldChoice>,
-  photoFrom: "survivor" | "merged" | null
+  choices: Record<string, FieldChoice>
 ): MergeFieldPatch {
   function pick<K extends keyof MergeCandidateDetail>(key: K): MergeCandidateDetail[K] {
     const choice = choices[key as string] ?? "a";
@@ -122,7 +124,9 @@ function buildPatch(
       choices.notes === "combine"
         ? combinedText(survivor.notes, other.notes) || null
         : (pick("notes") as string | null),
-    photoFrom,
+    // hasPhoto isn't a settable field itself -- it just decides whose actual
+    // photo bytes the survivor ends up with (see mergeDeacons()).
+    photoFrom: choices.hasPhoto === "b" ? "merged" : "survivor",
   };
 }
 
@@ -184,7 +188,6 @@ export default function MergeDeaconsCard({
   const [preview, setPreview] = useState<{ a: MergeCandidateDetail; b: MergeCandidateDetail } | null>(null);
   const [survivorIsA, setSurvivorIsA] = useState(true);
   const [choices, setChoices] = useState<Record<string, FieldChoice>>({});
-  const [photoFrom, setPhotoFrom] = useState<"survivor" | "merged" | null>("survivor");
   const [merging, setMerging] = useState(false);
   const [mergeError, setMergeError] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
@@ -206,7 +209,6 @@ export default function MergeDeaconsCard({
     const bHistory = result.preview.b.participationCount + result.preview.b.passionWeekCount;
     setSurvivorIsA(aHistory >= bHistory);
     setChoices({});
-    setPhotoFrom(result.preview.a.hasPhoto || result.preview.b.hasPhoto ? "survivor" : null);
   }
 
   function selectA(id: string | null) {
@@ -239,7 +241,7 @@ export default function MergeDeaconsCard({
     }
     setMerging(true);
     setMergeError(null);
-    const patch = buildPatch(survivor, other, choices, photoFrom);
+    const patch = buildPatch(survivor, other, choices);
     const result = await mergeDeaconsAction(survivor.id, other.id, patch);
     setMerging(false);
     if (!result.ok) {
@@ -374,16 +376,6 @@ export default function MergeDeaconsCard({
                       })}
                     </tbody>
                   </table>
-                </div>
-              )}
-
-              {(survivor.hasPhoto || other.hasPhoto) && survivor.hasPhoto !== other.hasPhoto && (
-                <div className="field" style={{ marginBottom: "1rem" }}>
-                  <label>Photo</label>
-                  <select value={photoFrom ?? "survivor"} onChange={(e) => setPhotoFrom(e.target.value as "survivor" | "merged")}>
-                    <option value="survivor">{survivor.hasPhoto ? `Keep ${survivor.name}'s photo` : `No photo (${survivor.name} has none)`}</option>
-                    <option value="merged">{other.hasPhoto ? `Use ${other.name}'s photo` : `No photo (${other.name} has none)`}</option>
-                  </select>
                 </div>
               )}
 
