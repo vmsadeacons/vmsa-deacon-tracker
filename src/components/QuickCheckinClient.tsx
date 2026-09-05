@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import type { NameMatch } from "@/lib/repo/publicProfile";
-import type { CheckinLocationMatch } from "@/lib/repo/quickCheckin";
+import type { CheckinLocationMatch, CheckinLocationOption } from "@/lib/repo/quickCheckin";
 import type { ServiceTypeCode } from "@/lib/constants";
 import { SERVICE_LABELS } from "@/lib/constants";
 import { weekdayLabel } from "@/lib/timezone";
 import {
   searchDeaconsByNameAction,
   resolveCheckinLocationsAction,
+  listActiveLocationsForCheckinAction,
   getCheckinPredictionAction,
   submitQuickCheckinAction,
 } from "@/app/quick-checkin/actions";
@@ -20,7 +21,15 @@ interface StoredIdentity {
   name: string;
 }
 
-type Step = "loading" | "setup" | "locating" | "pick-location" | "no-location" | "confirm" | "done";
+type Step =
+  | "loading"
+  | "setup"
+  | "locating"
+  | "pick-location"
+  | "no-location"
+  | "manual-location"
+  | "confirm"
+  | "done";
 
 export default function QuickCheckinClient() {
   const [step, setStep] = useState<Step>("loading");
@@ -37,6 +46,12 @@ export default function QuickCheckinClient() {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<CheckinLocationMatch[]>([]);
   const [location, setLocation] = useState<CheckinLocationMatch | null>(null);
+
+  // Manual location override -- geolocation (automatic or ambiguous-among-
+  // candidates) is a convenience, never the only way to pick a church.
+  const [allLocations, setAllLocations] = useState<CheckinLocationOption[]>([]);
+  const [loadingLocations, setLoadingLocations] = useState(false);
+  const [manualLocationId, setManualLocationId] = useState("");
 
   // Prediction / confirm
   const [date, setDate] = useState("");
@@ -87,6 +102,23 @@ export default function QuickCheckinClient() {
       },
       { enableHighAccuracy: true, timeout: 15000 }
     );
+  }
+
+  async function openManualLocationPicker() {
+    setManualLocationId(location?.locationId ?? "");
+    setStep("manual-location");
+    if (allLocations.length === 0) {
+      setLoadingLocations(true);
+      const locs = await listActiveLocationsForCheckinAction();
+      setAllLocations(locs);
+      setLoadingLocations(false);
+    }
+  }
+
+  function confirmManualLocation() {
+    const loc = allLocations.find((l) => l.id === manualLocationId);
+    if (!loc) return;
+    void proceedToConfirm({ locationId: loc.id, locationName: loc.name });
   }
 
   // Reads localStorage once on mount -- deferred into a microtask (rather
@@ -248,6 +280,14 @@ export default function QuickCheckinClient() {
                   </button>
                 ))}
               </div>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                style={{ marginTop: "0.75rem" }}
+                onClick={openManualLocationPicker}
+              >
+                None of these — choose manually
+              </button>
             </>
           )}
           <button type="button" className="btn btn-secondary btn-sm" style={{ marginTop: "1rem" }} onClick={switchIdentity}>
@@ -261,9 +301,12 @@ export default function QuickCheckinClient() {
           <p className="error-text" style={{ marginBottom: "1rem" }}>
             {locationError}
           </p>
-          <div style={{ display: "flex", gap: "0.75rem" }}>
+          <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
             <button type="button" className="btn btn-primary" onClick={() => setStep("locating")}>
               Try again
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={openManualLocationPicker}>
+              Choose location manually
             </button>
             {identity && (
               <button type="button" className="btn btn-secondary" onClick={switchIdentity}>
@@ -274,35 +317,94 @@ export default function QuickCheckinClient() {
         </div>
       )}
 
-      {step === "confirm" && identity && location && (
+      {step === "manual-location" && identity && (
         <div className="card">
-          {submitError && <p className="error-text" style={{ marginBottom: "1rem" }}>{submitError}</p>}
-          <p style={{ fontSize: "1.05rem", marginBottom: "1.25rem" }}>
-            Checking <strong>{identity.name}</strong> into <strong>{location.locationName}</strong> —{" "}
-            <strong>{summaryLabel}</strong>. Confirm?
+          <p className="muted" style={{ marginBottom: "1rem" }}>
+            Choose the church you&apos;re at:
           </p>
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem", marginBottom: "1.25rem" }}>
-            <button type="button" className="btn btn-primary" disabled={submitting} onClick={handleConfirm}>
+          {loadingLocations ? (
+            <p className="muted">Loading…</p>
+          ) : (
+            <>
+              <select
+                value={manualLocationId}
+                onChange={(e) => setManualLocationId(e.target.value)}
+                style={{ width: "100%", marginBottom: "1rem" }}
+              >
+                <option value="">— choose a location —</option>
+                {allLocations.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={!manualLocationId}
+                onClick={confirmManualLocation}
+              >
+                Continue
+              </button>
+            </>
+          )}
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            style={{ marginTop: "1rem" }}
+            onClick={() => setStep("locating")}
+          >
+            Try detecting my location again
+          </button>
+        </div>
+      )}
+
+      {step === "confirm" && identity && location && (
+        <div className="card" style={{ display: "flex", flexDirection: "column", minHeight: "75vh" }}>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", textAlign: "center" }}>
+            {submitError && <p className="error-text" style={{ fontSize: "1.15rem", marginBottom: "1rem" }}>{submitError}</p>}
+            <p style={{ fontSize: "1.7rem", lineHeight: 1.35 }}>
+              Checking <strong>{identity.name}</strong> into <strong>{location.locationName}</strong>
+            </p>
+            <p style={{ fontSize: "1.3rem", color: "var(--wine)", marginTop: "0.6rem" }}>{summaryLabel}</p>
+          </div>
+
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={submitting}
+              onClick={handleConfirm}
+              style={{ fontSize: "1.35rem", padding: "1.1rem 3rem" }}
+            >
               {submitting ? "Checking in…" : "Confirm check-in"}
             </button>
           </div>
-          <p className="muted" style={{ fontSize: "0.85rem", marginBottom: "0.5rem" }}>
-            Something not right? Change it:
-          </p>
-          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={switchIdentity}>
+
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: "0.85rem" }}>
+            <p className="muted" style={{ textAlign: "center", fontSize: "0.95rem", marginBottom: "0.15rem" }}>
+              Something not right? Change it:
+            </p>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ fontSize: "1.1rem", padding: "0.9rem" }}
+              onClick={switchIdentity}
+            >
               Name
             </button>
             <button
               type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => (candidates.length > 1 ? setStep("pick-location") : setStep("locating"))}
+              className="btn btn-secondary"
+              style={{ fontSize: "1.1rem", padding: "0.9rem" }}
+              onClick={openManualLocationPicker}
             >
               Location
             </button>
             <button
               type="button"
-              className="btn btn-secondary btn-sm"
+              className="btn btn-secondary"
+              style={{ fontSize: "1.1rem", padding: "0.9rem" }}
               onClick={() => setServiceType((s) => (s === "S1" ? "S2" : "S1"))}
             >
               Service ({serviceType === "S1" ? "switch to 2nd" : "switch to 1st"})

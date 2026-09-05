@@ -1,6 +1,6 @@
 {
-  "name": "Quick Check-in",
-  "short_name": "Check In",
+  "name": "Agios Checkin",
+  "short_name": "Agios Checkin",
   "description": "Check in to a liturgy without logging in",
   "start_url": "/quick-checkin",
   "display": "standalone",

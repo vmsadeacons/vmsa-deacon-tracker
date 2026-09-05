@@ -16,12 +16,12 @@ import QuickCheckinClient from "@/components/QuickCheckinClient";
 // appleWebApp.title covers older iOS versions that still read this meta
 // tag rather than the manifest.
 export const metadata: Metadata = {
-  title: "Quick Check-in",
+  title: "Agios Checkin",
   robots: { index: false, follow: false },
   manifest: "/quick-checkin-manifest.webmanifest",
   appleWebApp: {
     capable: true,
-    title: "Quick Check-in",
+    title: "Agios Checkin",
     statusBarStyle: "default",
   },
 };

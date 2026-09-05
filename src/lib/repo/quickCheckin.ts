@@ -63,6 +63,25 @@ export async function resolveCheckinLocations(
     .map((loc) => ({ locationId: loc.id, locationName: loc.name }));
 }
 
+export interface CheckinLocationOption {
+  id: string;
+  name: string;
+}
+
+/**
+ * Every Active location, independent of geolocation entirely -- backs the
+ * manual "choose your church yourself" override, for when geolocation is
+ * wrong, unavailable, or the deacon simply isn't near enough for the
+ * geofence to match (spec: the automatic detection must never be the only
+ * way in).
+ */
+export async function listActiveLocationsForCheckin(): Promise<CheckinLocationOption[]> {
+  const { rows } = await query<CheckinLocationOption>(
+    `select id, name from locations where status = 'Active' order by name`
+  );
+  return rows;
+}
+
 export interface CheckinPrediction {
   date: string;
   serviceType: ServiceTypeCode;

@@ -12,6 +12,7 @@ import {
   resolveCheckinLocations,
   getCheckinPrediction,
   submitQuickCheckin,
+  listActiveLocationsForCheckin,
 } from "@/lib/repo/quickCheckin";
 import type { ServiceTypeCode } from "@/lib/constants";
 
@@ -21,6 +22,10 @@ export async function searchDeaconsByNameAction(firstName: string, lastName: str
 
 export async function resolveCheckinLocationsAction(lat: number, lng: number, accuracyMeters: number) {
   return resolveCheckinLocations(lat, lng, accuracyMeters);
+}
+
+export async function listActiveLocationsForCheckinAction() {
+  return listActiveLocationsForCheckin();
 }
 
 export async function getCheckinPredictionAction(locationId: string) {
