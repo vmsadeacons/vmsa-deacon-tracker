@@ -11,7 +11,10 @@ import type { RankRow } from "@/lib/repo/ranks";
 import type { FeastNameRow } from "@/lib/repo/feastNames";
 import type { DayFilterOptionRow } from "@/lib/repo/dayFilterOptions";
 import type { CutoffRow } from "@/lib/repo/liturgyTimeCutoffs";
+import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
+import type { MergeLogRow } from "@/lib/repo/mergeDeacons";
 import { WEEKDAY_NAMES } from "@/lib/timezone";
+import MergeDeaconsCard from "./MergeDeaconsCard";
 import {
   createLocationAction,
   updateLocationAction,
@@ -1090,6 +1093,8 @@ export default function SettingsClient({
   feastNames,
   dayFilterOptions,
   cutoffsByLocation,
+  deacons,
+  mergeLog,
   canEdit,
 }: {
   locations: LocationRow[];
@@ -1100,6 +1105,8 @@ export default function SettingsClient({
   feastNames: FeastNameRow[];
   dayFilterOptions: DayFilterOptionRow[];
   cutoffsByLocation: Record<string, CutoffRow[]>;
+  deacons: DeaconWithAgeGroup[];
+  mergeLog: MergeLogRow[];
   canEdit: boolean;
 }) {
   return (
@@ -1115,6 +1122,7 @@ export default function SettingsClient({
       <FeastNamesCard feastNames={feastNames} canEdit={canEdit} />
       <QuickCheckinLocationsCard locations={locations} canEdit={canEdit} />
       <LiturgyTimeCutoffsCard locations={locations} cutoffsByLocation={cutoffsByLocation} canEdit={canEdit} />
+      <MergeDeaconsCard deacons={deacons} mergeLog={mergeLog} canEdit={canEdit} />
     </div>
   );
 }

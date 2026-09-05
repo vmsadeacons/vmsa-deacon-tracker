@@ -120,7 +120,7 @@ export interface DeaconInput {
  * can rely on it and stay removed (rather than needing to keep auditing
  * for a state the app no longer allows).
  */
-function assertHasAgeGroup(dob: string | null, ageGroupOverride: AgeGroup | null) {
+export function assertHasAgeGroup(dob: string | null, ageGroupOverride: AgeGroup | null) {
   if (!dob && !ageGroupOverride) {
     throw new Error("Age group is required when there's no date of birth on file");
   }

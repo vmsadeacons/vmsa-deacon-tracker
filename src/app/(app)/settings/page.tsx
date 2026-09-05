@@ -7,11 +7,13 @@ import { listRanks } from "@/lib/repo/ranks";
 import { listFeastNames } from "@/lib/repo/feastNames";
 import { listDayFilterOptions } from "@/lib/repo/dayFilterOptions";
 import { listCutoffsForLocation, type CutoffRow } from "@/lib/repo/liturgyTimeCutoffs";
+import { listDeacons } from "@/lib/repo/deacons";
+import { listMergeLog } from "@/lib/repo/mergeDeacons";
 import SettingsClient from "@/components/SettingsClient";
 
 export default async function SettingsPage() {
   const session = await requireAdmin();
-  const [locations, activities, settings, pwActivities, ranks, feastNames, dayFilterOptions] =
+  const [locations, activities, settings, pwActivities, ranks, feastNames, dayFilterOptions, deacons, mergeLog] =
     await Promise.all([
       listLocations(true),
       listActivities(true),
@@ -20,6 +22,8 @@ export default async function SettingsPage() {
       listRanks(true),
       listFeastNames(true),
       listDayFilterOptions(),
+      listDeacons(true),
+      listMergeLog(),
     ]);
 
   const activeLocations = locations.filter((l) => l.status === "Active");
@@ -40,6 +44,8 @@ export default async function SettingsPage() {
       feastNames={feastNames}
       dayFilterOptions={dayFilterOptions}
       cutoffsByLocation={cutoffsByLocation}
+      deacons={deacons}
+      mergeLog={mergeLog}
       canEdit={session.user.role === "SystemAdmin"}
     />
   );

@@ -14,6 +14,12 @@ import {
   updateDayFilterOption,
   deleteDayFilterOption,
 } from "@/lib/repo/dayFilterOptions";
+import {
+  getMergePreview,
+  mergeDeacons,
+  listMergeLog,
+  type MergeFieldPatch,
+} from "@/lib/repo/mergeDeacons";
 import type { PWActivityId } from "@/lib/constants";
 
 // Settings is view-only for General Admins — every mutation here is
@@ -185,6 +191,35 @@ export async function createFeastNameAction(name: string) {
   } catch (err) {
     return { ok: false as const, error: (err as Error).message };
   }
+}
+
+export async function getMergePreviewAction(idA: string, idB: string) {
+  await assertSystemAdmin();
+  const preview = await getMergePreview(idA, idB);
+  if (!preview) return { ok: false as const, error: "One of these records no longer exists — refresh and try again." };
+  return { ok: true as const, preview };
+}
+
+export async function mergeDeaconsAction(survivorId: string, mergedId: string, patch: MergeFieldPatch) {
+  const session = await assertSystemAdmin();
+  try {
+    const result = await mergeDeacons(survivorId, mergedId, patch, session.user.email!);
+    revalidatePath("/settings");
+    revalidatePath("/deacons");
+    revalidatePath("/history");
+    revalidatePath("/reports");
+    revalidatePath("/dashboard");
+    revalidatePath("/member-updates");
+    revalidatePath("/access");
+    return { ok: true as const, result };
+  } catch (err) {
+    return { ok: false as const, error: (err as Error).message };
+  }
+}
+
+export async function listMergeLogAction() {
+  await assertSystemAdmin();
+  return listMergeLog();
 }
 
 export async function updateFeastNameAction(
