@@ -61,9 +61,22 @@ export default function QuickCheckinClient() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  // "Change Name" on the confirm screen asks first, rather than wiping the
+  // stored identity immediately -- this is what shows the "Go back" option.
+  const [confirmingNameChange, setConfirmingNameChange] = useState(false);
+
+  async function ensureLocationsLoaded() {
+    if (allLocations.length > 0) return;
+    setLoadingLocations(true);
+    const locs = await listActiveLocationsForCheckinAction();
+    setAllLocations(locs);
+    setLoadingLocations(false);
+  }
+
   async function proceedToConfirm(loc: CheckinLocationMatch) {
     setLocation(loc);
-    const prediction = await getCheckinPredictionAction(loc.locationId);
+    setConfirmingNameChange(false);
+    const [prediction] = await Promise.all([getCheckinPredictionAction(loc.locationId), ensureLocationsLoaded()]);
     setDate(prediction.date);
     setServiceType(prediction.serviceType);
     setIsSpecialFeast(prediction.isSpecialFeast);
@@ -107,16 +120,18 @@ export default function QuickCheckinClient() {
   async function openManualLocationPicker() {
     setManualLocationId(location?.locationId ?? "");
     setStep("manual-location");
-    if (allLocations.length === 0) {
-      setLoadingLocations(true);
-      const locs = await listActiveLocationsForCheckinAction();
-      setAllLocations(locs);
-      setLoadingLocations(false);
-    }
+    await ensureLocationsLoaded();
   }
 
   function confirmManualLocation() {
     const loc = allLocations.find((l) => l.id === manualLocationId);
+    if (!loc) return;
+    void proceedToConfirm({ locationId: loc.id, locationName: loc.name });
+  }
+
+  /** The confirm screen's "Change Church" dropdown -- picks and re-confirms in one step, no separate screen. */
+  function handleChangeChurch(locationId: string) {
+    const loc = allLocations.find((l) => l.id === locationId);
     if (!loc) return;
     void proceedToConfirm({ locationId: loc.id, locationName: loc.name });
   }
@@ -198,7 +213,7 @@ export default function QuickCheckinClient() {
 
   return (
     <div style={{ maxWidth: 480, margin: "0 auto", padding: "2rem 1rem" }}>
-      <h1>Quick Check-in</h1>
+      <h1>Agios Check-in</h1>
 
       {step === "loading" && <p className="muted">Loading…</p>}
 
@@ -382,33 +397,70 @@ export default function QuickCheckinClient() {
           </div>
 
           <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: "0.85rem" }}>
-            <p className="muted" style={{ textAlign: "center", fontSize: "0.95rem", marginBottom: "0.15rem" }}>
-              Something not right? Change it:
-            </p>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              style={{ fontSize: "1.1rem", padding: "0.9rem" }}
-              onClick={switchIdentity}
-            >
-              Name
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              style={{ fontSize: "1.1rem", padding: "0.9rem" }}
-              onClick={openManualLocationPicker}
-            >
-              Location
-            </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              style={{ fontSize: "1.1rem", padding: "0.9rem" }}
-              onClick={() => setServiceType((s) => (s === "S1" ? "S2" : "S1"))}
-            >
-              Service ({serviceType === "S1" ? "switch to 2nd" : "switch to 1st"})
-            </button>
+            {confirmingNameChange ? (
+              <>
+                <p className="muted" style={{ textAlign: "center", fontSize: "0.95rem", marginBottom: "0.15rem" }}>
+                  Change your name? You&apos;ll need to search for yourself again.
+                </p>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ fontSize: "1.1rem", padding: "0.9rem" }}
+                  onClick={switchIdentity}
+                >
+                  Yes, change name
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ fontSize: "1.1rem", padding: "0.9rem" }}
+                  onClick={() => setConfirmingNameChange(false)}
+                >
+                  Go back
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="muted" style={{ textAlign: "center", fontSize: "0.95rem", marginBottom: "0.15rem" }}>
+                  Something not right? Change it:
+                </p>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ fontSize: "1.1rem", padding: "0.9rem" }}
+                  onClick={() => setConfirmingNameChange(true)}
+                >
+                  Change Name
+                </button>
+                <select
+                  className="btn btn-secondary"
+                  style={{ fontSize: "1.1rem", padding: "0.9rem", textAlign: "center" }}
+                  value=""
+                  disabled={loadingLocations}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    if (id) handleChangeChurch(id);
+                  }}
+                >
+                  <option value="" disabled hidden>
+                    {loadingLocations ? "Loading churches…" : "Change Church"}
+                  </option>
+                  {allLocations.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ fontSize: "1.1rem", padding: "0.9rem" }}
+                  onClick={() => setServiceType((s) => (s === "S1" ? "S2" : "S1"))}
+                >
+                  {serviceType === "S1" ? "Switch to 2nd Liturgy" : "Switch to 1st Liturgy"}
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
