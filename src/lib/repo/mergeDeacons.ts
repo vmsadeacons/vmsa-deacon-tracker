@@ -294,11 +294,20 @@ export async function mergeDeacons(
     const participationMoved = (attendanceMoved.rowCount ?? 0) + (assignmentsMoved.rowCount ?? 0);
     const passionWeekMoved = pwMoved.rowCount ?? 0;
 
+    // Read back the survivor's name post-update rather than concatenating
+    // patch.firstName + lastName ourselves -- `name` is a generated column
+    // that also folds in the name qualifier (e.g. "John Doe (Vancouver)"),
+    // which a plain first+last concatenation would silently drop.
+    const { rows: survivorNowRows } = await client.query<{ name: string }>(
+      `select name from deacons where id = $1`,
+      [survivorId]
+    );
+
     await client.query(
       `insert into deacon_merge_log
          (survivor_id, survivor_name, merged_id, merged_name, participation_moved, passion_week_moved, user_relinked, merged_by_email)
        values ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [survivorId, patch.firstName + " " + patch.lastName, mergedId, mergedName, participationMoved, passionWeekMoved, userRelinked, performedByEmail]
+      [survivorId, survivorNowRows[0].name, mergedId, mergedName, participationMoved, passionWeekMoved, userRelinked, performedByEmail]
     );
 
     await client.query(`delete from deacons where id = $1`, [mergedId]);
