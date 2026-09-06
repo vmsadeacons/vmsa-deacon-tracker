@@ -60,6 +60,7 @@ export default function QuickCheckinClient() {
   const [feastName, setFeastName] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [closeBlocked, setCloseBlocked] = useState(false);
 
   // "Change Name" on the confirm screen goes straight to the search screen
   // (no separate "are you sure" step), but doesn't touch the stored
@@ -544,14 +545,29 @@ export default function QuickCheckinClient() {
               You can close this page now.
             </p>
           </div>
-          <button
-            type="button"
-            className="btn btn-primary"
-            style={{ fontSize: "1.25rem", padding: "1.1rem" }}
-            onClick={() => window.close()}
-          >
-            Close
-          </button>
+          {closeBlocked ? (
+            <p className="muted" style={{ textAlign: "center", fontSize: "1.1rem" }}>
+              Your phone won&apos;t let a webpage close itself — go ahead and close this tab (or swipe the app away)
+              yourself.
+            </p>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ fontSize: "1.25rem", padding: "1.1rem" }}
+              onClick={() => {
+                window.close();
+                // Still here a moment later => the browser silently refused (this
+                // is true of every website, not just this one -- a page can only
+                // ever close a tab/window IT opened via script, never one the
+                // person navigated to directly). Show the real state instead of
+                // a button that looks like it does nothing.
+                setTimeout(() => setCloseBlocked(true), 300);
+              }}
+            >
+              Close
+            </button>
+          )}
         </div>
       )}
     </div>
