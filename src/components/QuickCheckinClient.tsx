@@ -385,18 +385,20 @@ export default function QuickCheckinClient() {
       )}
 
       {step === "manual-location" && identity && (
-        <div className="card">
-          <p className="muted" style={{ marginBottom: "1rem" }}>
-            Choose the church you&apos;re at:
-          </p>
+        <div className="card" style={{ display: "flex", flexDirection: "column", minHeight: "60vh" }}>
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
+            <p style={{ fontSize: "1.7rem", lineHeight: 1.4 }}>Choose the church you&apos;re at:</p>
+          </div>
           {loadingLocations ? (
-            <p className="muted">Loading…</p>
+            <p className="muted" style={{ textAlign: "center", fontSize: "1.2rem" }}>
+              Loading…
+            </p>
           ) : (
-            <>
+            <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
               <select
                 value={manualLocationId}
                 onChange={(e) => setManualLocationId(e.target.value)}
-                style={{ width: "100%", marginBottom: "1rem" }}
+                style={{ width: "100%", fontSize: "1.25rem", padding: "1.1rem" }}
               >
                 <option value="">— choose a location —</option>
                 {allLocations.map((l) => (
@@ -408,17 +410,18 @@ export default function QuickCheckinClient() {
               <button
                 type="button"
                 className="btn btn-primary"
+                style={{ fontSize: "1.25rem", padding: "1.1rem" }}
                 disabled={!manualLocationId}
                 onClick={confirmManualLocation}
               >
                 Continue
               </button>
-            </>
+            </div>
           )}
           <button
             type="button"
-            className="btn btn-secondary btn-sm"
-            style={{ marginTop: "1rem" }}
+            className="btn btn-secondary"
+            style={{ fontSize: "1.25rem", padding: "1.1rem", marginTop: "0.85rem" }}
             onClick={() => setStep("locating")}
           >
             Try detecting my location again
