@@ -347,19 +347,36 @@ export default function QuickCheckinClient() {
       )}
 
       {step === "no-location" && (
-        <div className="card">
-          <p className="error-text" style={{ marginBottom: "1rem" }}>
-            {locationError}
-          </p>
-          <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-            <button type="button" className="btn btn-primary" onClick={() => setStep("locating")}>
+        <div className="card" style={{ display: "flex", flexDirection: "column", minHeight: "60vh" }}>
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
+            <p className="error-text" style={{ fontSize: "1.7rem", lineHeight: 1.4 }}>
+              {locationError}
+            </p>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ fontSize: "1.25rem", padding: "1.1rem" }}
+              onClick={() => setStep("locating")}
+            >
               Try again
             </button>
-            <button type="button" className="btn btn-secondary" onClick={openManualLocationPicker}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ fontSize: "1.25rem", padding: "1.1rem" }}
+              onClick={openManualLocationPicker}
+            >
               Choose location manually
             </button>
             {identity && (
-              <button type="button" className="btn btn-secondary" onClick={switchIdentity}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                style={{ fontSize: "1.25rem", padding: "1.1rem" }}
+                onClick={switchIdentity}
+              >
                 Not {identity.name.split(" ")[0]}?
               </button>
             )}
