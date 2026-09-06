@@ -61,9 +61,12 @@ export default function QuickCheckinClient() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // "Change Name" on the confirm screen asks first, rather than wiping the
-  // stored identity immediately -- this is what shows the "Go back" option.
-  const [confirmingNameChange, setConfirmingNameChange] = useState(false);
+  // "Change Name" on the confirm screen goes straight to the search screen
+  // (no separate "are you sure" step), but doesn't touch the stored
+  // identity yet -- only actually picking a new match does that (see
+  // pickIdentity) -- so "Go back" on the search screen can just return to
+  // the confirm screen with everything untouched.
+  const [nameChangeFromConfirm, setNameChangeFromConfirm] = useState(false);
 
   async function ensureLocationsLoaded() {
     if (allLocations.length > 0) return;
@@ -75,7 +78,6 @@ export default function QuickCheckinClient() {
 
   async function proceedToConfirm(loc: CheckinLocationMatch) {
     setLocation(loc);
-    setConfirmingNameChange(false);
     const [prediction] = await Promise.all([getCheckinPredictionAction(loc.locationId), ensureLocationsLoaded()]);
     setDate(prediction.date);
     setServiceType(prediction.serviceType);
@@ -180,6 +182,7 @@ export default function QuickCheckinClient() {
     const stored: StoredIdentity = { id: m.id, name: `${m.firstName} ${m.lastName}` };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
     setIdentity(stored);
+    setNameChangeFromConfirm(false);
     setStep("locating");
   }
 
@@ -190,7 +193,28 @@ export default function QuickCheckinClient() {
     setLastName("");
     setMatches([]);
     setSearched(false);
+    setNameChangeFromConfirm(false);
     setStep("setup");
+  }
+
+  /** Confirm screen's "Change Name" -- straight to the search screen, identity untouched until a match is actually picked. */
+  function startNameChangeFromConfirm() {
+    setFirstName("");
+    setLastName("");
+    setMatches([]);
+    setSearched(false);
+    setNameChangeFromConfirm(true);
+    setStep("setup");
+  }
+
+  /** Search screen's "Go back" -- only shown when it was reached via startNameChangeFromConfirm; identity/location were never touched. */
+  function cancelNameChange() {
+    setNameChangeFromConfirm(false);
+    setFirstName("");
+    setLastName("");
+    setMatches([]);
+    setSearched(false);
+    setStep("confirm");
   }
 
   async function handleConfirm() {
@@ -220,9 +244,20 @@ export default function QuickCheckinClient() {
       {step === "setup" && (
         <div className="card">
           <p className="muted" style={{ marginBottom: "1rem" }}>
-            First time here — enter your name so we know who you are. We&apos;ll remember it on this phone from
-            now on.
+            {nameChangeFromConfirm
+              ? "Search for your name again."
+              : "First time here — enter your name so we know who you are. We'll remember it on this phone from now on."}
           </p>
+          {nameChangeFromConfirm && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              style={{ marginBottom: "1rem" }}
+              onClick={cancelNameChange}
+            >
+              ← Go back
+            </button>
+          )}
           <form onSubmit={handleSearch} style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
             <div className="grid-2">
               <div className="field">
@@ -397,96 +432,69 @@ export default function QuickCheckinClient() {
           </div>
 
           <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: "0.85rem" }}>
-            {confirmingNameChange ? (
-              <>
-                <p className="muted" style={{ textAlign: "center", fontSize: "0.95rem", marginBottom: "0.15rem" }}>
-                  Change your name? You&apos;ll need to search for yourself again.
-                </p>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ fontSize: "1.1rem", padding: "0.9rem" }}
-                  onClick={switchIdentity}
-                >
-                  Yes, change name
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ fontSize: "1.1rem", padding: "0.9rem" }}
-                  onClick={() => setConfirmingNameChange(false)}
-                >
-                  Go back
-                </button>
-              </>
-            ) : (
-              <>
-                <p className="muted" style={{ textAlign: "center", fontSize: "0.95rem", marginBottom: "0.15rem" }}>
-                  Something not right? Change it:
-                </p>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ fontSize: "1.1rem", padding: "0.9rem" }}
-                  onClick={() => setConfirmingNameChange(true)}
-                >
-                  Change Name
-                </button>
-                {/*
-                  A plain <select> renders its closed-box text left-aligned
-                  on most platforms no matter what text-align CSS says (a
-                  native-control quirk, not something this app's CSS
-                  controls) -- so the visible "button" here is an ordinary
-                  centered div matching the other two exactly, with a fully
-                  transparent <select> stacked on top of it to capture the
-                  tap/click and open the real (still native, still
-                  accessible) picker.
-                */}
-                <div style={{ position: "relative", width: "100%" }}>
-                  <div
-                    className="btn btn-secondary"
-                    style={{ fontSize: "1.1rem", padding: "0.9rem", width: "100%" }}
-                    aria-hidden="true"
-                  >
-                    {loadingLocations ? "Loading churches…" : "Change Church"}
-                  </div>
-                  <select
-                    aria-label="Change Church"
-                    value=""
-                    disabled={loadingLocations}
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      if (id) handleChangeChurch(id);
-                    }}
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      width: "100%",
-                      height: "100%",
-                      opacity: 0,
-                      cursor: "pointer",
-                    }}
-                  >
-                    <option value="" disabled hidden>
-                      {loadingLocations ? "Loading churches…" : "Change Church"}
-                    </option>
-                    {allLocations.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  style={{ fontSize: "1.1rem", padding: "0.9rem" }}
-                  onClick={() => setServiceType((s) => (s === "S1" ? "S2" : "S1"))}
-                >
-                  {serviceType === "S1" ? "Switch to 2nd Liturgy" : "Switch to 1st Liturgy"}
-                </button>
-              </>
-            )}
+            <p className="muted" style={{ textAlign: "center", fontSize: "0.95rem", marginBottom: "0.15rem" }}>
+              Something not right? Change it:
+            </p>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ fontSize: "1.1rem", padding: "0.9rem" }}
+              onClick={startNameChangeFromConfirm}
+            >
+              Change Name
+            </button>
+            {/*
+              A plain <select> renders its closed-box text left-aligned on
+              most platforms no matter what text-align CSS says (a
+              native-control quirk, not something this app's CSS controls)
+              -- so the visible "button" here is an ordinary centered div
+              matching the other two exactly, with a fully transparent
+              <select> stacked on top of it to capture the tap/click and
+              open the real (still native, still accessible) picker.
+            */}
+            <div style={{ position: "relative", width: "100%" }}>
+              <div
+                className="btn btn-secondary"
+                style={{ fontSize: "1.1rem", padding: "0.9rem", width: "100%" }}
+                aria-hidden="true"
+              >
+                {loadingLocations ? "Loading churches…" : "Change Church"}
+              </div>
+              <select
+                aria-label="Change Church"
+                value=""
+                disabled={loadingLocations}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  if (id) handleChangeChurch(id);
+                }}
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  width: "100%",
+                  height: "100%",
+                  opacity: 0,
+                  cursor: "pointer",
+                }}
+              >
+                <option value="" disabled hidden>
+                  {loadingLocations ? "Loading churches…" : "Change Church"}
+                </option>
+                {allLocations.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ fontSize: "1.1rem", padding: "0.9rem" }}
+              onClick={() => setServiceType((s) => (s === "S1" ? "S2" : "S1"))}
+            >
+              {serviceType === "S1" ? "Switch to 2nd Liturgy" : "Switch to 1st Liturgy"}
+            </button>
           </div>
         </div>
       )}

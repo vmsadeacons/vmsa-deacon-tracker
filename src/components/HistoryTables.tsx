@@ -66,7 +66,9 @@ export default function HistoryTables({
         feastName: r.feastName,
         hasSibling: r.hasSibling,
       }),
-      participationLabel: r.activityName ?? "Attended",
+      // Always includes "Attended" -- serving an activity implies you were
+      // there, whether or not a separate plain-attendance row also exists.
+      participationLabel: ["Attended", ...r.activityNames].join(", "),
     }));
     if (!sortable) return rows;
     const copy = [...rows];

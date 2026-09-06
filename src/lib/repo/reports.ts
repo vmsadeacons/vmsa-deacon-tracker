@@ -16,7 +16,10 @@ export interface DeaconHistoryRecord {
   feastName: string | null;
   hasSibling: boolean;
   locationName: string;
-  activityName: string | null; // null = plain attendance, no specific activity
+  // Every activity this deacon was assigned to at this liturgy (e.g.
+  // ["Pauline Epistle"], or ["Altar", "Reading"] if assigned to more than
+  // one) -- empty when they only attended, with no specific assignment.
+  activityNames: string[];
 }
 
 export interface DeaconHistoryPW {
@@ -97,23 +100,37 @@ export async function getDeaconHistory(
     [deaconId, fromDate, toDate, locationIds]
   );
 
+  // One participation row per (liturgy, activity) -- a deacon who both
+  // attended and served a reading has TWO rows here for the same liturgy
+  // (one with activity_id null, one with it set). Grouped by liturgy_id so
+  // each liturgy is exactly one record, listing every activity it carries;
+  // "rows" is already ordered activity_sort_order nulls first, so the plain
+  // attendance row (if any) always contributes first within its group.
   const liturgyIds = new Set<string>();
   let altarServices = 0;
   let readings = 0;
-  const records: DeaconHistoryRecord[] = rows.map((r) => {
+  const grouped = new Map<string, DeaconHistoryRecord>();
+  for (const r of rows) {
     liturgyIds.add(r.liturgy_id);
     if (r.allows_multiple === true) altarServices += 1;
     if (r.allows_multiple === false) readings += 1;
-    return {
-      date: r.date,
-      serviceType: r.service_type,
-      isSpecialFeast: r.is_special_feast,
-      feastName: r.feast_name,
-      hasSibling: r.has_sibling,
-      locationName: r.location_name,
-      activityName: r.activity_name,
-    };
-  });
+
+    let record = grouped.get(r.liturgy_id);
+    if (!record) {
+      record = {
+        date: r.date,
+        serviceType: r.service_type,
+        isSpecialFeast: r.is_special_feast,
+        feastName: r.feast_name,
+        hasSibling: r.has_sibling,
+        locationName: r.location_name,
+        activityNames: [],
+      };
+      grouped.set(r.liturgy_id, record);
+    }
+    if (r.activity_name) record.activityNames.push(r.activity_name);
+  }
+  const records: DeaconHistoryRecord[] = [...grouped.values()];
 
   const { rows: rawPwRows } = await query<{
     year: number;
