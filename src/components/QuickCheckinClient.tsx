@@ -330,14 +330,14 @@ export default function QuickCheckinClient() {
                   </button>
                 ))}
               </div>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                style={{ marginTop: "0.75rem" }}
-                onClick={openManualLocationPicker}
-              >
-                None of these — choose manually
-              </button>
+              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "0.75rem" }}>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setStep("locating")}>
+                  Refresh location
+                </button>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={openManualLocationPicker}>
+                  None of these — choose manually
+                </button>
+              </div>
             </>
           )}
           <button type="button" className="btn btn-secondary btn-sm" style={{ marginTop: "1rem" }} onClick={switchIdentity}>
@@ -511,6 +511,14 @@ export default function QuickCheckinClient() {
               type="button"
               className="btn btn-secondary"
               style={{ fontSize: "1.1rem", padding: "0.9rem" }}
+              onClick={() => setStep("locating")}
+            >
+              Refresh Location
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ fontSize: "1.1rem", padding: "0.9rem" }}
               onClick={() => setServiceType((s) => (s === "S1" ? "S2" : "S1"))}
             >
               {serviceType === "S1" ? "Switch to 2nd Liturgy" : "Switch to 1st Liturgy"}
@@ -520,9 +528,30 @@ export default function QuickCheckinClient() {
       )}
 
       {step === "done" && (
-        <div className="card">
-          <h3 style={{ marginTop: 0 }}>You&apos;re checked in!</h3>
-          <p className="muted">You can close this page now.</p>
+        <div className="card" style={{ display: "flex", flexDirection: "column", minHeight: "60vh" }}>
+          <div
+            style={{
+              flex: 1,
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              textAlign: "center",
+            }}
+          >
+            <h3 style={{ fontSize: "2rem", margin: 0 }}>You&apos;re checked in!</h3>
+            <p className="muted" style={{ fontSize: "1.3rem", marginTop: "0.75rem" }}>
+              You can close this page now.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ fontSize: "1.25rem", padding: "1.1rem" }}
+            onClick={() => window.close()}
+          >
+            Close
+          </button>
         </div>
       )}
     </div>
