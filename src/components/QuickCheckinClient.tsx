@@ -380,6 +380,14 @@ export default function QuickCheckinClient() {
                 Not {identity.name.split(" ")[0]}?
               </button>
             )}
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ fontSize: "1.25rem", padding: "1.1rem" }}
+              onClick={() => setStep("locating")}
+            >
+              Refresh Location
+            </button>
           </div>
         </div>
       )}
