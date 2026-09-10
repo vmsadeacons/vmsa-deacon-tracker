@@ -348,6 +348,14 @@ export async function mergeDeacons(
       survivorId,
       mergedId,
     ]);
+    // If the record being deleted was itself the "kept" side of an earlier
+    // merge, re-point those history rows onto the new survivor so the merge
+    // chain reads correctly (X -> Y -> Z) and the delete below isn't blocked
+    // by deacon_merge_log_survivor_id_fkey.
+    await client.query(`update deacon_merge_log set survivor_id = $1 where survivor_id = $2`, [
+      survivorId,
+      mergedId,
+    ]);
 
     let userRelinked = false;
     const { rows: mergedUserRows } = await client.query<{ id: string }>(
@@ -389,7 +397,7 @@ export async function mergeDeacons(
 
 export interface MergeLogRow {
   id: string;
-  survivorId: string;
+  survivorId: string | null; // null once that surviving record is itself deleted (see 0015)
   survivorName: string;
   mergedId: string;
   mergedName: string;
@@ -403,7 +411,7 @@ export interface MergeLogRow {
 export async function listMergeLog(): Promise<MergeLogRow[]> {
   const { rows } = await query<{
     id: string;
-    survivor_id: string;
+    survivor_id: string | null;
     survivor_name: string;
     merged_id: string;
     merged_name: string;
