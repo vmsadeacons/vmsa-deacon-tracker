@@ -294,7 +294,7 @@ export default function RecordLiturgyClient({
           </div>
         )}
         <RosterPicker
-          items={activeCandidates.map((d) => ({ id: d.id, name: d.name }))}
+          items={activeCandidates.map((d) => ({ id: d.id, name: d.name, firstName: d.first_name, lastName: d.last_name }))}
           selectedIds={attendeeIds}
           onToggle={handleToggleAttendance}
           idPrefix="attend"
@@ -383,7 +383,7 @@ export default function RecordLiturgyClient({
                 <div key={act.id}>
                   <div className="step-header">{act.name}</div>
                   <SingleRosterPickerModal
-                    items={attendees.map((a) => ({ id: a.deaconId, name: a.name }))}
+                    items={attendees.map((a) => ({ id: a.deaconId, name: a.name, firstName: a.firstName, lastName: a.lastName }))}
                     selectedId={current || null}
                     onSelect={(id) => handleSetReading(act.id, id ?? "")}
                     title={`${act.name} — choose a deacon`}
@@ -398,7 +398,7 @@ export default function RecordLiturgyClient({
 
       <Modal open={showMore} onClose={() => setShowMore(false)} title="Full roster" wide>
         <RosterPicker
-          items={allRosterSorted.map((d) => ({ id: d.id, name: d.name }))}
+          items={allRosterSorted.map((d) => ({ id: d.id, name: d.name, firstName: d.first_name, lastName: d.last_name }))}
           selectedIds={attendeeIds}
           onToggle={handleToggleAttendance}
           idPrefix="fullroster"

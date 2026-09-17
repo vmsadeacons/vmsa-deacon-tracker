@@ -77,7 +77,7 @@ export default function ByDeaconTab({
           <div className="field">
             <label>Deacon</label>
             <SingleRosterPickerModal
-              items={pickableDeacons.map((d) => ({ id: d.id, name: d.name }))}
+              items={pickableDeacons.map((d) => ({ id: d.id, name: d.name, firstName: d.first_name, lastName: d.last_name }))}
               selectedId={deaconId || null}
               onSelect={(id) => setDeaconId(id ?? "")}
               placeholder="— Select —"

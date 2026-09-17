@@ -150,7 +150,12 @@ export default function PassionWeekClient({
                       <div key={slotIndex} className="field" style={{ marginBottom: slots > 1 ? "0.5rem" : 0 }}>
                         {slots > 1 && <label>Reading {slotIndex + 1}</label>}
                         <SingleRosterPickerModal
-                          items={deaconOptions(current || undefined).map((d) => ({ id: d.id, name: d.name }))}
+                          items={deaconOptions(current || undefined).map((d) => ({
+                            id: d.id,
+                            name: d.name,
+                            firstName: d.first_name,
+                            lastName: d.last_name,
+                          }))}
                           selectedId={current || null}
                           onSelect={(id) => handleAssign(act.code, slotIndex, id)}
                           title={`${act.label} — choose a deacon`}

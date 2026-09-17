@@ -77,7 +77,7 @@ export default function UserForm({
       <div className="field">
         <label>Deacon (optional)</label>
         <SingleRosterPickerModal
-          items={availableDeacons.map((d) => ({ id: d.id, name: d.name }))}
+          items={availableDeacons.map((d) => ({ id: d.id, name: d.name, firstName: d.first_name, lastName: d.last_name }))}
           selectedId={linkedDeaconId || null}
           onSelect={(id) => setLinkedDeaconId(id ?? "")}
           placeholder="— Not tied to a deacon record —"

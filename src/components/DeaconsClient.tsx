@@ -11,6 +11,8 @@ import type { LocationRow } from "@/lib/repo/locations";
 import type { RankRow } from "@/lib/repo/ranks";
 import { createDeaconAction, updateDeaconAction, deleteDeaconAction, setDeaconPhotoAction } from "@/app/(app)/deacons/actions";
 import { formatPhone, telHref, smsHref } from "@/lib/formatPhone";
+import NameSearchBox from "./NameSearchBox";
+import { matchesNameSearch, type NameSearchMode } from "@/lib/rosterSearch";
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
@@ -28,6 +30,7 @@ export default function DeaconsClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
+  const [searchMode, setSearchMode] = useState<NameSearchMode>("full");
   const [editing, setEditing] = useState<DeaconWithAgeGroup | null>(
     () => deacons.find((d) => d.id === searchParams.get("edit")) ?? null
   );
@@ -38,10 +41,13 @@ export default function DeaconsClient({
 
   const sorted = useMemo(() => [...deacons].sort((a, b) => a.name.localeCompare(b.name)), [deacons]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return q ? sorted.filter((d) => d.name.toLowerCase().includes(q)) : sorted;
-  }, [sorted, search]);
+  const filtered = useMemo(
+    () =>
+      sorted.filter((d) =>
+        matchesNameSearch({ name: d.name, firstName: d.first_name, lastName: d.last_name }, searchMode, search)
+      ),
+    [sorted, search, searchMode]
+  );
 
   const groups = useMemo(() => {
     const map = new Map<string, DeaconWithAgeGroup[]>();
@@ -115,12 +121,12 @@ export default function DeaconsClient({
       {error && <p className="error-text" style={{ marginBottom: "1rem" }}>{error}</p>}
 
       <div className="card">
-        <input
-          type="text"
-          placeholder="Search by name"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{ width: "100%", marginBottom: "0.75rem", boxSizing: "border-box" }}
+        <NameSearchBox
+          query={search}
+          onQueryChange={setSearch}
+          mode={searchMode}
+          onModeChange={setSearchMode}
+          idPrefix="deacons"
         />
         <div style={{ display: "flex" }}>
           <div

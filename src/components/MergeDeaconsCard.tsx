@@ -142,7 +142,7 @@ function CandidatePicker({
   onSelect,
 }: {
   label: string;
-  items: { id: string; name: string }[];
+  items: { id: string; name: string; firstName: string; lastName: string }[];
   selectedId: string | null;
   disabledId: string | null;
   onSelect: (id: string | null) => void;
@@ -180,7 +180,10 @@ export default function MergeDeaconsCard({
 }) {
   const router = useRouter();
   const items = useMemo(
-    () => [...deacons].sort((a, b) => a.name.localeCompare(b.name)).map((d) => ({ id: d.id, name: d.name })),
+    () =>
+      [...deacons]
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .map((d) => ({ id: d.id, name: d.name, firstName: d.first_name, lastName: d.last_name })),
     [deacons]
   );
   const fields = useMemo(() => buildFields(locations), [locations]);

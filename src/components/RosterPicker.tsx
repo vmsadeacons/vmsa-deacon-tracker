@@ -1,10 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import NameSearchBox from "./NameSearchBox";
+import { matchesNameSearch, type NameSearchMode } from "@/lib/rosterSearch";
 
 export interface RosterPickerItem {
   id: string;
   name: string;
+  firstName: string;
+  lastName: string;
 }
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
@@ -24,13 +28,14 @@ export default function RosterPicker({
   idPrefix?: string;
 }) {
   const [search, setSearch] = useState("");
+  const [searchMode, setSearchMode] = useState<NameSearchMode>("full");
 
   const sorted = useMemo(() => [...items].sort((a, b) => a.name.localeCompare(b.name)), [items]);
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return q ? sorted.filter((i) => i.name.toLowerCase().includes(q)) : sorted;
-  }, [sorted, search]);
+  const filtered = useMemo(
+    () => sorted.filter((i) => matchesNameSearch(i, searchMode, search)),
+    [sorted, search, searchMode]
+  );
 
   const groups = useMemo(() => {
     const map = new Map<string, RosterPickerItem[]>();
@@ -50,12 +55,12 @@ export default function RosterPicker({
 
   return (
     <div>
-      <input
-        type="text"
-        placeholder="Search by name"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        style={{ width: "100%", marginBottom: "0.75rem", boxSizing: "border-box" }}
+      <NameSearchBox
+        query={search}
+        onQueryChange={setSearch}
+        mode={searchMode}
+        onModeChange={setSearchMode}
+        idPrefix={idPrefix}
       />
       <div style={{ display: "flex", height: 340 }}>
         <div

@@ -58,6 +58,8 @@ export async function setSpecialFeast(
 export interface LiturgyParticipantRow {
   deacon_id: string;
   deacon_name: string;
+  deacon_first_name: string;
+  deacon_last_name: string;
   deacon_status: "Active" | "Archived";
   activity_id: string | null;
   activity_name: string | null;
@@ -71,7 +73,7 @@ export interface LiturgyContext {
   feastNameId: string | null;
   feastName: string | null;
   attendeeIds: string[];
-  attendees: { deaconId: string; name: string; status: string }[];
+  attendees: { deaconId: string; name: string; firstName: string; lastName: string; status: string }[];
   assignments: {
     activityId: string;
     activityName: string;
@@ -98,7 +100,8 @@ async function buildLiturgyContext(
     [liturgyId]
   );
   const { rows } = await query<LiturgyParticipantRow>(
-    `select p.deacon_id, d.name as deacon_name, d.status as deacon_status,
+    `select p.deacon_id, d.name as deacon_name, d.first_name as deacon_first_name, d.last_name as deacon_last_name,
+            d.status as deacon_status,
             p.activity_id, a.name as activity_name, a.allows_multiple, a.sort_order as activity_sort_order
      from ${participationTable} p
      join deacons d on d.id = p.deacon_id
@@ -108,7 +111,10 @@ async function buildLiturgyContext(
     [liturgyId]
   );
 
-  const attendeeMap = new Map<string, { deaconId: string; name: string; status: string }>();
+  const attendeeMap = new Map<
+    string,
+    { deaconId: string; name: string; firstName: string; lastName: string; status: string }
+  >();
   const assignmentMap = new Map<
     string,
     { activityId: string; activityName: string; allowsMultiple: boolean; sortOrder: number; deaconIds: string[] }
@@ -119,6 +125,8 @@ async function buildLiturgyContext(
       attendeeMap.set(row.deacon_id, {
         deaconId: row.deacon_id,
         name: row.deacon_name,
+        firstName: row.deacon_first_name,
+        lastName: row.deacon_last_name,
         status: row.deacon_status,
       });
     }

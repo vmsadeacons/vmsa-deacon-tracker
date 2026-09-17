@@ -405,6 +405,13 @@ textarea:focus {
   gap: 0.5rem;
 }
 
+/* Compact variant -- e.g. the Full/First/Last name-search-mode row, which
+   needs to stay on one line next to its search box. */
+.chip-sm {
+  padding: 0.28rem 0.5rem;
+  font-size: 0.76rem;
+}
+
 /* ---------------------------------------------------------------------- */
 /* Badges                                                                 */
 /* ---------------------------------------------------------------------- */
