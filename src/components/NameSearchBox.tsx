@@ -27,21 +27,17 @@ export default function NameSearchBox({
         onChange={(e) => onQueryChange(e.target.value)}
         style={{ width: "100%", marginBottom: "0.4rem", boxSizing: "border-box" }}
       />
-      <div className="chip-row" role="radiogroup" aria-label="Search mode" style={{ flexWrap: "nowrap" }}>
+      <div className="name-search-modes" role="radiogroup" aria-label="Search mode">
         {MODES.map((m) => (
-          <label
-            key={m}
-            className={`chip chip-sm ${mode === m ? "active" : ""}`}
-            style={{ position: "relative", flex: "1 1 0", justifyContent: "center", textAlign: "center" }}
-          >
+          <label key={m} className="name-search-mode">
             <input
               type="radio"
               name={`${idPrefix}-name-search-mode`}
               value={m}
               checked={mode === m}
               onChange={() => onModeChange(m)}
-              style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", margin: 0 }}
             />
+            <span className="name-search-mode-dot" aria-hidden="true" />
             {NAME_SEARCH_MODE_LABELS[m]}
           </label>
         ))}
