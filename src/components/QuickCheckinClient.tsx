@@ -16,6 +16,20 @@ import {
 
 const STORAGE_KEY = "quickCheckinDeacon";
 
+// How long a detected location is trusted before the app insists on
+// re-checking it -- see the foreground-resume effect below.
+const STALE_LOCATION_MS = 90_000;
+
+function timeAgoLabel(sinceMs: number): string {
+  const seconds = Math.floor((Date.now() - sinceMs) / 1000);
+  if (seconds < 10) return "just now";
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  return `${hours}h ago`;
+}
+
 interface StoredIdentity {
   id: string;
   name: string;
@@ -60,6 +74,9 @@ export default function QuickCheckinClient() {
   const [feastName, setFeastName] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // When the confirmed location was last (re-)detected -- drives both the
+  // foreground-resume staleness check and the "Detected X ago" note.
+  const [lastLocatedAt, setLastLocatedAt] = useState<number | null>(null);
 
   // "Change Name" on the confirm screen goes straight to the search screen
   // (no separate "are you sure" step), but doesn't touch the stored
@@ -84,6 +101,7 @@ export default function QuickCheckinClient() {
     setIsSpecialFeast(prediction.isSpecialFeast);
     setFeastName(prediction.feastName);
     setSubmitError(null);
+    setLastLocatedAt(Date.now());
     setStep("confirm");
   }
 
@@ -166,6 +184,43 @@ export default function QuickCheckinClient() {
     if (step !== "locating") return;
     Promise.resolve().then(() => locate());
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+
+  // The app can't close itself (see the "done" step) -- it just sits
+  // backgrounded until swiped away or brought back, with its React state
+  // (including the last detected location) frozen exactly as it was. This
+  // re-checks location the moment the app is actually brought back to the
+  // foreground, but only if it's been sitting for a while -- a brief
+  // app-switch (e.g. to check a text) shouldn't cause a flicker.
+  useEffect(() => {
+    function handleForeground() {
+      const stale = lastLocatedAt === null || Date.now() - lastLocatedAt > STALE_LOCATION_MS;
+      if ((step === "confirm" || step === "pick-location") && stale) {
+        Promise.resolve().then(() => setStep("locating"));
+      }
+    }
+    function handleVisibility() {
+      if (document.visibilityState === "visible") handleForeground();
+    }
+    document.addEventListener("visibilitychange", handleVisibility);
+    // pageshow is a second signal for the same "we're back" moment -- some
+    // iOS Safari versions have been unreliable about firing
+    // visibilitychange alone when resuming a fully-suspended PWA.
+    window.addEventListener("pageshow", handleForeground);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("pageshow", handleForeground);
+    };
+  }, [step, lastLocatedAt]);
+
+  // Keeps the "Detected X ago" note advancing even if nothing else causes a
+  // re-render -- the label itself always computes off the real clock
+  // (timeAgoLabel), this timer just forces React to recompute it.
+  const [, forceTick] = useState(0);
+  useEffect(() => {
+    if (step !== "confirm") return;
+    const id = setInterval(() => forceTick((t) => t + 1), 15_000);
+    return () => clearInterval(id);
   }, [step]);
 
   async function handleSearch(e: React.FormEvent) {
@@ -445,6 +500,11 @@ export default function QuickCheckinClient() {
               Checking <strong>{identity.name}</strong> into <strong>{location.locationName}</strong>
             </p>
             <p style={{ fontSize: "1.3rem", color: "var(--wine)", marginTop: "0.6rem" }}>{summaryLabel}</p>
+            {lastLocatedAt && (
+              <p className="muted" style={{ fontSize: "0.85rem", marginTop: "0.5rem" }}>
+                Detected {timeAgoLabel(lastLocatedAt)}
+              </p>
+            )}
           </div>
 
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
