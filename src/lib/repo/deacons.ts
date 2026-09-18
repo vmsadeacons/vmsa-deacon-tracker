@@ -126,7 +126,7 @@ export function assertHasAgeGroup(dob: string | null, ageGroupOverride: AgeGroup
   }
 }
 
-function friendlyDuplicateError(err: unknown): never {
+export function friendlyDuplicateError(err: unknown): never {
   if (
     err &&
     typeof err === "object" &&

@@ -1,5 +1,5 @@
 import { query, withTransaction } from "@/lib/db";
-import { assertHasAgeGroup } from "@/lib/repo/deacons";
+import { assertHasAgeGroup, friendlyDuplicateError } from "@/lib/repo/deacons";
 import type { AgeGroup } from "@/lib/constants";
 
 // ---------------------------------------------------------------------------
@@ -258,33 +258,6 @@ export async function mergeDeacons(
       );
     }
 
-    await client.query(
-      `update deacons set
-         first_name = $2, last_name = $3, name_qualifier = $4, phone = $5, address = $6, city = $7,
-         email = $8, dob = $9, age_group_override = $10, rank_id = $11, ordination_year = $12,
-         is_guest = $13, location_prefs = $14, liturgy_prefs = $15, notes = $16, status = $17
-       where id = $1`,
-      [
-        survivorId,
-        patch.firstName,
-        patch.lastName,
-        patch.nameQualifier,
-        patch.phone,
-        patch.address,
-        patch.city,
-        patch.email,
-        patch.dob,
-        patch.ageGroupOverride,
-        patch.rankId,
-        patch.ordinationYear,
-        patch.isGuest,
-        patch.locationPrefs,
-        patch.liturgyPrefs,
-        patch.notes,
-        patch.status,
-      ]
-    );
-
     if (patch.photoFrom === "merged") {
       await client.query(
         `update deacons set photo = (select photo from deacons where id = $2) where id = $1`,
@@ -373,6 +346,51 @@ export async function mergeDeacons(
     const participationMoved = (attendanceMoved.rowCount ?? 0) + (assignmentsMoved.rowCount ?? 0);
     const passionWeekMoved = pwMoved.rowCount ?? 0;
 
+    // Delete the merged row BEFORE applying the survivor's field patch,
+    // not after. deacons_identity_unique enforces first/last/qualifier
+    // uniqueness across ALL rows at once (not deferred) -- if the admin
+    // chose to keep the merged record's own name/qualifier for the
+    // survivor (e.g. merging "Boutros Salama" into "Boutros Salama (Deacon
+    // Brampton)" while keeping the "(Deacon Brampton)" qualifier), writing
+    // that identity to the survivor while the merged row still holds it
+    // would collide with itself and fail with exactly that constraint.
+    // Deleting first removes that collision risk entirely.
+    await client.query(`delete from deacons where id = $1`, [mergedId]);
+
+    try {
+      await client.query(
+        `update deacons set
+           first_name = $2, last_name = $3, name_qualifier = $4, phone = $5, address = $6, city = $7,
+           email = $8, dob = $9, age_group_override = $10, rank_id = $11, ordination_year = $12,
+           is_guest = $13, location_prefs = $14, liturgy_prefs = $15, notes = $16, status = $17
+         where id = $1`,
+        [
+          survivorId,
+          patch.firstName,
+          patch.lastName,
+          patch.nameQualifier,
+          patch.phone,
+          patch.address,
+          patch.city,
+          patch.email,
+          patch.dob,
+          patch.ageGroupOverride,
+          patch.rankId,
+          patch.ordinationYear,
+          patch.isGuest,
+          patch.locationPrefs,
+          patch.liturgyPrefs,
+          patch.notes,
+          patch.status,
+        ]
+      );
+    } catch (err) {
+      // Genuinely rare now that the merged row is already gone -- this only
+      // fires if the chosen name/qualifier belongs to some unrelated third
+      // deacon. Same friendly message updateDeacon()/createDeacon() give.
+      friendlyDuplicateError(err);
+    }
+
     // Read back the survivor's name post-update rather than concatenating
     // patch.firstName + lastName ourselves -- `name` is a generated column
     // that also folds in the name qualifier (e.g. "John Doe (Vancouver)"),
@@ -388,8 +406,6 @@ export async function mergeDeacons(
        values ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [survivorId, survivorNowRows[0].name, mergedId, mergedName, participationMoved, passionWeekMoved, userRelinked, performedByEmail]
     );
-
-    await client.query(`delete from deacons where id = $1`, [mergedId]);
 
     return { participationMoved, passionWeekMoved, userRelinked };
   });
