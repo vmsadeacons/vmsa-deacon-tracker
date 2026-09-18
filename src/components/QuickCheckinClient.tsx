@@ -74,9 +74,17 @@ export default function QuickCheckinClient() {
   const [feastName, setFeastName] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  // When the confirmed location was last (re-)detected -- drives both the
-  // foreground-resume staleness check and the "Detected X ago" note.
-  const [lastLocatedAt, setLastLocatedAt] = useState<number | null>(null);
+  // When the confirmed location was last (re-)resolved, and how -- "detected"
+  // for GPS (including picking among ambiguous GPS candidates), "selected"
+  // for a manual override (the dropdown, or "Change Church"). Drives both
+  // the foreground-resume staleness check and the confirm screen's note.
+  const [locationResolvedAt, setLocationResolvedAt] = useState<{ at: number; source: "detected" | "selected" } | null>(
+    null
+  );
+  // When locate() last finished WITHOUT resolving a location (no nearby
+  // church, geolocation denied/unsupported) -- shown on the no-location
+  // screen so it's clear how fresh (or stale) that "no" answer is.
+  const [lastCheckedAt, setLastCheckedAt] = useState<number | null>(null);
 
   // "Change Name" on the confirm screen goes straight to the search screen
   // (no separate "are you sure" step), but doesn't touch the stored
@@ -93,7 +101,7 @@ export default function QuickCheckinClient() {
     setLoadingLocations(false);
   }
 
-  async function proceedToConfirm(loc: CheckinLocationMatch) {
+  async function proceedToConfirm(loc: CheckinLocationMatch, source: "detected" | "selected") {
     setLocation(loc);
     const [prediction] = await Promise.all([getCheckinPredictionAction(loc.locationId), ensureLocationsLoaded()]);
     setDate(prediction.date);
@@ -101,7 +109,7 @@ export default function QuickCheckinClient() {
     setIsSpecialFeast(prediction.isSpecialFeast);
     setFeastName(prediction.feastName);
     setSubmitError(null);
-    setLastLocatedAt(Date.now());
+    setLocationResolvedAt({ at: Date.now(), source });
     setStep("confirm");
   }
 
@@ -110,6 +118,7 @@ export default function QuickCheckinClient() {
     setCandidates([]);
     if (!navigator.geolocation) {
       setLocationError("This device doesn't support location detection, so we can't confirm you're at the church.");
+      setLastCheckedAt(Date.now());
       setStep("no-location");
       return;
     }
@@ -119,9 +128,10 @@ export default function QuickCheckinClient() {
         const found = await resolveCheckinLocationsAction(latitude, longitude, accuracy);
         if (found.length === 0) {
           setLocationError("Please try again when you are inside the church.");
+          setLastCheckedAt(Date.now());
           setStep("no-location");
         } else if (found.length === 1) {
-          await proceedToConfirm(found[0]);
+          await proceedToConfirm(found[0], "detected");
         } else {
           setCandidates(found);
           setStep("pick-location");
@@ -131,6 +141,7 @@ export default function QuickCheckinClient() {
         setLocationError(
           "We need your location to confirm you're at the church. Please allow location access and try again."
         );
+        setLastCheckedAt(Date.now());
         setStep("no-location");
       },
       { enableHighAccuracy: true, timeout: 15000 }
@@ -146,14 +157,14 @@ export default function QuickCheckinClient() {
   function confirmManualLocation() {
     const loc = allLocations.find((l) => l.id === manualLocationId);
     if (!loc) return;
-    void proceedToConfirm({ locationId: loc.id, locationName: loc.name });
+    void proceedToConfirm({ locationId: loc.id, locationName: loc.name }, "selected");
   }
 
   /** The confirm screen's "Change Church" dropdown -- picks and re-confirms in one step, no separate screen. */
   function handleChangeChurch(locationId: string) {
     const loc = allLocations.find((l) => l.id === locationId);
     if (!loc) return;
-    void proceedToConfirm({ locationId: loc.id, locationName: loc.name });
+    void proceedToConfirm({ locationId: loc.id, locationName: loc.name }, "selected");
   }
 
   // Reads localStorage once on mount -- deferred into a microtask (rather
@@ -194,7 +205,7 @@ export default function QuickCheckinClient() {
   // app-switch (e.g. to check a text) shouldn't cause a flicker.
   useEffect(() => {
     function handleForeground() {
-      const stale = lastLocatedAt === null || Date.now() - lastLocatedAt > STALE_LOCATION_MS;
+      const stale = locationResolvedAt === null || Date.now() - locationResolvedAt.at > STALE_LOCATION_MS;
       if ((step === "confirm" || step === "pick-location") && stale) {
         Promise.resolve().then(() => setStep("locating"));
       }
@@ -211,14 +222,15 @@ export default function QuickCheckinClient() {
       document.removeEventListener("visibilitychange", handleVisibility);
       window.removeEventListener("pageshow", handleForeground);
     };
-  }, [step, lastLocatedAt]);
+  }, [step, locationResolvedAt]);
 
-  // Keeps the "Detected X ago" note advancing even if nothing else causes a
-  // re-render -- the label itself always computes off the real clock
-  // (timeAgoLabel), this timer just forces React to recompute it.
+  // Keeps the "Detected/Selected X ago" and "Last checked X ago" notes
+  // advancing even if nothing else causes a re-render -- the labels
+  // themselves always compute off the real clock (timeAgoLabel), this timer
+  // just forces React to recompute them.
   const [, forceTick] = useState(0);
   useEffect(() => {
-    if (step !== "confirm") return;
+    if (step !== "confirm" && step !== "no-location") return;
     const id = setInterval(() => forceTick((t) => t + 1), 15_000);
     return () => clearInterval(id);
   }, [step]);
@@ -379,7 +391,7 @@ export default function QuickCheckinClient() {
                     key={c.locationId}
                     type="button"
                     className="btn btn-secondary"
-                    onClick={() => proceedToConfirm(c)}
+                    onClick={() => proceedToConfirm(c, "detected")}
                   >
                     {c.locationName}
                   </button>
@@ -403,10 +415,15 @@ export default function QuickCheckinClient() {
 
       {step === "no-location" && (
         <div className="card" style={{ display: "flex", flexDirection: "column", minHeight: "60vh" }}>
-          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
             <p className="error-text" style={{ fontSize: "1.7rem", lineHeight: 1.4 }}>
               {locationError}
             </p>
+            {lastCheckedAt && (
+              <p className="muted" style={{ fontSize: "0.85rem", marginTop: "0.5rem" }}>
+                Last checked {timeAgoLabel(lastCheckedAt)}
+              </p>
+            )}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: "0.85rem" }}>
             <button
@@ -500,9 +517,10 @@ export default function QuickCheckinClient() {
               Checking <strong>{identity.name}</strong> into <strong>{location.locationName}</strong>
             </p>
             <p style={{ fontSize: "1.3rem", color: "var(--wine)", marginTop: "0.6rem" }}>{summaryLabel}</p>
-            {lastLocatedAt && (
+            {locationResolvedAt && (
               <p className="muted" style={{ fontSize: "0.85rem", marginTop: "0.5rem" }}>
-                Detected {timeAgoLabel(lastLocatedAt)}
+                {locationResolvedAt.source === "selected" ? "Location selected" : "Detected"}{" "}
+                {timeAgoLabel(locationResolvedAt.at)}
               </p>
             )}
           </div>
