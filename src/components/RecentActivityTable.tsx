@@ -26,7 +26,7 @@ export default function RecentActivityTable({ rows }: { rows: RecentLiturgyRow[]
             const clickable = Boolean(row.date);
             return (
               <tr
-                key={row.locationId}
+                key={`${row.locationId}:${row.serviceType ?? "none"}`}
                 style={clickable ? { cursor: "pointer" } : undefined}
                 onClick={
                   clickable

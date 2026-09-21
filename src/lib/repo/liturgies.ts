@@ -367,7 +367,13 @@ export interface RecentLiturgyRow {
   readingsTotal: number;
 }
 
-/** Dashboard's "recent activity by location" — merges live + archived, per spec §7.2. */
+/**
+ * Dashboard's "recent activity" — one row per liturgy, not per location:
+ * every liturgy on each location's most recent liturgy date (usually one,
+ * but a day with both a 1st and 2nd liturgy gets a row for each, 1st then
+ * 2nd). Merges live + archived, per spec §7.2. A location with no
+ * liturgies at all still gets a single placeholder row.
+ */
 export async function getRecentLiturgiesByLocation(): Promise<RecentLiturgyRow[]> {
   const { rows: locations } = await query<{ id: string; name: string }>(
     `select id, name from locations where status = 'Active' order by name`
@@ -379,7 +385,7 @@ export async function getRecentLiturgiesByLocation(): Promise<RecentLiturgyRow[]
 
   const results: RecentLiturgyRow[] = [];
   for (const loc of locations) {
-    const { rows: candidates } = await query<{
+    const { rows: latest } = await query<{
       id: string;
       date: string;
       service_type: string;
@@ -387,19 +393,21 @@ export async function getRecentLiturgiesByLocation(): Promise<RecentLiturgyRow[]
       feast_name: string | null;
       archived: boolean;
     }>(
-      `select l.id, l.date, l.service_type, l.is_special_feast, fn.name as feast_name, false as archived
-         from liturgies l left join feast_names fn on fn.id = l.feast_name_id
-         where l.location_id = $1
-       union all
-       select l.id, l.date, l.service_type, l.is_special_feast, fn.name as feast_name, true as archived
-         from archive_liturgies l left join feast_names fn on fn.id = l.feast_name_id
-         where l.location_id = $1
-       order by date desc
-       limit 1`,
+      `with all_liturgies as (
+         select l.id, l.date, l.service_type, l.is_special_feast, fn.name as feast_name, false as archived
+           from liturgies l left join feast_names fn on fn.id = l.feast_name_id
+           where l.location_id = $1
+         union all
+         select l.id, l.date, l.service_type, l.is_special_feast, fn.name as feast_name, true as archived
+           from archive_liturgies l left join feast_names fn on fn.id = l.feast_name_id
+           where l.location_id = $1
+       )
+       select * from all_liturgies
+       where date = (select max(date) from all_liturgies)
+       order by service_type`,
       [loc.id]
     );
-    const winner = candidates[0];
-    if (!winner) {
+    if (latest.length === 0) {
       results.push({
         locationId: loc.id,
         locationName: loc.name,
@@ -415,41 +423,40 @@ export async function getRecentLiturgiesByLocation(): Promise<RecentLiturgyRow[]
       });
       continue;
     }
-    const liturgyTable = winner.archived ? "archive_liturgies" : "liturgies";
-    const participationTable = winner.archived ? "archive_participation" : "participation";
-    const { rows: siblingRows } = await query<{ id: string }>(
-      `select id from ${liturgyTable} where date = $1 and location_id = $2 and id <> $3`,
-      [winner.date, loc.id, winner.id]
-    );
-    const hasSibling = siblingRows.length > 0;
-    const { rows: statRows } = await query<{
-      attendee_count: string;
-      altar_count: string;
-      readings_filled: string;
-    }>(
-      `select
-         count(distinct p.deacon_id) as attendee_count,
-         count(*) filter (where a.allows_multiple = true) as altar_count,
-         count(distinct a.id) filter (where a.allows_multiple = false) as readings_filled
-       from ${participationTable} p
-       left join activities a on a.id = p.activity_id
-       where p.liturgy_id = $1`,
-      [winner.id]
-    );
-    const stat = statRows[0];
-    results.push({
-      locationId: loc.id,
-      locationName: loc.name,
-      date: winner.date,
-      serviceType: winner.service_type,
-      isSpecialFeast: winner.is_special_feast,
-      feastName: winner.feast_name,
-      hasSibling,
-      attendeeCount: Number(stat.attendee_count),
-      altarCount: Number(stat.altar_count),
-      readingsFilled: Number(stat.readings_filled),
-      readingsTotal,
-    });
+    // Two liturgies on the same day at the same location -- each row's
+    // label needs its ordinal ("1st Liturgy") to tell them apart.
+    const hasSibling = latest.length > 1;
+    for (const liturgy of latest) {
+      const participationTable = liturgy.archived ? "archive_participation" : "participation";
+      const { rows: statRows } = await query<{
+        attendee_count: string;
+        altar_count: string;
+        readings_filled: string;
+      }>(
+        `select
+           count(distinct p.deacon_id) as attendee_count,
+           count(*) filter (where a.allows_multiple = true) as altar_count,
+           count(distinct a.id) filter (where a.allows_multiple = false) as readings_filled
+         from ${participationTable} p
+         left join activities a on a.id = p.activity_id
+         where p.liturgy_id = $1`,
+        [liturgy.id]
+      );
+      const stat = statRows[0];
+      results.push({
+        locationId: loc.id,
+        locationName: loc.name,
+        date: liturgy.date,
+        serviceType: liturgy.service_type,
+        isSpecialFeast: liturgy.is_special_feast,
+        feastName: liturgy.feast_name,
+        hasSibling,
+        attendeeCount: Number(stat.attendee_count),
+        altarCount: Number(stat.altar_count),
+        readingsFilled: Number(stat.readings_filled),
+        readingsTotal,
+      });
+    }
   }
   return results;
 }
