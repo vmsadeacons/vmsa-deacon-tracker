@@ -127,7 +127,7 @@ export default function QuickCheckinClient() {
         const { latitude, longitude, accuracy } = pos.coords;
         const found = await resolveCheckinLocationsAction(latitude, longitude, accuracy);
         if (found.length === 0) {
-          setLocationError("Please try again when you are inside the church.");
+          setLocationError('No church was detected near you! Click "Try again" or "Choose Church manually"');
           setLastCheckedAt(Date.now());
           setStep("no-location");
         } else if (found.length === 1) {
@@ -148,7 +148,12 @@ export default function QuickCheckinClient() {
     );
   }
 
+  // Which screen the manual picker was opened from, so its "Go back" button
+  // can return there (the no-location screen, or the ambiguous-candidates one).
+  const [manualReturnStep, setManualReturnStep] = useState<Step>("no-location");
+
   async function openManualLocationPicker() {
+    setManualReturnStep(step === "pick-location" ? "pick-location" : "no-location");
     setManualLocationId(location?.locationId ?? "");
     setStep("manual-location");
     await ensureLocationsLoaded();
@@ -440,7 +445,7 @@ export default function QuickCheckinClient() {
               style={{ fontSize: "1.25rem", padding: "1.1rem" }}
               onClick={openManualLocationPicker}
             >
-              Choose location manually
+              Choose Church manually
             </button>
             {identity && (
               <button
@@ -452,14 +457,6 @@ export default function QuickCheckinClient() {
                 Not {identity.name.split(" ")[0]}?
               </button>
             )}
-            <button
-              type="button"
-              className="btn btn-secondary"
-              style={{ fontSize: "1.25rem", padding: "1.1rem" }}
-              onClick={() => setStep("locating")}
-            >
-              Refresh Location
-            </button>
           </div>
         </div>
       )}
@@ -467,7 +464,7 @@ export default function QuickCheckinClient() {
       {step === "manual-location" && identity && (
         <div className="card" style={{ display: "flex", flexDirection: "column", minHeight: "60vh" }}>
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
-            <p style={{ fontSize: "1.7rem", lineHeight: 1.4 }}>Choose the church you&apos;re at:</p>
+            <p style={{ fontSize: "1.7rem", lineHeight: 1.4 }}>Choose the church you&apos;re attending now</p>
           </div>
           {loadingLocations ? (
             <p className="muted" style={{ textAlign: "center", fontSize: "1.2rem" }}>
@@ -480,7 +477,7 @@ export default function QuickCheckinClient() {
                 onChange={(e) => setManualLocationId(e.target.value)}
                 style={{ width: "100%", fontSize: "1.25rem", padding: "1.1rem" }}
               >
-                <option value="">— choose a location —</option>
+                <option value="">Select a church</option>
                 {allLocations.map((l) => (
                   <option key={l.id} value={l.id}>
                     {l.name}
@@ -502,9 +499,9 @@ export default function QuickCheckinClient() {
             type="button"
             className="btn btn-secondary"
             style={{ fontSize: "1.25rem", padding: "1.1rem", marginTop: "0.85rem" }}
-            onClick={() => setStep("locating")}
+            onClick={() => setStep(manualReturnStep)}
           >
-            Try detecting my location again
+            Go back
           </button>
         </div>
       )}
