@@ -127,7 +127,7 @@ export default function QuickCheckinClient() {
         const { latitude, longitude, accuracy } = pos.coords;
         const found = await resolveCheckinLocationsAction(latitude, longitude, accuracy);
         if (found.length === 0) {
-          setLocationError('No church was detected near you! Click "Try again" or "Choose Church manually"');
+          setLocationError("No church was detected near you!");
           setLastCheckedAt(Date.now());
           setStep("no-location");
         } else if (found.length === 1) {
@@ -421,7 +421,25 @@ export default function QuickCheckinClient() {
       {step === "no-location" && (
         <div className="card" style={{ display: "flex", flexDirection: "column", minHeight: "60vh" }}>
           <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" }}>
-            <p className="error-text" style={{ fontSize: "1.7rem", lineHeight: 1.4 }}>
+            <svg
+              width="72"
+              height="72"
+              viewBox="0 0 24 24"
+              role="img"
+              aria-label="Warning"
+              style={{ marginBottom: "0.75rem" }}
+            >
+              <path
+                d="M12 2.6 22.4 20.6H1.6L12 2.6Z"
+                fill="#f5b800"
+                stroke="#c98f00"
+                strokeWidth="1"
+                strokeLinejoin="round"
+              />
+              <rect x="11" y="9" width="2" height="6.2" rx="1" fill="#4a3300" />
+              <circle cx="12" cy="17.6" r="1.15" fill="#4a3300" />
+            </svg>
+            <p className="error-text" style={{ fontSize: "1.7rem", lineHeight: 1.4, textWrap: "balance" }}>
               {locationError}
             </p>
             {lastCheckedAt && (
