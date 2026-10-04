@@ -8,6 +8,7 @@ import type { DuplicateCandidate, MergeCandidateDetail, MergeFieldPatch, MergeLo
 import { ALL_SENTINEL, LITURGY_PREF_LABELS, type LiturgyPrefCode } from "@/lib/constants";
 import {
   detectDuplicateCandidatesAction,
+  dismissDuplicatePairAction,
   getMergePreviewAction,
   mergeDeaconsAction,
 } from "@/app/(app)/settings/actions";
@@ -256,6 +257,29 @@ export default function MergeDeaconsCard({
     }
   }
 
+  // Key of the pair whose "Not duplicates" request is in flight, so its
+  // button can't be double-clicked.
+  const [dismissingKey, setDismissingKey] = useState<string | null>(null);
+
+  /** Flags a listed pair as two different people so the detector stops listing it, and drops its row. */
+  async function dismissPair(d: DuplicateCandidate) {
+    const key = `${d.aId}-${d.bId}`;
+    setDismissingKey(key);
+    setDetectError(null);
+    try {
+      const result = await dismissDuplicatePairAction(d.aId, d.bId);
+      if (!result.ok) {
+        setDetectError(result.error);
+        return;
+      }
+      setDuplicates((list) => (list ? list.filter((x) => `${x.aId}-${x.bId}` !== key) : list));
+    } catch (err) {
+      setDetectError((err as Error).message);
+    } finally {
+      setDismissingKey(null);
+    }
+  }
+
   const survivor = preview ? (survivorIsA ? preview.a : preview.b) : null;
   const other = preview ? (survivorIsA ? preview.b : preview.a) : null;
 
@@ -283,6 +307,9 @@ export default function MergeDeaconsCard({
     setIdB(null);
     setPreview(null);
     router.refresh();
+    // If the duplicates list is open, it's now stale (it still lists pairs
+    // involving the record that was just merged away) -- rebuild it.
+    if (duplicates) await detectDuplicates();
   }
 
   const diffFields = preview && survivor && other ? fields.filter((f) => differs(survivor, other, f.key)) : [];
@@ -333,13 +360,21 @@ export default function MergeDeaconsCard({
                             {d.bStatus === "Archived" && <span className="badge badge-grey" style={{ marginLeft: "0.4rem" }}>Archived</span>}
                           </td>
                           <td>{d.reasons.join(", ")}</td>
-                          <td>
+                          <td style={{ whiteSpace: "nowrap" }}>
                             <button
                               type="button"
                               className="btn btn-secondary btn-sm"
                               onClick={() => selectPair(d.aId, d.bId)}
                             >
                               Review this pair
+                            </button>{" "}
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              disabled={dismissingKey === `${d.aId}-${d.bId}`}
+                              onClick={() => dismissPair(d)}
+                            >
+                              Not duplicates
                             </button>
                           </td>
                         </tr>

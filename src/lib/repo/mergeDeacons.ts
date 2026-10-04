@@ -155,12 +155,18 @@ export async function detectDuplicateCandidates(): Promise<DuplicateCandidate[]>
             (a.email_norm is not null and a.email_norm = b.email_norm) as same_email
      from norm a
      join norm b on a.id < b.id
-     where (a.fn = b.fn and a.ln = b.ln)
-        or (
-          a.phone_digits is not null and length(a.phone_digits) >= 7
-          and right(a.phone_digits, 10) = right(b.phone_digits, 10)
+     where (
+          (a.fn = b.fn and a.ln = b.ln)
+          or (
+            a.phone_digits is not null and length(a.phone_digits) >= 7
+            and right(a.phone_digits, 10) = right(b.phone_digits, 10)
+          )
+          or (a.email_norm is not null and a.email_norm = b.email_norm)
         )
-        or (a.email_norm is not null and a.email_norm = b.email_norm)
+        and not exists (
+          select 1 from duplicate_dismissals dd
+          where dd.deacon_a_id = a.id and dd.deacon_b_id = b.id
+        )
      order by a.name
      limit 500`
   );
@@ -177,6 +183,31 @@ export async function detectDuplicateCandidates(): Promise<DuplicateCandidate[]>
       r.same_email && "Same email",
     ].filter((v): v is string => Boolean(v)),
   }));
+}
+
+/**
+ * Records that an admin looked at this pair and decided they're two
+ * different people, so detectDuplicateCandidates() stops listing it. Stored
+ * lowest-id first (matching the detector's a.id < b.id), so the same pair
+ * can't be recorded twice in opposite orders. Safe to call repeatedly.
+ */
+export async function dismissDuplicatePair(idA: string, idB: string, dismissedByEmail: string): Promise<void> {
+  if (idA === idB) throw new Error("Choose two different records.");
+  const [lo, hi] = idA < idB ? [idA, idB] : [idB, idA];
+  try {
+    await query(
+      `insert into duplicate_dismissals (deacon_a_id, deacon_b_id, dismissed_by_email)
+       values ($1, $2, $3)
+       on conflict do nothing`,
+      [lo, hi, dismissedByEmail]
+    );
+  } catch (err) {
+    // 23503 = foreign key violation: one of the records was deleted/merged in the meantime.
+    if (err && typeof err === "object" && "code" in err && (err as { code: string }).code === "23503") {
+      throw new Error("One of these records no longer exists — refresh the list.");
+    }
+    throw err;
+  }
 }
 
 /** Both records' full detail, for the side-by-side diff screen. Either can come back null if deleted out from under the picker. */

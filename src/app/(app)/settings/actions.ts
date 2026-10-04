@@ -19,6 +19,7 @@ import {
   mergeDeacons,
   listMergeLog,
   detectDuplicateCandidates,
+  dismissDuplicatePair,
   type MergeFieldPatch,
 } from "@/lib/repo/mergeDeacons";
 import type { PWActivityId } from "@/lib/constants";
@@ -226,6 +227,16 @@ export async function listMergeLogAction() {
 export async function detectDuplicateCandidatesAction() {
   await assertSystemAdmin();
   return detectDuplicateCandidates();
+}
+
+export async function dismissDuplicatePairAction(idA: string, idB: string) {
+  const session = await assertSystemAdmin();
+  try {
+    await dismissDuplicatePair(idA, idB, session.user.email!);
+    return { ok: true as const };
+  } catch (err) {
+    return { ok: false as const, error: (err as Error).message };
+  }
 }
 
 export async function updateFeastNameAction(
