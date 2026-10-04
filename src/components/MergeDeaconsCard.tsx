@@ -263,6 +263,13 @@ export default function MergeDeaconsCard({
 
   /** Flags a listed pair as two different people so the detector stops listing it, and drops its row. */
   async function dismissPair(d: DuplicateCandidate) {
+    if (
+      !confirm(
+        `Mark "${d.aName}" and "${d.bName}" as two different people? They won't be flagged as possible duplicates again.`
+      )
+    ) {
+      return;
+    }
     const key = `${d.aId}-${d.bId}`;
     setDismissingKey(key);
     setDetectError(null);
