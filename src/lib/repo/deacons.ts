@@ -70,6 +70,29 @@ export async function listDeacons(includeArchived = true): Promise<DeaconWithAge
   return rows.map((d) => withAgeGroup(d, settings.ageGroupYouthMin, settings.ageGroupAdultMin));
 }
 
+/**
+ * The handful of columns every "pick a deacon" list needs -- no address,
+ * notes, DOB, photo flag, etc., and no age-group computation (so no
+ * settings lookup either). The full roster (listDeacons) is ~400 KB for
+ * ~670 deacons and was being serialized to the browser on six admin pages
+ * that only ever show names; this is under half that. Only the Deacons
+ * page itself (view/edit) needs the full rows.
+ */
+export type DeaconLite = Pick<
+  DeaconRow,
+  "id" | "name" | "first_name" | "last_name" | "status" | "is_guest" | "email" | "location_prefs" | "liturgy_prefs"
+>;
+
+export async function listDeaconsLite(includeArchived = true): Promise<DeaconLite[]> {
+  const { rows } = await query<DeaconLite>(
+    `select id, name, first_name, last_name, status, is_guest, email, location_prefs, liturgy_prefs
+     from deacons
+     ${includeArchived ? "" : "where status = 'Active'"}
+     order by name`
+  );
+  return rows;
+}
+
 export async function getDeacon(id: string): Promise<DeaconWithAgeGroup | null> {
   const settings = await getAppSettings();
   const { rows } = await query<DeaconRow>(`${DEACON_SELECT} where d.id = $1`, [id]);

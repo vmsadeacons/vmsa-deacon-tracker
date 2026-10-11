@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Modal from "./Modal";
 import UserForm from "./UserForm";
 import type { UserWithPerson } from "@/lib/repo/users";
-import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
+import type { DeaconLite } from "@/lib/repo/deacons";
 import type { Role } from "@/lib/constants";
 import {
   grantAccessAction,
@@ -35,7 +35,7 @@ export default function AccessRolesClient({
   actorRole,
 }: {
   users: UserWithPerson[];
-  deacons: DeaconWithAgeGroup[];
+  deacons: DeaconLite[];
   actorRole: Role;
 }) {
   const router = useRouter();

@@ -7,7 +7,7 @@ import ByDeaconTab from "./reports/ByDeaconTab";
 import SummaryTab from "./reports/SummaryTab";
 import PassionWeekReportTab from "./reports/PassionWeekReportTab";
 import type { LocationRow } from "@/lib/repo/locations";
-import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
+import type { DeaconLite } from "@/lib/repo/deacons";
 import type { PWActivityRow } from "@/lib/repo/passionWeekActivities";
 import type { RankRow } from "@/lib/repo/ranks";
 import type { DayFilterOptionRow } from "@/lib/repo/dayFilterOptions";
@@ -34,7 +34,7 @@ export default function ReportsClient({
   dayFilterOptions,
 }: {
   locations: LocationRow[];
-  deacons: DeaconWithAgeGroup[];
+  deacons: DeaconLite[];
   defaultDate: string;
   defaultLocationId: string;
   defaultServiceType: ServiceTypeCode;

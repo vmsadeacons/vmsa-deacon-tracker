@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
+import type { DeaconLite } from "@/lib/repo/deacons";
 import type { LocationRow } from "@/lib/repo/locations";
 import type { DuplicateCandidate, MergeCandidateDetail, MergeFieldPatch, MergeLogRow } from "@/lib/repo/mergeDeacons";
 import { ALL_SENTINEL, LITURGY_PREF_LABELS, type LiturgyPrefCode } from "@/lib/constants";
@@ -174,7 +174,7 @@ export default function MergeDeaconsCard({
   mergeLog,
   canEdit,
 }: {
-  deacons: DeaconWithAgeGroup[];
+  deacons: DeaconLite[];
   locations: LocationRow[];
   mergeLog: MergeLogRow[];
   canEdit: boolean;

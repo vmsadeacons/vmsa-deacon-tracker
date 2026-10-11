@@ -11,7 +11,7 @@ import type { RankRow } from "@/lib/repo/ranks";
 import type { FeastNameRow } from "@/lib/repo/feastNames";
 import type { DayFilterOptionRow } from "@/lib/repo/dayFilterOptions";
 import type { CutoffRow } from "@/lib/repo/liturgyTimeCutoffs";
-import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
+import type { DeaconLite } from "@/lib/repo/deacons";
 import type { MergeLogRow } from "@/lib/repo/mergeDeacons";
 import { WEEKDAY_NAMES } from "@/lib/timezone";
 import MergeDeaconsCard from "./MergeDeaconsCard";
@@ -1105,7 +1105,7 @@ export default function SettingsClient({
   feastNames: FeastNameRow[];
   dayFilterOptions: DayFilterOptionRow[];
   cutoffsByLocation: Record<string, CutoffRow[]>;
-  deacons: DeaconWithAgeGroup[];
+  deacons: DeaconLite[];
   mergeLog: MergeLogRow[];
   canEdit: boolean;
 }) {

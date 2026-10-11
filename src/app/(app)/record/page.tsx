@@ -1,7 +1,7 @@
 import { requireAdmin } from "@/lib/authz";
 import { listLocations } from "@/lib/repo/locations";
 import { listActivities } from "@/lib/repo/activities";
-import { listDeacons } from "@/lib/repo/deacons";
+import { listDeaconsLite } from "@/lib/repo/deacons";
 import { listFeastNames } from "@/lib/repo/feastNames";
 import { findLiturgyContext } from "@/lib/repo/liturgies";
 import { setStickyLocation, getUserById } from "@/lib/repo/users";
@@ -14,7 +14,7 @@ export default async function RecordLiturgyPage() {
   const [locations, activities, deacons, feastNames] = await Promise.all([
     listLocations(false),
     listActivities(false),
-    listDeacons(true),
+    listDeaconsLite(true),
     listFeastNames(true),
   ]);
 

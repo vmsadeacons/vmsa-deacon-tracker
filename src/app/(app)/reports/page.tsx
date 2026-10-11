@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { requireAdmin } from "@/lib/authz";
 import { listLocations } from "@/lib/repo/locations";
-import { listDeacons } from "@/lib/repo/deacons";
+import { listDeaconsLite } from "@/lib/repo/deacons";
 import { listPWActivities } from "@/lib/repo/passionWeekActivities";
 import { listRanks } from "@/lib/repo/ranks";
 import { getUserById } from "@/lib/repo/users";
@@ -14,7 +14,7 @@ export default async function ReportsPage() {
   const session = await requireAdmin();
   const [locations, deacons, pwActivities, ranks, dayFilterOptions] = await Promise.all([
     listLocations(false),
-    listDeacons(true),
+    listDeaconsLite(true),
     listPWActivities(),
     listRanks(false),
     listDayFilterOptions(),

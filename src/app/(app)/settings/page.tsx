@@ -7,7 +7,7 @@ import { listRanks } from "@/lib/repo/ranks";
 import { listFeastNames } from "@/lib/repo/feastNames";
 import { listDayFilterOptions } from "@/lib/repo/dayFilterOptions";
 import { listCutoffsForLocation, type CutoffRow } from "@/lib/repo/liturgyTimeCutoffs";
-import { listDeacons } from "@/lib/repo/deacons";
+import { listDeaconsLite } from "@/lib/repo/deacons";
 import { listMergeLog } from "@/lib/repo/mergeDeacons";
 import SettingsClient from "@/components/SettingsClient";
 
@@ -22,7 +22,7 @@ export default async function SettingsPage() {
       listRanks(true),
       listFeastNames(true),
       listDayFilterOptions(),
-      listDeacons(true),
+      listDeaconsLite(true),
       listMergeLog(),
     ]);
 

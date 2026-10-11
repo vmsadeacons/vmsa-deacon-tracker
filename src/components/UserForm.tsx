@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { UserWithPerson } from "@/lib/repo/users";
-import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
+import type { DeaconLite } from "@/lib/repo/deacons";
 import type { Role } from "@/lib/constants";
 import SingleRosterPickerModal from "./SingleRosterPickerModal";
 
@@ -14,7 +14,7 @@ export default function UserForm({
   onSave,
 }: {
   initial: UserWithPerson | null;
-  deacons: DeaconWithAgeGroup[];
+  deacons: DeaconLite[];
   actorIsSystemAdmin: boolean;
   onCancel: () => void;
   onSave: (input: {

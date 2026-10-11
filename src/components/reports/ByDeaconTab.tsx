@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import HistoryTables from "@/components/HistoryTables";
 import SingleRosterPickerModal from "@/components/SingleRosterPickerModal";
-import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
+import type { DeaconLite } from "@/lib/repo/deacons";
 import type { DeaconHistory } from "@/lib/repo/reports";
 import type { LocationRow } from "@/lib/repo/locations";
 import { getDeaconHistoryReportAction } from "@/app/(app)/reports/actions";
@@ -19,7 +19,7 @@ export default function ByDeaconTab({
   locations,
   pwLabels,
 }: {
-  deacons: DeaconWithAgeGroup[];
+  deacons: DeaconLite[];
   locations: LocationRow[];
   pwLabels: Record<string, string>;
 }) {

@@ -26,13 +26,13 @@ export const metadata: Metadata = {
   },
 };
 
-// No auth check here means nothing forces per-request rendering by
-// default -- this page has no server-fetched data at all (identity comes
-// from the browser's own localStorage, location comes from the browser's
-// geolocation), but force-dynamic keeps it consistent with update-profile
-// and safe against any future data this page might need.
-export const dynamic = "force-dynamic";
-
+// Deliberately static (no `dynamic = "force-dynamic"`): this page fetches
+// nothing on the server -- identity comes from the browser's own
+// localStorage and location from its geolocation, and every server call
+// happens later, from the client, via server actions. Prerendered once at
+// build time it's served from Vercel's CDN, so opening the app costs no
+// function invocation at all. If this page ever needs server-side data,
+// it has to become dynamic again.
 export default function QuickCheckinPage() {
   return <QuickCheckinClient />;
 }

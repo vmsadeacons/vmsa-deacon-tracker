@@ -8,7 +8,7 @@ import SingleRosterPickerModal from "./SingleRosterPickerModal";
 import SpecialFeastControl from "./SpecialFeastControl";
 import type { LocationRow } from "@/lib/repo/locations";
 import type { ActivityRow } from "@/lib/repo/activities";
-import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
+import type { DeaconLite } from "@/lib/repo/deacons";
 import type { FeastNameRow } from "@/lib/repo/feastNames";
 import type { LiturgyContext } from "@/lib/repo/liturgies";
 import type { SuggestionEntry } from "@/lib/repo/suggestions";
@@ -43,7 +43,7 @@ export default function RecordLiturgyClient({
 }: {
   locations: LocationRow[];
   activities: ActivityRow[];
-  deacons: DeaconWithAgeGroup[];
+  deacons: DeaconLite[];
   feastNames: FeastNameRow[];
   initialDate: string;
   initialLocationId: string;

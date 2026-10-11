@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { LocationRow } from "@/lib/repo/locations";
-import type { DeaconWithAgeGroup } from "@/lib/repo/deacons";
+import type { DeaconLite } from "@/lib/repo/deacons";
 import type { PWOverview } from "@/lib/repo/passionWeek";
 import type { PWActivityRow } from "@/lib/repo/passionWeekActivities";
 import { PW_SERVICES, pwHoursFor, pwSlotCount, type PWServiceId, type PWActivityId } from "@/lib/constants";
@@ -17,7 +17,7 @@ export default function PassionWeekClient({
   pwActivities,
 }: {
   locations: LocationRow[];
-  deacons: DeaconWithAgeGroup[];
+  deacons: DeaconLite[];
   initialYear: number;
   pwActivities: PWActivityRow[];
 }) {
