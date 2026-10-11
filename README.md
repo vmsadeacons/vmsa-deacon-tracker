@@ -1,3 +1,5 @@
+> **VMSA Deacon Tracker** — owned by the VMSA deacons (GitHub: vmsadeacons, Vercel team: Deacons). Live at https://vmsa-deacon-tracker.vercel.app
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
