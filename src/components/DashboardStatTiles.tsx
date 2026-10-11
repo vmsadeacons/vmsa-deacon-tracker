@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import type { DeaconContact, AbsencePeriodUnit } from "@/lib/repo/dashboard";
 import type { LocationRow } from "@/lib/repo/locations";
 import { ALL_SENTINEL } from "@/lib/constants";
-import { getAbsentDeaconsAction } from "@/app/(app)/dashboard/actions";
+import { getAbsentDeaconsAction, getActiveDeaconContactsAction } from "@/app/(app)/dashboard/actions";
 import { useLatestRequest } from "@/lib/useLatestRequest";
 import MessageableDeaconList from "./MessageableDeaconList";
 import DeaconFilterBar, { EMPTY_FILTERS, type DeaconFilters } from "./DeaconFilterBar";
@@ -43,10 +43,8 @@ const MISSING_HEADINGS: Record<MissingTile, string> = {
 
 export default function DashboardStatTiles({
   activeCount,
-  activeDeacons,
   guestCount,
   absentCount,
-  absentDeacons,
   absencePeriodValue,
   absencePeriodUnit,
   missingPhoneCount,
@@ -54,10 +52,8 @@ export default function DashboardStatTiles({
   locations,
 }: {
   activeCount: number;
-  activeDeacons: DeaconContact[];
   guestCount: number;
   absentCount: number;
-  absentDeacons: DeaconContact[];
   absencePeriodValue: number;
   absencePeriodUnit: AbsencePeriodUnit;
   missingPhoneCount: number;
@@ -70,12 +66,18 @@ export default function DashboardStatTiles({
     value: absencePeriodValue,
     unit: absencePeriodUnit,
   });
-  const [absentData, setAbsentData] = useState<{ count: number; people: DeaconContact[] }>({
+  // The page only ships the tile counts; each list is fetched the first time
+  // a tile that needs it is opened (null = not fetched yet). Active, No Phone
+  // and No Email all draw on the same active-deacon list, so that's one fetch.
+  const [activeList, setActiveList] = useState<DeaconContact[] | null>(null);
+  const [absentData, setAbsentData] = useState<{ count: number; people: DeaconContact[] | null }>({
     count: absentCount,
-    people: absentDeacons,
+    people: null,
   });
   const [periodLoading, setPeriodLoading] = useState(false);
-  const runLatestAbsent = useLatestRequest<{ absentCount: number; absentDeacons: DeaconContact[] }>();
+  const [loadError, setLoadError] = useState(false);
+  const runLatestAbsent = useLatestRequest<{ absentCount: number; absentDeacons: DeaconContact[] } | null>();
+  const runLatestActive = useLatestRequest<DeaconContact[] | null>();
   const activeLabel =
     guestCount > 0
       ? `Deacons (excluding ${guestCount} guest${guestCount === 1 ? "" : "s"})`
@@ -83,29 +85,43 @@ export default function DashboardStatTiles({
   const unitAbbrev = period.unit === "weeks" ? "wk" : "mo";
   const unitWord = period.unit === "weeks" ? "week" : "month";
 
+  function loadAbsent(value: number, unit: AbsencePeriodUnit) {
+    setPeriodLoading(true);
+    setLoadError(false);
+    runLatestAbsent(getAbsentDeaconsAction(value, unit).catch(() => null), (res) => {
+      if (res) setAbsentData({ count: res.absentCount, people: res.absentDeacons });
+      else setLoadError(true);
+      setPeriodLoading(false);
+    });
+  }
+
   function handlePeriodChange(value: number, unit: AbsencePeriodUnit) {
     setPeriod({ value, unit });
-    setPeriodLoading(true);
-    runLatestAbsent(getAbsentDeaconsAction(value, unit), (res) => {
-      setAbsentData({ count: res.absentCount, people: res.absentDeacons });
-      setPeriodLoading(false);
+    loadAbsent(value, unit);
+  }
+
+  function loadActive() {
+    setLoadError(false);
+    runLatestActive(getActiveDeaconContactsAction().catch(() => null), (res) => {
+      if (res) setActiveList(res);
+      else setLoadError(true);
     });
   }
 
   const currentList = useMemo(() => {
     switch (open) {
       case "active":
-        return activeDeacons;
+        return activeList ?? [];
       case "absent":
-        return absentData.people;
+        return absentData.people ?? [];
       case "missingPhone":
-        return activeDeacons.filter((d) => !d.phone);
+        return (activeList ?? []).filter((d) => !d.phone);
       case "missingEmail":
-        return activeDeacons.filter((d) => !d.email);
+        return (activeList ?? []).filter((d) => !d.email);
       default:
         return [];
     }
-  }, [open, activeDeacons, absentData]);
+  }, [open, activeList, absentData]);
   const filtered = useMemo(() => applyFilters(currentList, filters), [currentList, filters]);
   const rankOptions = useMemo(
     () => [...new Set(currentList.map((p) => p.rank).filter(Boolean))].sort(),
@@ -117,9 +133,28 @@ export default function DashboardStatTiles({
   );
 
   function toggleOpen(next: OpenTile) {
-    setOpen((cur) => (cur === next ? null : next));
+    const opening = open !== next;
+    setOpen(opening ? next : null);
     setFilters(EMPTY_FILTERS);
+    setLoadError(false);
+    if (!opening) return;
+    if (next === "absent") {
+      if (absentData.people === null) loadAbsent(period.value, period.unit);
+    } else if (activeList === null) {
+      loadActive();
+    }
   }
+
+  // True while the open tile's list hasn't arrived yet.
+  const listPending =
+    open === "absent" ? absentData.people === null && !loadError : open !== null && activeList === null && !loadError;
+  const listBody = loadError ? (
+    <p className="error-text">Couldn&apos;t load the list. Close this tile and click it again to retry.</p>
+  ) : listPending ? (
+    <p className="muted">Loading…</p>
+  ) : (
+    <MessageableDeaconList people={filtered} />
+  );
 
   return (
     <div>
@@ -156,7 +191,7 @@ export default function DashboardStatTiles({
             ranks={rankOptions}
             ageGroups={ageGroupOptions}
           />
-          <MessageableDeaconList people={filtered} />
+          {listBody}
         </div>
       )}
       {open === "absent" && (
@@ -192,7 +227,7 @@ export default function DashboardStatTiles({
               </div>
             }
           />
-          <MessageableDeaconList people={filtered} />
+          {listBody}
         </div>
       )}
       {(open === "missingPhone" || open === "missingEmail") && (
@@ -205,7 +240,7 @@ export default function DashboardStatTiles({
             ranks={rankOptions}
             ageGroups={ageGroupOptions}
           />
-          <MessageableDeaconList people={filtered} />
+          {listBody}
         </div>
       )}
     </div>

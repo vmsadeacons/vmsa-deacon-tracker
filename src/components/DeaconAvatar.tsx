@@ -48,6 +48,8 @@ export default function DeaconAvatar({
       <img
         src={`/api/deacons/${deaconId}/photo${cacheKey ? `?v=${encodeURIComponent(cacheKey)}` : ""}`}
         alt=""
+        loading="lazy"
+        decoding="async"
         style={{ ...style, objectFit: "cover" }}
       />
     );

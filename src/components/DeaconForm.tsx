@@ -123,7 +123,7 @@ export default function DeaconForm({
 
   const photoSrc = initial
     ? hasPhoto
-      ? `/api/deacons/${initial.id}/photo?v=${photoVersion}`
+      ? `/api/deacons/${initial.id}/photo?v=${encodeURIComponent(`${initial.updated_at}.${photoVersion}`)}`
       : null
     : pendingPhotoDataUrl;
 

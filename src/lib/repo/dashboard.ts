@@ -45,12 +45,14 @@ interface RawDeaconContact {
   age_group_override: AgeGroup | null;
 }
 
+// Counts only. The contact lists behind each tile are fetched on demand
+// (getActiveDeaconContacts / getAbsentDeaconsForPeriod) when a tile is
+// clicked, so opening the Dashboard doesn't ship every deacon's contact
+// details to the browser.
 export interface DashboardStats {
   activeDeaconsCount: number;
-  activeDeacons: DeaconContact[];
   guestCount: number;
   absentCount: number;
-  absentDeacons: DeaconContact[];
   absencePeriodValue: number;
   absencePeriodUnit: AbsencePeriodUnit;
   missingPhoneCount: number;
@@ -64,13 +66,29 @@ const CONTACT_SELECT = `
   left join ranks r on r.id = d.rank_id
 `;
 
+// A deacon is "absent" when they have no participation (live or archived)
+// on or after the cutoff date. $1 is the cutoff.
+const ABSENT_PREDICATE = `
+  not exists (
+    select 1 from participation p join liturgies l on l.id = p.liturgy_id
+    where p.deacon_id = d.id and l.date >= $1
+  )
+  and not exists (
+    select 1 from archive_participation p join archive_liturgies l on l.id = p.liturgy_id
+    where p.deacon_id = d.id and l.date >= $1
+  )`;
+
+function absenceCutoff(value: number, unit: AbsencePeriodUnit): string {
+  return unit === "weeks" ? daysAgoISO(value * 7) : monthsAgoISO(value);
+}
+
 async function getAbsentContacts(
   value: number,
   unit: AbsencePeriodUnit,
   ageGroupYouthMin: number,
   ageGroupAdultMin: number
 ): Promise<{ absentCount: number; absentDeacons: DeaconContact[] }> {
-  const cutoff = unit === "weeks" ? daysAgoISO(value * 7) : monthsAgoISO(value);
+  const cutoff = absenceCutoff(value, unit);
 
   const withAgeGroup = (d: RawDeaconContact): DeaconContact => ({
     id: d.id,
@@ -88,14 +106,7 @@ async function getAbsentContacts(
     `${CONTACT_SELECT}
      where d.status = 'Active'
        and not d.is_guest
-       and not exists (
-         select 1 from participation p join liturgies l on l.id = p.liturgy_id
-         where p.deacon_id = d.id and l.date >= $1
-       )
-       and not exists (
-         select 1 from archive_participation p join archive_liturgies l on l.id = p.liturgy_id
-         where p.deacon_id = d.id and l.date >= $1
-       )
+       and ${ABSENT_PREDICATE}
      order by d.name`,
     [cutoff]
   );
@@ -116,26 +127,13 @@ export async function getAbsentDeaconsForPeriod(
   return getAbsentContacts(value, unit, settings.ageGroupYouthMin, settings.ageGroupAdultMin);
 }
 
-/** Both tiles exclude Archived deacons (spec §7.2) and Guests (visitors aren't regular roster). */
-export async function getDashboardStats(): Promise<DashboardStats> {
+/** Every active, non-guest deacon's contact details -- the list behind the Active, "No Phone" and "No Email" tiles. */
+export async function getActiveDeaconContacts(): Promise<DeaconContact[]> {
   const settings = await getAppSettings();
-
-  const { rows: activeRaw } = await query<RawDeaconContact>(
+  const { rows } = await query<RawDeaconContact>(
     `${CONTACT_SELECT} where d.status = 'Active' and not d.is_guest order by d.name`
   );
-
-  const { rows: guestRows } = await query<{ count: string }>(
-    `select count(*) from deacons where status = 'Active' and is_guest`
-  );
-
-  const { absentCount, absentDeacons } = await getAbsentContacts(
-    DEFAULT_ABSENCE_VALUE,
-    DEFAULT_ABSENCE_UNIT,
-    settings.ageGroupYouthMin,
-    settings.ageGroupAdultMin
-  );
-
-  const withAgeGroup = (d: RawDeaconContact): DeaconContact => ({
+  return rows.map((d) => ({
     id: d.id,
     name: d.name,
     first_name: d.first_name,
@@ -145,18 +143,37 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     liturgy_prefs: d.liturgy_prefs,
     rank: d.rank,
     age_group: computeAgeGroup(d.dob, d.age_group_override, settings.ageGroupYouthMin, settings.ageGroupAdultMin),
-  });
-  const activeDeacons = activeRaw.map(withAgeGroup);
+  }));
+}
+
+/** All tiles exclude Archived deacons (spec §7.2) and Guests (visitors aren't regular roster). */
+export async function getDashboardStats(): Promise<DashboardStats> {
+  const { rows } = await query<{
+    active: string;
+    guests: string;
+    absent: string;
+    missing_phone: string;
+    missing_email: string;
+  }>(
+    `select
+       count(*) filter (where not d.is_guest) as active,
+       count(*) filter (where d.is_guest) as guests,
+       count(*) filter (where not d.is_guest and ${ABSENT_PREDICATE}) as absent,
+       count(*) filter (where not d.is_guest and coalesce(d.phone, '') = '') as missing_phone,
+       count(*) filter (where not d.is_guest and coalesce(d.email, '') = '') as missing_email
+     from deacons d
+     where d.status = 'Active'`,
+    [absenceCutoff(DEFAULT_ABSENCE_VALUE, DEFAULT_ABSENCE_UNIT)]
+  );
+  const r = rows[0];
 
   return {
-    activeDeaconsCount: activeRaw.length,
-    activeDeacons,
-    guestCount: Number(guestRows[0].count),
-    absentCount,
-    absentDeacons,
+    activeDeaconsCount: Number(r.active),
+    guestCount: Number(r.guests),
+    absentCount: Number(r.absent),
     absencePeriodValue: DEFAULT_ABSENCE_VALUE,
     absencePeriodUnit: DEFAULT_ABSENCE_UNIT,
-    missingPhoneCount: activeDeacons.filter((d) => !d.phone).length,
-    missingEmailCount: activeDeacons.filter((d) => !d.email).length,
+    missingPhoneCount: Number(r.missing_phone),
+    missingEmailCount: Number(r.missing_email),
   };
 }

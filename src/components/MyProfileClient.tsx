@@ -85,7 +85,7 @@ export default function MyProfileClient({
       <h1>My Profile</h1>
       <div className="card">
         <PhotoEditor
-          photoSrc={hasPhoto ? `/api/deacons/${deacon.id}/photo?v=${photoVersion}` : null}
+          photoSrc={hasPhoto ? `/api/deacons/${deacon.id}/photo?v=${encodeURIComponent(`${deacon.updated_at}.${photoVersion}`)}` : null}
           firstName={deacon.first_name}
           lastName={deacon.last_name}
           onChange={handlePhotoChange}

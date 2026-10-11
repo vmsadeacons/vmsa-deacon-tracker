@@ -32,10 +32,8 @@ export default async function DashboardPage() {
 
       <DashboardStatTiles
         activeCount={stats.activeDeaconsCount}
-        activeDeacons={stats.activeDeacons}
         guestCount={stats.guestCount}
         absentCount={stats.absentCount}
-        absentDeacons={stats.absentDeacons}
         absencePeriodValue={stats.absencePeriodValue}
         absencePeriodUnit={stats.absencePeriodUnit}
         missingPhoneCount={stats.missingPhoneCount}
