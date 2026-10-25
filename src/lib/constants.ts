@@ -1,14 +1,17 @@
-// A liturgy is recorded as just an ordinal within its day (1st/2nd) --
+// A liturgy is recorded as just an ordinal within its day (1st/2nd/3rd) --
 // day-of-week is no longer encoded here (see date instead), and a "Special
 // Feast" is an orthogonal flag on the liturgy (is_special_feast/feast_name),
 // not a service type. This lets any day have up to two liturgies, not just
-// Sunday, and a feast to fall on any day of the week.
-export const SERVICE_TYPES = ["S1", "S2"] as const;
+// Sunday, and a feast to fall on any day of the week. A 3rd ordinal exists
+// for an extra liturgy added on a Sunday (or a second extra on a weekday);
+// there is deliberately no 4th.
+export const SERVICE_TYPES = ["S1", "S2", "S3"] as const;
 export type ServiceTypeCode = (typeof SERVICE_TYPES)[number];
 
 export const SERVICE_LABELS: Record<ServiceTypeCode, string> = {
   S1: "1st Liturgy",
   S2: "2nd Liturgy",
+  S3: "3rd Liturgy",
 };
 
 // Deacon "preferred service" vocabulary -- kept distinct from SERVICE_TYPES

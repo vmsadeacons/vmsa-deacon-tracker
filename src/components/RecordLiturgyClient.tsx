@@ -13,6 +13,7 @@ import type { FeastNameRow } from "@/lib/repo/feastNames";
 import type { LiturgyContext } from "@/lib/repo/liturgies";
 import type { SuggestionEntry } from "@/lib/repo/suggestions";
 import type { ServiceTypeCode } from "@/lib/constants";
+import type { ScheduleOption } from "@/lib/repo/liturgySchedule";
 import { liturgyPrefMatchCodes } from "@/lib/timezone";
 import {
   openLiturgyAction,
@@ -38,6 +39,7 @@ export default function RecordLiturgyClient({
   initialDate,
   initialLocationId,
   initialServiceType,
+  initialServiceOptions,
   initialLiturgyId,
   initialContext,
 }: {
@@ -48,6 +50,7 @@ export default function RecordLiturgyClient({
   initialDate: string;
   initialLocationId: string;
   initialServiceType: ServiceTypeCode;
+  initialServiceOptions: ScheduleOption[];
   initialLiturgyId: string | null;
   initialContext: LiturgyContext | null;
 }) {
@@ -255,6 +258,8 @@ export default function RecordLiturgyClient({
           serviceType={serviceType}
           locations={locations}
           onChange={handleFieldChange}
+          initialOptions={initialServiceOptions}
+          allowAddExtra
         />
         <SpecialFeastControl
           key={`${date}|${locationId}|${serviceType}`}

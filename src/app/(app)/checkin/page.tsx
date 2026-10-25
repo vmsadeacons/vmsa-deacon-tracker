@@ -1,44 +1,9 @@
-import { requireSession } from "@/lib/authz";
-import { listLocations } from "@/lib/repo/locations";
-import { findLiturgyContext } from "@/lib/repo/liturgies";
-import { setStickyLocation, getUserById } from "@/lib/repo/users";
-import { churchTodayISO, computeDefaultServiceType } from "@/lib/timezone";
-import type { ServiceTypeCode } from "@/lib/constants";
-import CheckinClient from "@/components/CheckinClient";
+import { requireAdmin } from "@/lib/authz";
+import { getTodaySnapshot } from "@/lib/repo/liturgySchedule";
+import CheckinControlClient from "@/components/CheckinControlClient";
 
 export default async function CheckinPage() {
-  const session = await requireSession();
-  const locations = await listLocations(false);
-
-  const date = churchTodayISO();
-  // Read the sticky location straight from the DB rather than the session's
-  // JWT -- the JWT is only populated at sign-in and never refreshed
-  // mid-session, so it'd keep showing whatever was last used *before* this
-  // login even after setStickyLocation writes a new value below.
-  const dbUser = await getUserById(session.user.id);
-  const locationId =
-    dbUser?.last_checkin_location_id ?? session.user.primaryLocationId ?? locations[0]?.id ?? "";
-  const serviceType = computeDefaultServiceType(date) as ServiceTypeCode;
-
-  let initialLiturgyId: string | null = null;
-  let initialContext = null;
-  if (locationId) {
-    const result = await findLiturgyContext(date, locationId, serviceType);
-    initialLiturgyId = result.liturgyId;
-    initialContext = result.context;
-    await setStickyLocation(session.user.id, "checkin", locationId);
-  }
-
-  return (
-    <CheckinClient
-      locations={locations}
-      linkedDeaconId={session.user.linkedDeaconId}
-      myName={session.user.name ?? ""}
-      initialDate={date}
-      initialLocationId={locationId}
-      initialServiceType={serviceType}
-      initialLiturgyId={initialLiturgyId}
-      initialContext={initialContext}
-    />
-  );
+  await requireAdmin();
+  const snapshot = await getTodaySnapshot();
+  return <CheckinControlClient initial={snapshot} />;
 }

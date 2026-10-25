@@ -1,11 +1,8 @@
 "use server";
 
-import { computeDefaultServiceType, monthsAgoISO, churchTodayISO, yearStartISO } from "@/lib/timezone";
+import { monthsAgoISO, churchTodayISO, yearStartISO } from "@/lib/timezone";
 
-/** Client components can't safely read CHURCH_TIMEZONE, so the recompute happens server-side. */
-export async function computeDefaultServiceAction(date: string) {
-  return computeDefaultServiceType(date);
-}
+/** Client components can't safely read CHURCH_TIMEZONE, so these date helpers run server-side. */
 
 export async function monthsAgoAction(months: number) {
   return monthsAgoISO(months);

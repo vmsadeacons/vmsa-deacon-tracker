@@ -1,15 +1,15 @@
 import { query } from "@/lib/db";
-import { churchTodayISO } from "@/lib/timezone";
-import { predictServiceType } from "@/lib/repo/liturgyTimeCutoffs";
 import { checkInSelf } from "@/lib/repo/liturgies";
-import type { ServiceTypeCode } from "@/lib/constants";
+import { getOpenLiturgy, type OpenLiturgyInfo } from "@/lib/repo/liturgySchedule";
+import { SERVICE_LABELS, type ServiceTypeCode } from "@/lib/constants";
 
 // ---------------------------------------------------------------------------
 // Quick Check-in: a public, no-login self-checkin form. Geolocation confirms
 // the deacon is physically at the church (never a bare "closest of all
-// locations" -- see resolveCheckinLocations below), and the configured
-// per-weekday/feast time cutoffs (lib/repo/liturgyTimeCutoffs.ts) predict
-// 1st vs 2nd liturgy. Submission reuses checkInSelf verbatim, so a quick
+// locations" -- see resolveCheckinLocations below). Which liturgy they're
+// checking into is never chosen by the deacon: it's the one liturgy the
+// schedule currently has open at that church (lib/repo/liturgySchedule.ts).
+// Submission reuses checkInSelf verbatim, so a quick
 // check-in is indistinguishable from the existing self-checkin page's
 // writes -- it shows up in the Dashboard, Record a Liturgy, and Reports
 // exactly the same way, live.
@@ -82,36 +82,27 @@ export async function listActiveLocationsForCheckin(): Promise<CheckinLocationOp
   return rows;
 }
 
-export interface CheckinPrediction {
-  date: string;
-  serviceType: ServiceTypeCode;
-  isSpecialFeast: boolean;
-  feastName: string | null;
+/** The one liturgy open for check-in at a church right now (or none, plus when the next one opens). */
+export async function getCheckinOpenLiturgy(locationId: string): Promise<OpenLiturgyInfo> {
+  return getOpenLiturgy(locationId);
 }
 
-/** Today's date, predicted 1st/2nd liturgy, and whether today is already flagged a special feast at this location (from any existing liturgy row). */
-export async function getCheckinPrediction(locationId: string): Promise<CheckinPrediction> {
-  const date = churchTodayISO();
-  const { rows } = await query<{ is_special_feast: boolean; feast_name: string | null }>(
-    `select l.is_special_feast, fn.name as feast_name
-     from liturgies l
-     left join feast_names fn on fn.id = l.feast_name_id
-     where l.date = $1 and l.location_id = $2 and l.is_special_feast = true
-     limit 1`,
-    [date, locationId]
-  );
-  const feastRow = rows[0];
-  const isSpecialFeast = Boolean(feastRow);
-  const serviceType = await predictServiceType(locationId, date, isSpecialFeast);
-  return { date, serviceType, isSpecialFeast, feastName: feastRow?.feast_name ?? null };
-}
+export type QuickCheckinResult =
+  | { ok: true; serviceType: ServiceTypeCode; label: string }
+  | { ok: false; error: string };
 
-/** Reuses checkInSelf verbatim -- same idempotent insert the existing (authenticated) Check-in page already uses. */
-export async function submitQuickCheckin(
-  deaconId: string,
-  locationId: string,
-  serviceType: ServiceTypeCode
-): Promise<void> {
-  const date = churchTodayISO();
-  await checkInSelf(date, locationId, serviceType, deaconId);
+/**
+ * The liturgy is decided here, at submit time, from the clock and the
+ * schedule -- never taken from the client -- so a deacon can't check into a
+ * locked liturgy by tampering with the request, and a window that closed
+ * while the confirm screen was sitting open is caught. Reuses checkInSelf
+ * verbatim.
+ */
+export async function submitQuickCheckin(deaconId: string, locationId: string): Promise<QuickCheckinResult> {
+  const info = await getOpenLiturgy(locationId);
+  if (!info.open) {
+    return { ok: false, error: "No liturgy is open for check-in at this church right now." };
+  }
+  await checkInSelf(info.date, locationId, info.open.serviceType, deaconId);
+  return { ok: true, serviceType: info.open.serviceType, label: SERVICE_LABELS[info.open.serviceType] };
 }

@@ -4,6 +4,6 @@ import { auth } from "@/auth";
 export default async function RootPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  if (session.user.role === "Deacon") redirect("/checkin");
+  if (session.user.role === "Deacon") redirect("/profile");
   redirect("/dashboard");
 }

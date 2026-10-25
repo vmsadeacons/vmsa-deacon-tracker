@@ -3,14 +3,15 @@
 import { useEffect, useState } from "react";
 import type { NameMatch } from "@/lib/repo/publicProfile";
 import type { CheckinLocationMatch, CheckinLocationOption } from "@/lib/repo/quickCheckin";
-import type { ServiceTypeCode } from "@/lib/constants";
+import type { OpenLiturgyInfo } from "@/lib/repo/liturgySchedule";
 import { SERVICE_LABELS } from "@/lib/constants";
 import { weekdayLabel } from "@/lib/timezone";
+import { formatTime12 } from "@/lib/formatTime";
 import {
   searchDeaconsByNameAction,
   resolveCheckinLocationsAction,
   listActiveLocationsForCheckinAction,
-  getCheckinPredictionAction,
+  getCheckinOpenLiturgyAction,
   submitQuickCheckinAction,
 } from "@/app/quick-checkin/actions";
 
@@ -67,11 +68,11 @@ export default function QuickCheckinClient() {
   const [loadingLocations, setLoadingLocations] = useState(false);
   const [manualLocationId, setManualLocationId] = useState("");
 
-  // Prediction / confirm
-  const [date, setDate] = useState("");
-  const [serviceType, setServiceType] = useState<ServiceTypeCode>("S1");
-  const [isSpecialFeast, setIsSpecialFeast] = useState(false);
-  const [feastName, setFeastName] = useState<string | null>(null);
+  // The one liturgy currently open for check-in at the chosen church (the
+  // deacon never picks a liturgy -- the schedule decides), or none.
+  const [liturgy, setLiturgy] = useState<OpenLiturgyInfo | null>(null);
+  const [checkingAgain, setCheckingAgain] = useState(false);
+  const [doneLabel, setDoneLabel] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   // When the confirmed location was last (re-)resolved, and how -- "detected"
@@ -103,11 +104,8 @@ export default function QuickCheckinClient() {
 
   async function proceedToConfirm(loc: CheckinLocationMatch, source: "detected" | "selected") {
     setLocation(loc);
-    const [prediction] = await Promise.all([getCheckinPredictionAction(loc.locationId), ensureLocationsLoaded()]);
-    setDate(prediction.date);
-    setServiceType(prediction.serviceType);
-    setIsSpecialFeast(prediction.isSpecialFeast);
-    setFeastName(prediction.feastName);
+    const [open] = await Promise.all([getCheckinOpenLiturgyAction(loc.locationId), ensureLocationsLoaded()]);
+    setLiturgy(open);
     setSubmitError(null);
     setLocationResolvedAt({ at: Date.now(), source });
     setStep("confirm");
@@ -289,23 +287,41 @@ export default function QuickCheckinClient() {
     setStep("confirm");
   }
 
+  /** Re-asks the server which liturgy is open (no GPS re-check) -- for the "nothing open" screen and after a rejected check-in. */
+  async function recheckLiturgy() {
+    if (!location) return;
+    setCheckingAgain(true);
+    setLiturgy(await getCheckinOpenLiturgyAction(location.locationId));
+    setCheckingAgain(false);
+  }
+
   async function handleConfirm() {
     if (!identity || !location) return;
     setSubmitting(true);
     setSubmitError(null);
-    const result = await submitQuickCheckinAction(identity.id, location.locationId, serviceType);
+    const result = await submitQuickCheckinAction(identity.id, location.locationId);
     setSubmitting(false);
     if (!result.ok) {
       setSubmitError(result.error ?? "Couldn't check in — please try again.");
+      // The window may have just closed (or a different liturgy opened) --
+      // refresh so the screen reflects what's actually open now.
+      void recheckLiturgy();
       return;
     }
+    setDoneLabel(result.label);
     setStep("done");
   }
 
-  const weekday = date ? weekdayLabel(date) : "";
-  const summaryLabel = [weekday, isSpecialFeast && feastName ? feastName : null, SERVICE_LABELS[serviceType]]
-    .filter(Boolean)
-    .join(" · ");
+  const open = liturgy?.open ?? null;
+  const summaryLabel = open
+    ? [
+        liturgy ? weekdayLabel(liturgy.date) : "",
+        open.isSpecialFeast && open.feastName ? open.feastName : null,
+        SERVICE_LABELS[open.serviceType],
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
 
   return (
     <div style={{ maxWidth: 480, margin: "0 auto", padding: "2rem 1rem" }}>
@@ -528,10 +544,28 @@ export default function QuickCheckinClient() {
         <div className="card" style={{ display: "flex", flexDirection: "column", minHeight: "75vh" }}>
           <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", textAlign: "center" }}>
             {submitError && <p className="error-text" style={{ fontSize: "1.15rem", marginBottom: "1rem" }}>{submitError}</p>}
-            <p style={{ fontSize: "1.7rem", lineHeight: 1.35 }}>
-              Checking <strong>{identity.name}</strong> into <strong>{location.locationName}</strong>
-            </p>
-            <p style={{ fontSize: "1.3rem", color: "var(--wine)", marginTop: "0.6rem" }}>{summaryLabel}</p>
+            {open ? (
+              <>
+                <p style={{ fontSize: "1.7rem", lineHeight: 1.35 }}>
+                  Checking <strong>{identity.name}</strong> into <strong>{location.locationName}</strong>
+                </p>
+                <p style={{ fontSize: "1.3rem", color: "var(--wine)", marginTop: "0.6rem" }}>{summaryLabel}</p>
+                <p className="muted" style={{ fontSize: "0.95rem", marginTop: "0.3rem" }}>
+                  Starts {formatTime12(open.startTime)}
+                </p>
+              </>
+            ) : (
+              <>
+                <p style={{ fontSize: "1.7rem", lineHeight: 1.35 }}>
+                  No liturgy is open for check-in at <strong>{location.locationName}</strong> right now
+                </p>
+                {liturgy?.next && (
+                  <p style={{ fontSize: "1.2rem", color: "var(--wine)", marginTop: "0.6rem" }}>
+                    {SERVICE_LABELS[liturgy.next.serviceType]} opens at {formatTime12(liturgy.next.opensAt)}
+                  </p>
+                )}
+              </>
+            )}
             {locationResolvedAt && (
               <p className="muted" style={{ fontSize: "0.85rem", marginTop: "0.5rem" }}>
                 {locationResolvedAt.source === "selected" ? "Location selected" : "Detected"}{" "}
@@ -541,15 +575,27 @@ export default function QuickCheckinClient() {
           </div>
 
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={submitting}
-              onClick={handleConfirm}
-              style={{ fontSize: "1.35rem", padding: "1.1rem 3rem" }}
-            >
-              {submitting ? "Checking in…" : "Confirm check-in"}
-            </button>
+            {open ? (
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={submitting}
+                onClick={handleConfirm}
+                style={{ fontSize: "1.35rem", padding: "1.1rem 3rem" }}
+              >
+                {submitting ? "Checking in…" : "Confirm check-in"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={checkingAgain}
+                onClick={recheckLiturgy}
+                style={{ fontSize: "1.35rem", padding: "1.1rem 3rem" }}
+              >
+                {checkingAgain ? "Checking…" : "Check again"}
+              </button>
+            )}
           </div>
 
           <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: "0.85rem" }}>
@@ -616,14 +662,6 @@ export default function QuickCheckinClient() {
             >
               Refresh Location
             </button>
-            <button
-              type="button"
-              className="btn btn-secondary"
-              style={{ fontSize: "1.1rem", padding: "0.9rem" }}
-              onClick={() => setServiceType((s) => (s === "S1" ? "S2" : "S1"))}
-            >
-              {serviceType === "S1" ? "Switch to 2nd Liturgy" : "Switch to 1st Liturgy"}
-            </button>
           </div>
         </div>
       )}
@@ -641,6 +679,11 @@ export default function QuickCheckinClient() {
             }}
           >
             <h3 style={{ fontSize: "2rem", margin: 0 }}>You&apos;re checked in!</h3>
+            {doneLabel && location && (
+              <p style={{ fontSize: "1.2rem", marginTop: "0.6rem" }}>
+                {location.locationName} · {doneLabel}
+              </p>
+            )}
             <p className="muted" style={{ fontSize: "1.3rem", marginTop: "0.75rem" }}>
               Close by swiping the app away.
             </p>

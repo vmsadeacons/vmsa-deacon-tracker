@@ -10,11 +10,10 @@
 import { searchDeaconsByName } from "@/lib/repo/publicProfile";
 import {
   resolveCheckinLocations,
-  getCheckinPrediction,
+  getCheckinOpenLiturgy,
   submitQuickCheckin,
   listActiveLocationsForCheckin,
 } from "@/lib/repo/quickCheckin";
-import type { ServiceTypeCode } from "@/lib/constants";
 
 export async function searchDeaconsByNameAction(firstName: string, lastName: string) {
   return searchDeaconsByName(firstName, lastName);
@@ -28,14 +27,13 @@ export async function listActiveLocationsForCheckinAction() {
   return listActiveLocationsForCheckin();
 }
 
-export async function getCheckinPredictionAction(locationId: string) {
-  return getCheckinPrediction(locationId);
+export async function getCheckinOpenLiturgyAction(locationId: string) {
+  return getCheckinOpenLiturgy(locationId);
 }
 
-export async function submitQuickCheckinAction(deaconId: string, locationId: string, serviceType: ServiceTypeCode) {
+export async function submitQuickCheckinAction(deaconId: string, locationId: string) {
   try {
-    await submitQuickCheckin(deaconId, locationId, serviceType);
-    return { ok: true as const };
+    return await submitQuickCheckin(deaconId, locationId);
   } catch (err) {
     return { ok: false as const, error: err instanceof Error ? err.message : "Check-in failed" };
   }

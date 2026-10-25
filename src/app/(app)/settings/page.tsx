@@ -6,14 +6,14 @@ import { listPWActivities } from "@/lib/repo/passionWeekActivities";
 import { listRanks } from "@/lib/repo/ranks";
 import { listFeastNames } from "@/lib/repo/feastNames";
 import { listDayFilterOptions } from "@/lib/repo/dayFilterOptions";
-import { listCutoffsForLocation, type CutoffRow } from "@/lib/repo/liturgyTimeCutoffs";
+import { listStartTimes, listUpcomingExtras, type StartTimeCell } from "@/lib/repo/liturgySchedule";
 import { listDeaconsLite } from "@/lib/repo/deacons";
 import { listMergeLog } from "@/lib/repo/mergeDeacons";
 import SettingsClient from "@/components/SettingsClient";
 
 export default async function SettingsPage() {
   const session = await requireAdmin();
-  const [locations, activities, settings, pwActivities, ranks, feastNames, dayFilterOptions, deacons, mergeLog] =
+  const [locations, activities, settings, pwActivities, ranks, feastNames, dayFilterOptions, deacons, mergeLog, upcomingExtras] =
     await Promise.all([
       listLocations(true),
       listActivities(true),
@@ -24,13 +24,14 @@ export default async function SettingsPage() {
       listDayFilterOptions(),
       listDeaconsLite(true),
       listMergeLog(),
+      listUpcomingExtras(),
     ]);
 
   const activeLocations = locations.filter((l) => l.status === "Active");
-  const cutoffsByLocation: Record<string, CutoffRow[]> = {};
+  const startTimesByLocation: Record<string, StartTimeCell[]> = {};
   await Promise.all(
     activeLocations.map(async (l) => {
-      cutoffsByLocation[l.id] = await listCutoffsForLocation(l.id);
+      startTimesByLocation[l.id] = await listStartTimes(l.id);
     })
   );
 
@@ -43,7 +44,8 @@ export default async function SettingsPage() {
       ranks={ranks}
       feastNames={feastNames}
       dayFilterOptions={dayFilterOptions}
-      cutoffsByLocation={cutoffsByLocation}
+      startTimesByLocation={startTimesByLocation}
+      upcomingExtras={upcomingExtras}
       deacons={deacons}
       mergeLog={mergeLog}
       canEdit={session.user.role === "SystemAdmin"}

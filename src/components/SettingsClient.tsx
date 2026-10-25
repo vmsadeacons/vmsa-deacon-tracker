@@ -10,16 +10,17 @@ import type { PWActivityRow } from "@/lib/repo/passionWeekActivities";
 import type { RankRow } from "@/lib/repo/ranks";
 import type { FeastNameRow } from "@/lib/repo/feastNames";
 import type { DayFilterOptionRow } from "@/lib/repo/dayFilterOptions";
-import type { CutoffRow } from "@/lib/repo/liturgyTimeCutoffs";
+import type { StartTimeCell, ExtraRow } from "@/lib/repo/liturgySchedule";
 import type { DeaconLite } from "@/lib/repo/deacons";
 import type { MergeLogRow } from "@/lib/repo/mergeDeacons";
 import { WEEKDAY_NAMES } from "@/lib/timezone";
 import MergeDeaconsCard from "./MergeDeaconsCard";
+import LiturgyStartTimesCard from "./LiturgyStartTimesCard";
+import ExtraLiturgiesCard from "./ExtraLiturgiesCard";
 import {
   createLocationAction,
   updateLocationAction,
   setLocationGeofenceAction,
-  setCutoffAction,
   createActivityAction,
   updateActivityAction,
   setAgeGroupThresholdsAction,
@@ -985,105 +986,6 @@ function QuickCheckinLocationsCard({ locations, canEdit }: { locations: Location
   );
 }
 
-function LiturgyTimeCutoffsCard({
-  locations,
-  cutoffsByLocation,
-  canEdit,
-}: {
-  locations: LocationRow[];
-  cutoffsByLocation: Record<string, CutoffRow[]>;
-  canEdit: boolean;
-}) {
-  const router = useRouter();
-  const active = locations.filter((l) => l.status === "Active");
-  const [locationId, setLocationId] = useState(active[0]?.id ?? "");
-  const rows = cutoffsByLocation[locationId] ?? [];
-  const [drafts, setDrafts] = useState<Record<number, string>>(
-    Object.fromEntries(rows.map((r) => [r.weekday, r.cutoffTime]))
-  );
-  const [error, setError] = useState<string | null>(null);
-  const [savingWeekday, setSavingWeekday] = useState<number | null>(null);
-
-  function selectLocation(id: string) {
-    setLocationId(id);
-    const nextRows = cutoffsByLocation[id] ?? [];
-    setDrafts(Object.fromEntries(nextRows.map((r) => [r.weekday, r.cutoffTime])));
-    setError(null);
-  }
-
-  async function save(weekday: number) {
-    setSavingWeekday(weekday);
-    setError(null);
-    const result = await setCutoffAction(locationId, weekday, drafts[weekday]);
-    setSavingWeekday(null);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    router.refresh();
-  }
-
-  const rowLabels = [...WEEKDAY_NAMES, "Special Feast (any day)"];
-
-  return (
-    <div className="card">
-      <h3>Liturgy Time Cutoffs</h3>
-      <p className="muted" style={{ marginBottom: "1rem" }}>
-        For each location, the time of day that separates the 1st Liturgy from the 2nd — used to predict which
-        one is happening right now (e.g. for Quick Check-in). Special Feast has its own cutoff that applies
-        instead, on whichever day a feast falls.
-      </p>
-      <div className="field" style={{ maxWidth: 320, marginBottom: "1rem" }}>
-        <label>Location</label>
-        <select value={locationId} onChange={(e) => selectLocation(e.target.value)}>
-          {active.map((l) => (
-            <option key={l.id} value={l.id}>
-              {l.name}
-            </option>
-          ))}
-        </select>
-      </div>
-      {error && <p className="error-text" style={{ marginBottom: "0.75rem" }}>{error}</p>}
-      <div className="table-wrap">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Day</th>
-              <th>1st/2nd cutoff time</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {rowLabels.map((label, weekday) => (
-              <tr key={weekday}>
-                <td>{label}</td>
-                <td>
-                  <input
-                    type="time"
-                    value={drafts[weekday] ?? "12:00"}
-                    disabled={!canEdit}
-                    onChange={(e) => setDrafts((d) => ({ ...d, [weekday]: e.target.value }))}
-                  />
-                </td>
-                <td>
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    disabled={!canEdit || savingWeekday === weekday}
-                    onClick={() => save(weekday)}
-                  >
-                    Save
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {!canEdit && <ViewOnlyNote />}
-    </div>
-  );
-}
-
 export default function SettingsClient({
   locations,
   activities,
@@ -1092,7 +994,8 @@ export default function SettingsClient({
   ranks,
   feastNames,
   dayFilterOptions,
-  cutoffsByLocation,
+  startTimesByLocation,
+  upcomingExtras,
   deacons,
   mergeLog,
   canEdit,
@@ -1104,7 +1007,8 @@ export default function SettingsClient({
   ranks: RankRow[];
   feastNames: FeastNameRow[];
   dayFilterOptions: DayFilterOptionRow[];
-  cutoffsByLocation: Record<string, CutoffRow[]>;
+  startTimesByLocation: Record<string, StartTimeCell[]>;
+  upcomingExtras: ExtraRow[];
   deacons: DeaconLite[];
   mergeLog: MergeLogRow[];
   canEdit: boolean;
@@ -1121,7 +1025,8 @@ export default function SettingsClient({
       <DayFiltersCard dayFilterOptions={dayFilterOptions} canEdit={canEdit} />
       <FeastNamesCard feastNames={feastNames} canEdit={canEdit} />
       <QuickCheckinLocationsCard locations={locations} canEdit={canEdit} />
-      <LiturgyTimeCutoffsCard locations={locations} cutoffsByLocation={cutoffsByLocation} canEdit={canEdit} />
+      <LiturgyStartTimesCard locations={locations} startTimesByLocation={startTimesByLocation} canEdit={canEdit} />
+      <ExtraLiturgiesCard locations={locations} upcoming={upcomingExtras} />
       <MergeDeaconsCard deacons={deacons} locations={locations} mergeLog={mergeLog} canEdit={canEdit} />
     </div>
   );

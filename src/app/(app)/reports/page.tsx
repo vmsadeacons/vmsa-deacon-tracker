@@ -6,7 +6,8 @@ import { listPWActivities } from "@/lib/repo/passionWeekActivities";
 import { listRanks } from "@/lib/repo/ranks";
 import { getUserById } from "@/lib/repo/users";
 import { listDayFilterOptions } from "@/lib/repo/dayFilterOptions";
-import { churchTodayISO, computeDefaultServiceType } from "@/lib/timezone";
+import { getScheduleOptions } from "@/lib/repo/liturgySchedule";
+import { churchTodayISO } from "@/lib/timezone";
 import type { ServiceTypeCode } from "@/lib/constants";
 import ReportsClient from "@/components/ReportsClient";
 
@@ -28,7 +29,9 @@ export default async function ReportsPage() {
   const dbUser = await getUserById(session.user.id);
   const locationId =
     dbUser?.last_report_location_id ?? session.user.primaryLocationId ?? locations[0]?.id ?? "";
-  const serviceType = computeDefaultServiceType(date) as ServiceTypeCode;
+  const serviceType: ServiceTypeCode = locationId
+    ? (await getScheduleOptions(locationId, date)).defaultService
+    : "S1";
   const currentYear = Number(date.slice(0, 4));
 
   return (

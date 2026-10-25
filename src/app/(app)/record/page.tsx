@@ -5,7 +5,8 @@ import { listDeaconsLite } from "@/lib/repo/deacons";
 import { listFeastNames } from "@/lib/repo/feastNames";
 import { findLiturgyContext } from "@/lib/repo/liturgies";
 import { setStickyLocation, getUserById } from "@/lib/repo/users";
-import { churchTodayISO, computeDefaultServiceType } from "@/lib/timezone";
+import { getScheduleOptions } from "@/lib/repo/liturgySchedule";
+import { churchTodayISO } from "@/lib/timezone";
 import type { ServiceTypeCode } from "@/lib/constants";
 import RecordLiturgyClient from "@/components/RecordLiturgyClient";
 
@@ -26,7 +27,12 @@ export default async function RecordLiturgyPage() {
   const dbUser = await getUserById(session.user.id);
   const locationId =
     dbUser?.last_record_location_id ?? session.user.primaryLocationId ?? locations[0]?.id ?? "";
-  const serviceType = computeDefaultServiceType(date) as ServiceTypeCode;
+  // Which liturgies are scheduled for this church today, and which one to
+  // start on (the one in progress, or the first of the day).
+  const schedule = locationId
+    ? await getScheduleOptions(locationId, date)
+    : { options: [], defaultService: "S1" as ServiceTypeCode };
+  const serviceType = schedule.defaultService;
 
   let initialLiturgyId: string | null = null;
   let initialContext = null;
@@ -46,6 +52,7 @@ export default async function RecordLiturgyPage() {
       initialDate={date}
       initialLocationId={locationId}
       initialServiceType={serviceType}
+      initialServiceOptions={schedule.options}
       initialLiturgyId={initialLiturgyId}
       initialContext={initialContext}
     />

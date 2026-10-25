@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { assertSystemAdmin } from "@/lib/authz";
 import { createLocation, updateLocation, setLocationGeofence } from "@/lib/repo/locations";
-import { setCutoff } from "@/lib/repo/liturgyTimeCutoffs";
+import { setStartTimesForDay } from "@/lib/repo/liturgySchedule";
 import { createActivity, updateActivity } from "@/lib/repo/activities";
 import { setAgeGroupThresholds, setSuggestionSettings } from "@/lib/repo/settings";
 import { updatePWActivity } from "@/lib/repo/passionWeekActivities";
@@ -22,7 +22,7 @@ import {
   dismissDuplicatePair,
   type MergeFieldPatch,
 } from "@/lib/repo/mergeDeacons";
-import type { PWActivityId } from "@/lib/constants";
+import type { PWActivityId, ServiceTypeCode } from "@/lib/constants";
 
 // Settings is view-only for General Admins — every mutation here is
 // SystemAdmin-only (the page itself still renders for General Admins,
@@ -61,10 +61,14 @@ export async function setLocationGeofenceAction(
   }
 }
 
-export async function setCutoffAction(locationId: string, weekday: number, cutoffTime: string) {
+export async function setStartTimesForDayAction(
+  locationId: string,
+  weekday: number,
+  times: Record<ServiceTypeCode, string>
+) {
   await assertSystemAdmin();
   try {
-    await setCutoff(locationId, weekday, cutoffTime);
+    await setStartTimesForDay(locationId, weekday, times);
     revalidatePath("/settings");
     return { ok: true as const };
   } catch (err) {

@@ -4,7 +4,7 @@
 
 const TZ = process.env.CHURCH_TIMEZONE || "America/New_York";
 
-export type ServiceType = "S1" | "S2";
+export type ServiceType = "S1" | "S2" | "S3";
 
 export const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
@@ -22,16 +22,6 @@ export function yearStartISO(): string {
   return `${churchTodayISO().slice(0, 4)}-01-01`;
 }
 
-export function churchNowHour(): number {
-  const hourStr = new Intl.DateTimeFormat("en-US", {
-    timeZone: TZ,
-    hour: "2-digit",
-    hour12: false,
-  }).format(new Date());
-  // "24" is used by some locales/environments for midnight; normalize to 0.
-  return parseInt(hourStr, 10) % 24;
-}
-
 /** Current time in the church's local timezone, as "HH:MM" (24-hour) -- for comparing against a configured cutoff. */
 export function churchNowTimeString(): string {
   return new Intl.DateTimeFormat("en-GB", {
@@ -40,6 +30,17 @@ export function churchNowTimeString(): string {
     minute: "2-digit",
     hour12: false,
   }).format(new Date());
+}
+
+/** Minutes since local midnight for an "HH:MM" string. */
+export function minutesOfTime(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+}
+
+/** Church-local "now" as minutes since midnight. */
+export function churchNowMinutes(): number {
+  return minutesOfTime(churchNowTimeString());
 }
 
 /** 0 = Sunday ... 6 = Saturday, for a plain YYYY-MM-DD calendar date. */
@@ -55,24 +56,6 @@ export function weekdayLabel(dateStr: string): string {
 }
 
 /**
- * Default ordinal for a given date. Sunday keeps its 1st-before-9am/
- * 2nd-at-or-after-9am church-local-time split (a Sunday that isn't "today"
- * has no current time to anchor that to, so it defaults to 2nd); every
- * other day defaults to 1st, since most days only ever get one liturgy --
- * the admin picks 2nd manually on a day that gets a second (e.g. a special
- * feast alongside the regular liturgy). Day-of-week is no longer part of
- * the service type itself; see the `date` field for that.
- */
-export function computeDefaultServiceType(dateStr: string): ServiceType {
-  if (weekdayOfDateString(dateStr) === 0) {
-    const isToday = dateStr === churchTodayISO();
-    if (!isToday) return "S2";
-    return churchNowHour() < 9 ? "S1" : "S2";
-  }
-  return "S1";
-}
-
-/**
  * The deacon "preferred service" code(s) (see LITURGY_PREF_TYPES) that a
  * given liturgy satisfies: Sunday matches by its actual ordinal (S1/S2);
  * Wed/Fri/Sat match any liturgy that day regardless of ordinal; other
@@ -83,7 +66,9 @@ export function computeDefaultServiceType(dateStr: string): ServiceType {
 export function liturgyPrefMatchCodes(dateStr: string, serviceType: ServiceType): string[] {
   switch (weekdayOfDateString(dateStr)) {
     case 0:
-      return [serviceType];
+      // A Sunday's 3rd (extra) liturgy has no preference code of its own, so
+      // it's offered to anyone who prefers either regular Sunday liturgy.
+      return serviceType === "S3" ? ["S1", "S2"] : [serviceType];
     case 3:
       return ["Wed"];
     case 5:
