@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { TodayLocation, WindowSettings } from "@/lib/repo/liturgySchedule";
+import type { TodayLocation } from "@/lib/repo/liturgySchedule";
 import type { ServiceTypeCode } from "@/lib/constants";
 import { getTodaySnapshotAction, setLockOverrideAction } from "@/app/(app)/checkin/actions";
 import { weekdayLabel } from "@/lib/timezone";
-import { formatTime12, describeMinutes } from "@/lib/formatTime";
+import { formatTime12 } from "@/lib/formatTime";
 import AccessNote, { ACCESS } from "./AccessNote";
 import AddExtraInline from "./AddExtraInline";
 
@@ -20,7 +20,7 @@ const STATUS_BADGE: Record<string, { className: string; text: string }> = {
 };
 
 /** The top of the Check-in windows page: what's open right now at every church, with manual open/close. */
-export default function CheckinControlClient({ initial, windows }: { initial: Snapshot; windows: WindowSettings }) {
+export default function CheckinControlClient({ initial }: { initial: Snapshot }) {
   const [snapshot, setSnapshot] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);

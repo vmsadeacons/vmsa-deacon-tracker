@@ -32,7 +32,7 @@ export default async function CheckinWindowsPage() {
 
   return (
     <div>
-      <CheckinControlClient initial={snapshot} windows={windows} />
+      <CheckinControlClient initial={snapshot} />
       <CheckinWindowSettingsCard settings={windows} />
       <LiturgyStartTimesCard
         locations={locations}
