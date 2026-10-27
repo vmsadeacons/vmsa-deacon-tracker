@@ -1,5 +1,6 @@
 "use client";
 
+import AccessNote, { ACCESS } from "./AccessNote";
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Modal from "./Modal";
@@ -106,7 +107,10 @@ export default function DeaconsClient({
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-        <h1 style={{ margin: 0 }}>Deacons</h1>
+        <div>
+          <h1 style={{ margin: 0 }}>Deacons</h1>
+          <AccessNote tight>{ACCESS.adminsEdit}</AccessNote>
+        </div>
         <button
           className="btn btn-primary"
           onClick={() => {

@@ -1,5 +1,6 @@
 "use client";
 
+import AccessNote, { ACCESS } from "./AccessNote";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Modal from "./Modal";
@@ -89,7 +90,10 @@ export default function AccessRolesClient({
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-        <h1 style={{ margin: 0 }}>Access & Roles</h1>
+        <div>
+          <h1 style={{ margin: 0 }}>Access & Roles</h1>
+          <AccessNote tight>{ACCESS.accessRoles}</AccessNote>
+        </div>
         <button className="btn btn-primary" onClick={() => setGranting(true)}>
           Grant access
         </button>

@@ -9,8 +9,9 @@ export interface NavGroup {
   adminOnly: boolean;
 }
 
-// Exact order per spec §9. Check-in is an admin page now (which liturgy is open
-// right now); deacons check in through Agios Check-in, not this app.
+// Exact order per spec §9. "Check-in windows" is an admin page (which liturgy is
+// open right now, plus start times, extras and window timing); deacons check in
+// through Agios Check-in, not this app.
 export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Records",
@@ -18,7 +19,6 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/dashboard", label: "Dashboard" },
       { href: "/record", label: "Record a Liturgy" },
-      { href: "/checkin", label: "Check-in" },
       { href: "/passion-week", label: "Passion Week" },
       { href: "/reports", label: "Reports & Analytics" },
     ],
@@ -31,7 +31,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/member-updates", label: "Member Updates" },
       { href: "/access", label: "Access & Roles" },
       { href: "/archive", label: "Archive" },
-      { href: "/settings", label: "Settings" },
+      { href: "/checkin", label: "Check-in windows" },
+      { href: "/settings", label: "System Settings" },
     ],
   },
   {

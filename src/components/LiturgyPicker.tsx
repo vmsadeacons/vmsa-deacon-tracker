@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { SERVICE_LABELS, SERVICE_TYPES, type ServiceTypeCode } from "@/lib/constants";
 import type { LocationRow } from "@/lib/repo/locations";
 import type { ScheduleOption } from "@/lib/repo/liturgySchedule";
-import { getScheduleOptionsAction, addExtraLiturgyAction } from "@/lib/actions/schedule";
+import { getScheduleOptionsAction } from "@/lib/actions/schedule";
 import { weekdayLabel } from "@/lib/timezone";
-import { formatTime12 } from "@/lib/formatTime";
+import { liturgyOptionText } from "@/lib/liturgyOptionLabel";
+import AddExtraInline from "./AddExtraInline";
 
 export default function LiturgyPicker({
   date,
@@ -15,6 +16,7 @@ export default function LiturgyPicker({
   locations,
   onChange,
   initialOptions,
+  onOptions,
   allowAddExtra,
 }: {
   date: string;
@@ -24,15 +26,20 @@ export default function LiturgyPicker({
   onChange: (date: string, locationId: string, serviceType: ServiceTypeCode) => void;
   /** The scheduled liturgies for the starting date + church, when the page already has them; otherwise the picker fetches them on first render. */
   initialOptions?: ScheduleOption[];
+  /** Told whenever the list of scheduled liturgies changes (a new date/church, or an extra was added). */
+  onOptions?: (options: ScheduleOption[]) => void;
   /** Shows "Add another liturgy" -- for Record a Liturgy, not for read-only report pickers. */
   allowAddExtra?: boolean;
 }) {
-  const [options, setOptions] = useState<ScheduleOption[] | null>(initialOptions ?? null);
+  const [options, setOptionsState] = useState<ScheduleOption[] | null>(initialOptions ?? null);
   const [recomputing, setRecomputing] = useState(false);
-  const [adding, setAdding] = useState(false);
-  const [addError, setAddError] = useState<string | null>(null);
   // Guards against an older options fetch landing after a newer one.
   const seqRef = useRef(0);
+
+  function setOptions(next: ScheduleOption[]) {
+    setOptionsState(next);
+    onOptions?.(next);
+  }
 
   // Only when the page didn't hand over the starting options.
   useEffect(() => {
@@ -40,7 +47,9 @@ export default function LiturgyPicker({
     let cancelled = false;
     Promise.resolve().then(async () => {
       const res = await getScheduleOptionsAction(locationId, date);
-      if (!cancelled) setOptions(res.options);
+      if (cancelled) return;
+      setOptionsState(res.options);
+      onOptions?.(res.options);
     });
     return () => {
       cancelled = true;
@@ -53,7 +62,6 @@ export default function LiturgyPicker({
   async function reload(newDate: string, newLocationId: string) {
     const seq = ++seqRef.current;
     setRecomputing(true);
-    setAddError(null);
     const res = await getScheduleOptionsAction(newLocationId, newDate);
     if (seq !== seqRef.current) return;
     setOptions(res.options);
@@ -61,29 +69,30 @@ export default function LiturgyPicker({
     onChange(newDate, newLocationId, res.defaultService);
   }
 
-  async function handleAddExtra() {
-    setAdding(true);
-    setAddError(null);
-    const added = await addExtraLiturgyAction(locationId, date, null);
-    if (!added.ok) {
-      setAdding(false);
-      setAddError(added.error);
-      return;
-    }
+  async function handleExtraAdded(newService: ServiceTypeCode) {
     const seq = ++seqRef.current;
     const res = await getScheduleOptionsAction(locationId, date);
-    setAdding(false);
     if (seq !== seqRef.current) return;
     setOptions(res.options);
-    onChange(date, locationId, added.serviceType);
+    onChange(date, locationId, newService);
   }
 
   // The selected liturgy always stays selectable, even if it isn't on the
   // schedule (e.g. an old liturgy opened from a link), so the box never goes blank.
   const shown: ScheduleOption[] = options ?? [];
-  const list = shown.some((o) => o.serviceType === serviceType)
+  const list: ScheduleOption[] = shown.some((o) => o.serviceType === serviceType)
     ? shown
-    : [...shown, { serviceType, label: SERVICE_LABELS[serviceType], startTime: "", isExtra: false }];
+    : [
+        ...shown,
+        {
+          serviceType,
+          label: SERVICE_LABELS[serviceType],
+          startTime: null,
+          startsEveningBefore: false,
+          isExtra: false,
+          prefCodes: [],
+        },
+      ];
 
   return (
     <div className="fieldrow">
@@ -109,24 +118,15 @@ export default function LiturgyPicker({
         <select value={serviceType} onChange={(e) => onChange(date, locationId, e.target.value as ServiceTypeCode)}>
           {list.map((o) => (
             <option key={o.serviceType} value={o.serviceType}>
-              {o.label}
-              {o.startTime ? ` · ${formatTime12(o.startTime)}` : ""}
-              {o.isExtra ? " (extra)" : ""}
+              {liturgyOptionText(o)}
             </option>
           ))}
         </select>
         {allowAddExtra && shown.length < SERVICE_TYPES.length && (
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            style={{ marginTop: "0.5rem", alignSelf: "flex-start" }}
-            disabled={adding || recomputing}
-            onClick={handleAddExtra}
-          >
-            {adding ? "Adding…" : "+ Add another liturgy"}
-          </button>
+          <div style={{ marginTop: "0.5rem" }}>
+            <AddExtraInline locationId={locationId} date={date} disabled={recomputing} onAdded={handleExtraAdded} />
+          </div>
         )}
-        {addError && <p className="error-text" style={{ marginTop: "0.4rem" }}>{addError}</p>}
       </div>
     </div>
   );

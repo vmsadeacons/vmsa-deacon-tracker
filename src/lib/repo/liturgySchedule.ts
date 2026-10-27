@@ -1,40 +1,55 @@
 import { query, withTransaction } from "@/lib/db";
 import { SERVICE_TYPES, SERVICE_LABELS, type ServiceTypeCode } from "@/lib/constants";
-import { churchTodayISO, churchNowMinutes, minutesOfTime, weekdayOfDateString } from "@/lib/timezone";
-import { formatTime12, minutesToHHMM } from "@/lib/formatTime";
+import {
+  churchTodayISO,
+  churchNowMinutes,
+  minutesOfTime,
+  weekdayOfDateString,
+  addDaysISO,
+  daysBetweenISO,
+} from "@/lib/timezone";
+import { formatTime12, wrapMinutesToHHMM } from "@/lib/formatTime";
 
 // ---------------------------------------------------------------------------
 // The liturgy schedule, and which single liturgy is "open" for check-in.
 //
-//  * Schedule: every church has 1 liturgy a day, 2 on Sundays, plus any
-//    admin-added extras (at most 3 in a day, so a Sunday can take one extra).
-//    It's a *rule*, not stored rows -- only the extras are stored -- so there
-//    is nothing to pre-generate and nothing to run on a timer.
-//  * Open window: a liturgy opens for check-in OPEN_LEAD_MINUTES before it
-//    starts and closes when the next one's window opens, or MAX_OPEN_MINUTES
-//    after its own start, whichever is first. Windows therefore never
-//    overlap: at most one liturgy per church is open at any moment, worked
-//    out from the clock when somebody checks in (no cron, no polling).
+//  * Schedule: every church has 1 liturgy a day, 2 on Sundays (those times
+//    are set per church and weekday), plus any admin-added extras (each with
+//    its own start time; at most 3 liturgies in a day). It's a *rule*, not
+//    stored rows -- only the extras are stored -- so there is nothing to
+//    pre-generate and nothing to run on a timer.
+//  * A liturgy's 1st/2nd/3rd position is its place in the day's chronological
+//    order, never stored: an extra that starts the evening before (a midnight
+//    liturgy) is therefore that day's 1st, and the regular liturgies follow it.
+//  * Open window: a liturgy opens `openBefore` minutes before it starts and
+//    closes `closeAfter` minutes after it starts, or when the next liturgy's
+//    window opens, whichever comes first. Windows never overlap, so at most
+//    one liturgy per church is open at any moment, worked out from the clock
+//    when somebody checks in. Windows can span midnight.
 //  * Admin override: an admin can force a liturgy open or closed. A forced-
 //    open liturgy wins over the automatic window (and closes the rest).
 // ---------------------------------------------------------------------------
 
-export const OPEN_LEAD_MINUTES = 30;
-export const MAX_OPEN_MINUTES = 180;
-
-// Used until an admin saves real times for a church/weekday (Settings →
-// Liturgy Start Times). Placeholders, deliberately flagged as "default" in
-// the UI so nobody mistakes them for confirmed times.
-const DEFAULT_START_TIMES = {
-  weekday: { S1: "09:00", S2: "18:00", S3: "20:00" },
-  sunday: { S1: "07:30", S2: "10:00", S3: "12:30" },
-} as const satisfies Record<string, Record<ServiceTypeCode, string>>;
+export const DEFAULT_OPEN_BEFORE_MINUTES = 30;
+export const DEFAULT_CLOSE_AFTER_MINUTES = 180;
+export const MAX_LITURGIES_PER_DAY = 3;
 
 const FALLBACK_SCHEDULE_START_DATE = "2026-10-24";
 const TIME_RE = /^([01][0-9]|2[0-3]):[0-5][0-9]$/;
 
-export function defaultStartTime(weekday: number, serviceType: ServiceTypeCode): string {
-  return (weekday === 0 ? DEFAULT_START_TIMES.sunday : DEFAULT_START_TIMES.weekday)[serviceType];
+export interface WindowSettings {
+  /** Minutes before a liturgy's start that check-in opens. */
+  openBefore: number;
+  /** Minutes after a liturgy's start that check-in closes. */
+  closeAfter: number;
+}
+
+// Used until an admin saves real times for a church/weekday (Check-in
+// windows → Liturgy Start Times). Placeholders, deliberately flagged as
+// "default" in the UI so nobody mistakes them for confirmed times.
+export function defaultRegularStartTime(weekday: number, slot: "S1" | "S2"): string | null {
+  if (weekday === 0) return slot === "S1" ? "07:30" : "10:00";
+  return slot === "S1" ? "09:00" : null;
 }
 
 export function isValidTime(value: string): boolean {
@@ -46,129 +61,234 @@ export function isValidTime(value: string): boolean {
 // ---------------------------------------------------------------------------
 
 export interface ScheduledLiturgy {
+  /** Stable identity: "r1" | "r2" (the regular liturgies), `x:<id>` (an extra), `rec:<ordinal>` (recorded but not on the schedule). */
+  slot: string;
+  /** Position in the day's chronological order. */
   serviceType: ServiceTypeCode;
-  /** "HH:MM", church-local, 24-hour. */
-  startTime: string;
-  /** Added by an admin on top of the default schedule. */
+  /** "HH:MM", church-local, 24-hour; null only for a recorded liturgy with no known time. */
+  startTime: string | null;
+  /** Starts the evening before the day it counts for. */
+  startsEveningBefore: boolean;
   isExtra: boolean;
   extraId: string | null;
   /** A liturgy row (attendance/records) already exists for it. */
   hasRecord: boolean;
+  /** Which deacon "preferred service" codes this liturgy satisfies. */
+  prefCodes: string[];
 }
 
-export type StartTimeMap = Map<string, string>; // key: `${weekday}-${serviceType}`
+export type StartTimeMap = Map<string, string>; // key: `${weekday}-${S1|S2}`
 
-/** The liturgies a church has by rule on a date, before extras. Dates before the schedule start keep the old "any day may have a 1st and 2nd" behaviour. */
-export function ruleServices(date: string, scheduleStartDate: string): ServiceTypeCode[] {
-  if (date < scheduleStartDate) return ["S1", "S2"];
-  return weekdayOfDateString(date) === 0 ? ["S1", "S2"] : ["S1"];
+export interface ExtraInput {
+  id: string;
+  start_time: string;
+  starts_evening_before: boolean;
+}
+
+function prefCodesFor(weekday: number, kind: "r1" | "r2" | "other"): string[] {
+  if (weekday === 0) return kind === "r1" ? ["S1"] : kind === "r2" ? ["S2"] : ["S1", "S2"];
+  const day = weekday === 3 ? "Wed" : weekday === 5 ? "Fri" : weekday === 6 ? "Sat" : null;
+  return day ? [day] : [];
+}
+
+/** Minutes from the start of the day the liturgy counts for (negative when it starts the evening before). */
+function relStart(it: { startTime: string | null; startsEveningBefore: boolean }): number {
+  if (it.startTime === null) return Number.POSITIVE_INFINITY;
+  return (it.startsEveningBefore ? -1440 : 0) + minutesOfTime(it.startTime);
 }
 
 export function buildSchedule(p: {
   date: string;
   scheduleStartDate: string;
   startTimes: StartTimeMap;
-  extras: { id: string; service_type: ServiceTypeCode; start_time: string | null }[];
+  extras: ExtraInput[];
   existing: ServiceTypeCode[];
 }): ScheduledLiturgy[] {
   const weekday = weekdayOfDateString(p.date);
-  const timeFor = (s: ServiceTypeCode) => p.startTimes.get(`${weekday}-${s}`) ?? defaultStartTime(weekday, s);
-  const byService = new Map<ServiceTypeCode, ScheduledLiturgy>();
+  // Dates before the schedule start keep the old "any day may have a 1st and a 2nd" behaviour.
+  const hasRegularSecond = weekday === 0 || p.date < p.scheduleStartDate;
 
-  for (const s of ruleServices(p.date, p.scheduleStartDate)) {
-    byService.set(s, { serviceType: s, startTime: timeFor(s), isExtra: false, extraId: null, hasRecord: false });
-  }
-  for (const e of p.extras) {
-    byService.set(e.service_type, {
-      serviceType: e.service_type,
-      startTime: e.start_time ?? timeFor(e.service_type),
-      isExtra: true,
-      extraId: e.id,
-      hasRecord: false,
+  type Draft = Omit<ScheduledLiturgy, "serviceType" | "hasRecord"> & { order: number };
+  const drafts: Draft[] = [];
+  drafts.push({
+    slot: "r1",
+    startTime: p.startTimes.get(`${weekday}-S1`) ?? defaultRegularStartTime(weekday, "S1"),
+    startsEveningBefore: false,
+    isExtra: false,
+    extraId: null,
+    prefCodes: prefCodesFor(weekday, "r1"),
+    order: 0,
+  });
+  if (hasRegularSecond) {
+    drafts.push({
+      slot: "r2",
+      startTime: p.startTimes.get(`${weekday}-S2`) ?? defaultRegularStartTime(weekday, "S2"),
+      startsEveningBefore: false,
+      isExtra: false,
+      extraId: null,
+      prefCodes: prefCodesFor(weekday, "r2"),
+      order: 1,
     });
   }
-  // A liturgy that already has records stays visible even if the rule or an
-  // extra wouldn't have produced it (e.g. one recorded by hand), so nothing
-  // already on the books ever disappears from a picker.
-  for (const s of p.existing) {
-    const found = byService.get(s);
-    if (found) found.hasRecord = true;
-    else byService.set(s, { serviceType: s, startTime: timeFor(s), isExtra: false, extraId: null, hasRecord: true });
+  for (const e of p.extras) {
+    drafts.push({
+      slot: `x:${e.id}`,
+      startTime: e.start_time,
+      startsEveningBefore: e.starts_evening_before,
+      isExtra: true,
+      extraId: e.id,
+      prefCodes: prefCodesFor(weekday, "other"),
+      order: 2,
+    });
   }
 
-  return [...byService.values()].sort(
-    (a, b) => minutesOfTime(a.startTime) - minutesOfTime(b.startTime) || a.serviceType.localeCompare(b.serviceType)
-  );
+  drafts.sort((a, b) => relStart(a) - relStart(b) || a.order - b.order || a.slot.localeCompare(b.slot));
+  const items: ScheduledLiturgy[] = drafts.slice(0, SERVICE_TYPES.length).map((d, i) => ({
+    slot: d.slot,
+    serviceType: SERVICE_TYPES[i],
+    startTime: d.startTime,
+    startsEveningBefore: d.startsEveningBefore,
+    isExtra: d.isExtra,
+    extraId: d.extraId,
+    hasRecord: false,
+    prefCodes: d.prefCodes,
+  }));
+
+  // A liturgy that already has records stays visible even if the schedule
+  // wouldn't have produced it (e.g. one recorded by hand), so nothing already
+  // on the books ever disappears from a picker.
+  for (const s of [...p.existing].sort()) {
+    const idx = SERVICE_TYPES.indexOf(s);
+    if (idx < items.length) items[idx].hasRecord = true;
+    else {
+      items.push({
+        slot: `rec:${s}`,
+        serviceType: s,
+        startTime: null,
+        startsEveningBefore: false,
+        isExtra: false,
+        extraId: null,
+        hasRecord: true,
+        prefCodes: prefCodesFor(weekday, "other"),
+      });
+    }
+  }
+  return items;
 }
 
 export type OverrideState = "open" | "closed";
 export type CheckinStatus = "open" | "upcoming" | "closed";
 
-export interface LiturgyStatus extends ScheduledLiturgy {
+export interface WindowItem extends ScheduledLiturgy {
+  /** The day this liturgy counts for. */
+  date: string;
+  /** `${date}|${serviceType}` */
+  key: string;
+  /** Start, in minutes from the beginning of *today* (negative = yesterday evening, 1440+ = tomorrow). */
+  absStart: number | null;
+}
+
+export function toWindowItems(items: ScheduledLiturgy[], date: string, today: string): WindowItem[] {
+  const dayDelta = daysBetweenISO(date, today);
+  return items.map((it) => ({
+    ...it,
+    date,
+    key: `${date}|${it.serviceType}`,
+    absStart: it.startTime === null ? null : dayDelta * 1440 + relStart(it),
+  }));
+}
+
+export interface StatusFields {
   status: CheckinStatus;
   /** Short human explanation shown next to the status. */
   note: string;
   override: OverrideState | null;
-  /** "HH:MM" the automatic window opens. */
-  opensAt: string;
+  /** Automatic window, in minutes from the beginning of today. */
+  opensAtAbs: number | null;
+  closesAtAbs: number | null;
+}
+
+function opensNote(openAtAbs: number): string {
+  return `Opens at ${formatTime12(wrapMinutesToHHMM(openAtAbs))}${openAtAbs >= 1440 ? " tomorrow" : ""}`;
 }
 
 /**
- * Which liturgy is open for check-in at `nowMin` (minutes since midnight),
- * and the status of each. `items` must be sorted by start time. `overrides`
- * maps a service type to an admin's manual open/close plus when it was set.
+ * Which liturgy is open for check-in at `nowAbs` (minutes from the beginning
+ * of today), and the status of each. `overrides` maps an item key to an
+ * admin's manual open/close plus when it was set.
  */
-export function computeOpenStatus(
-  items: ScheduledLiturgy[],
-  overrides: Map<ServiceTypeCode, { state: OverrideState; setAtMs: number }>,
-  nowMin: number
-): { items: LiturgyStatus[]; open: ServiceTypeCode | null } {
-  const openAt = items.map((it) => minutesOfTime(it.startTime) - OPEN_LEAD_MINUTES);
-  const autoCloseAt = items.map((it, i) => {
-    const byDuration = minutesOfTime(it.startTime) + MAX_OPEN_MINUTES;
-    const nextOpen = i + 1 < items.length ? openAt[i + 1] : Infinity;
-    return Math.min(byDuration, nextOpen);
+export function computeOpenStatus<T extends { key: string; absStart: number | null }>(
+  items: T[],
+  overrides: Map<string, { state: OverrideState; setAtMs: number }>,
+  nowAbs: number,
+  w: WindowSettings
+): { items: (T & StatusFields)[]; openKey: string | null } {
+  const timed = items
+    .filter((it) => it.absStart !== null)
+    .sort((a, b) => a.absStart! - b.absStart! || a.key.localeCompare(b.key));
+  const untimed = items.filter((it) => it.absStart === null);
+
+  const openAt = timed.map((it) => it.absStart! - w.openBefore);
+  const closeAt = timed.map((it, i) => {
+    const nextOpen = i + 1 < timed.length ? openAt[i + 1] : Number.POSITIVE_INFINITY;
+    return Math.min(it.absStart! + w.closeAfter, nextOpen);
   });
 
   // A forced-open liturgy wins; if several somehow exist, the most recent.
   let forcedIdx = -1;
-  items.forEach((it, i) => {
-    const o = overrides.get(it.serviceType);
-    if (o?.state === "open" && (forcedIdx === -1 || o.setAtMs > overrides.get(items[forcedIdx].serviceType)!.setAtMs)) {
+  timed.forEach((it, i) => {
+    const o = overrides.get(it.key);
+    if (o?.state === "open" && (forcedIdx === -1 || o.setAtMs > overrides.get(timed[forcedIdx].key)!.setAtMs)) {
       forcedIdx = i;
     }
   });
-
   let openIdx = forcedIdx;
   if (openIdx === -1) {
-    openIdx = items.findIndex(
-      (it, i) => overrides.get(it.serviceType)?.state !== "closed" && openAt[i] <= nowMin && nowMin < autoCloseAt[i]
+    openIdx = timed.findIndex(
+      (it, i) => overrides.get(it.key)?.state !== "closed" && openAt[i] <= nowAbs && nowAbs < closeAt[i]
     );
   }
 
-  const result: LiturgyStatus[] = items.map((it, i) => {
-    const override = overrides.get(it.serviceType)?.state ?? null;
-    const base = { ...it, override, opensAt: minutesToHHMM(openAt[i]) };
+  const out: (T & StatusFields)[] = timed.map((it, i) => {
+    const override = overrides.get(it.key)?.state ?? null;
+    const base = { ...it, override, opensAtAbs: openAt[i], closesAtAbs: closeAt[i] };
     if (i === openIdx) {
-      return { ...base, status: "open", note: override === "open" ? "Opened by an admin" : "Open for check-in" };
+      return { ...base, status: "open" as const, note: override === "open" ? "Opened by an admin" : "Open for check-in" };
     }
-    if (override === "closed") return { ...base, status: "closed", note: "Closed by an admin" };
-    if (forcedIdx !== -1) return { ...base, status: "closed", note: "Locked — another liturgy was opened by an admin" };
-    if (nowMin < openAt[i]) return { ...base, status: "upcoming", note: `Opens at ${formatTime12(minutesToHHMM(openAt[i]))}` };
-    return { ...base, status: "closed", note: "Check-in has closed" };
+    if (override === "closed") return { ...base, status: "closed" as const, note: "Closed by an admin" };
+    if (forcedIdx !== -1) {
+      return { ...base, status: "closed" as const, note: "Locked — another liturgy was opened by an admin" };
+    }
+    if (nowAbs < openAt[i]) return { ...base, status: "upcoming" as const, note: opensNote(openAt[i]) };
+    return { ...base, status: "closed" as const, note: "Check-in has closed" };
   });
-
-  return { items: result, open: openIdx === -1 ? null : items[openIdx].serviceType };
+  for (const it of untimed) {
+    out.push({
+      ...it,
+      override: overrides.get(it.key)?.state ?? null,
+      opensAtAbs: null,
+      closesAtAbs: null,
+      status: "closed",
+      note: "No start time on record",
+    });
+  }
+  return { items: out, openKey: openIdx === -1 ? null : timed[openIdx].key };
 }
 
 /** The ordinal a Record/Reports picker should start on for a date. */
-export function pickDefaultService(items: ScheduledLiturgy[], date: string, today: string, nowMin: number): ServiceTypeCode {
+export function pickDefaultService(
+  items: ScheduledLiturgy[],
+  date: string,
+  today: string,
+  nowMin: number,
+  w: WindowSettings
+): ServiceTypeCode {
   if (items.length === 0) return "S1";
   if (date === today) {
-    // The latest liturgy whose window has opened (so "now" lands on the
-    // one in progress); before any has opened, the first of the day.
+    // The latest liturgy whose window has opened (so "now" lands on the one
+    // in progress); before any has opened, the first of the day.
     let pick = items[0];
-    for (const it of items) if (minutesOfTime(it.startTime) - OPEN_LEAD_MINUTES <= nowMin) pick = it;
+    for (const it of items) if (it.startTime !== null && relStart(it) - w.openBefore <= nowMin) pick = it;
     return pick.serviceType;
   }
   if (date < today) {
@@ -178,18 +298,78 @@ export function pickDefaultService(items: ScheduledLiturgy[], date: string, toda
   return items[0].serviceType;
 }
 
-function addDays(dateStr: string, n: number): string {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+const RENUMBER_MESSAGE =
+  "Adding or removing that liturgy would change the numbering of a liturgy on that day that already has attendance recorded. Choose a start time after the recorded liturgies, or do it before any attendance is recorded.";
+
+/** Throws if going from `before` to `after` would move a liturgy that already has records onto a different position. */
+export function assertRecordedOrdinalsStable(before: ScheduledLiturgy[], after: ScheduledLiturgy[], message = RENUMBER_MESSAGE) {
+  for (const b of before) {
+    if (!b.hasRecord) continue;
+    const a = after.find((x) => x.serviceType === b.serviceType);
+    if (!a || a.slot !== b.slot) throw new Error(message);
+  }
+}
+
+/** True if adding/removing is fine, false if it would renumber a recorded liturgy. */
+function isStable(before: ScheduledLiturgy[], after: ScheduledLiturgy[]): boolean {
+  try {
+    assertRecordedOrdinalsStable(before, after);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 // ---------------------------------------------------------------------------
 // Loading
 // ---------------------------------------------------------------------------
 
-async function getScheduleStartDate(): Promise<string> {
-  const { rows } = await query<{ value: string }>(`select value from app_settings where key = 'schedule_start_date'`);
-  return rows[0]?.value ?? FALLBACK_SCHEDULE_START_DATE;
+interface LoadedSettings extends WindowSettings {
+  scheduleStartDate: string;
+}
+
+function intSetting(value: string | undefined, fallback: number): number {
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 0 ? n : fallback;
+}
+
+async function loadSettings(): Promise<LoadedSettings> {
+  const { rows } = await query<{ key: string; value: string }>(
+    `select key, value from app_settings
+     where key in ('schedule_start_date', 'checkin_open_before_minutes', 'checkin_close_after_minutes')`
+  );
+  const m = new Map(rows.map((r) => [r.key, r.value]));
+  return {
+    scheduleStartDate: m.get("schedule_start_date") ?? FALLBACK_SCHEDULE_START_DATE,
+    openBefore: intSetting(m.get("checkin_open_before_minutes"), DEFAULT_OPEN_BEFORE_MINUTES),
+    closeAfter: intSetting(m.get("checkin_close_after_minutes"), DEFAULT_CLOSE_AFTER_MINUTES),
+  };
+}
+
+export async function getCheckinWindowSettings(): Promise<WindowSettings> {
+  const { openBefore, closeAfter } = await loadSettings();
+  return { openBefore, closeAfter };
+}
+
+export async function setCheckinWindowSettings(openBefore: number, closeAfter: number): Promise<void> {
+  if (!Number.isInteger(openBefore) || openBefore < 0 || openBefore > 240) {
+    throw new Error("Check-in can open between 0 and 240 minutes before a liturgy starts");
+  }
+  if (!Number.isInteger(closeAfter) || closeAfter < 30 || closeAfter > 720) {
+    throw new Error("Check-in can close between 30 and 720 minutes after a liturgy starts");
+  }
+  await withTransaction(async (client) => {
+    for (const [key, value] of [
+      ["checkin_open_before_minutes", openBefore],
+      ["checkin_close_after_minutes", closeAfter],
+    ] as const) {
+      await client.query(
+        `insert into app_settings (key, value) values ($1, $2)
+         on conflict (key) do update set value = excluded.value`,
+        [key, String(value)]
+      );
+    }
+  });
 }
 
 async function loadStartTimes(locationIds: string[]): Promise<Map<string, StartTimeMap>> {
@@ -202,46 +382,66 @@ async function loadStartTimes(locationIds: string[]): Promise<Map<string, StartT
   return out;
 }
 
-/** Schedules for several churches on one date, with a handful of batched queries. */
-async function loadSchedules(locationIds: string[], date: string): Promise<Map<string, ScheduledLiturgy[]>> {
-  const [startDate, startTimes, extras, existing] = await Promise.all([
-    getScheduleStartDate(),
+interface ScheduleContext {
+  settings: LoadedSettings;
+  startTimes: Map<string, StartTimeMap>;
+  extras: { id: string; location_id: string; date: string; start_time: string; starts_evening_before: boolean }[];
+  existing: { location_id: string; date: string; service_type: ServiceTypeCode }[];
+}
+
+/** Everything needed to build schedules for some churches on some dates, in four batched queries. */
+async function loadContext(locationIds: string[], dates: string[]): Promise<ScheduleContext> {
+  const [settings, startTimes, extras, existing] = await Promise.all([
+    loadSettings(),
     loadStartTimes(locationIds),
-    query<{ id: string; location_id: string; service_type: ServiceTypeCode; start_time: string | null }>(
-      `select id, location_id, service_type, start_time from extra_liturgies where date = $1 and location_id = any($2)`,
-      [date, locationIds]
+    query<{ id: string; location_id: string; date: string; start_time: string; starts_evening_before: boolean }>(
+      `select id, location_id, date, start_time, starts_evening_before from extra_liturgies
+       where location_id = any($1) and date = any($2::date[])`,
+      [locationIds, dates]
     ),
-    query<{ location_id: string; service_type: ServiceTypeCode }>(
-      `select location_id, service_type from liturgies where date = $1 and location_id = any($2)`,
-      [date, locationIds]
+    query<{ location_id: string; date: string; service_type: ServiceTypeCode }>(
+      `select location_id, date, service_type from liturgies where location_id = any($1) and date = any($2::date[])`,
+      [locationIds, dates]
     ),
   ]);
-  const out = new Map<string, ScheduledLiturgy[]>();
-  for (const id of locationIds) {
-    out.set(
-      id,
-      buildSchedule({
-        date,
-        scheduleStartDate: startDate,
-        startTimes: startTimes.get(id)!,
-        extras: extras.rows.filter((e) => e.location_id === id),
-        existing: existing.rows.filter((e) => e.location_id === id).map((e) => e.service_type),
-      })
-    );
-  }
+  return { settings, startTimes, extras: extras.rows, existing: existing.rows };
+}
+
+function scheduleFrom(
+  ctx: ScheduleContext,
+  locationId: string,
+  date: string,
+  opts: { addExtra?: ExtraInput; removeExtraId?: string } = {}
+): ScheduledLiturgy[] {
+  const extras: ExtraInput[] = ctx.extras
+    .filter((e) => e.location_id === locationId && e.date === date && e.id !== opts.removeExtraId)
+    .map((e) => ({ id: e.id, start_time: e.start_time, starts_evening_before: e.starts_evening_before }));
+  if (opts.addExtra) extras.push(opts.addExtra);
+  return buildSchedule({
+    date,
+    scheduleStartDate: ctx.settings.scheduleStartDate,
+    startTimes: ctx.startTimes.get(locationId) ?? new Map(),
+    extras,
+    existing: ctx.existing.filter((e) => e.location_id === locationId && e.date === date).map((e) => e.service_type),
+  });
+}
+
+async function loadOverrides(locationIds: string[], dates: string[]) {
+  const { rows } = await query<{ location_id: string; date: string; service_type: ServiceTypeCode; state: OverrideState; set_at: string }>(
+    `select location_id, date, service_type, state, set_at from liturgy_lock_overrides
+     where location_id = any($1) and date = any($2::date[])`,
+    [locationIds, dates]
+  );
+  const out = new Map<string, Map<string, { state: OverrideState; setAtMs: number }>>(
+    locationIds.map((id) => [id, new Map()])
+  );
+  for (const r of rows) out.get(r.location_id)!.set(`${r.date}|${r.service_type}`, { state: r.state, setAtMs: Date.parse(r.set_at) });
   return out;
 }
 
-async function loadOverrides(locationIds: string[], date: string) {
-  const { rows } = await query<{ location_id: string; service_type: ServiceTypeCode; state: OverrideState; set_at: string }>(
-    `select location_id, service_type, state, set_at from liturgy_lock_overrides where date = $1 and location_id = any($2)`,
-    [date, locationIds]
-  );
-  const out = new Map<string, Map<ServiceTypeCode, { state: OverrideState; setAtMs: number }>>(
-    locationIds.map((id) => [id, new Map()])
-  );
-  for (const r of rows) out.get(r.location_id)!.set(r.service_type, { state: r.state, setAtMs: Date.parse(r.set_at) });
-  return out;
+/** Yesterday, today and tomorrow -- a liturgy that starts the evening before, or whose window runs past midnight, can belong to a neighbouring day. */
+function windowDates(today: string): string[] {
+  return [addDaysISO(today, -1), today, addDaysISO(today, 1)];
 }
 
 // ---------------------------------------------------------------------------
@@ -251,23 +451,28 @@ async function loadOverrides(locationIds: string[], date: string) {
 export interface ScheduleOption {
   serviceType: ServiceTypeCode;
   label: string;
-  startTime: string;
+  startTime: string | null;
+  startsEveningBefore: boolean;
   isExtra: boolean;
+  prefCodes: string[];
 }
 
 export async function getScheduleOptions(
   locationId: string,
   date: string
 ): Promise<{ options: ScheduleOption[]; defaultService: ServiceTypeCode }> {
-  const items = (await loadSchedules([locationId], date)).get(locationId)!;
+  const ctx = await loadContext([locationId], [date]);
+  const items = scheduleFrom(ctx, locationId, date);
   return {
     options: items.map((it) => ({
       serviceType: it.serviceType,
       label: SERVICE_LABELS[it.serviceType],
       startTime: it.startTime,
+      startsEveningBefore: it.startsEveningBefore,
       isExtra: it.isExtra,
+      prefCodes: it.prefCodes,
     })),
-    defaultService: pickDefaultService(items, date, churchTodayISO(), churchNowMinutes()),
+    defaultService: pickDefaultService(items, date, churchTodayISO(), churchNowMinutes(), ctx.settings),
   };
 }
 
@@ -276,54 +481,88 @@ export async function getScheduleOptions(
 // ---------------------------------------------------------------------------
 
 export interface OpenLiturgyInfo {
+  /** The day the open liturgy counts for (can be tomorrow, for a liturgy that starts the evening before). */
   date: string;
   open: {
     serviceType: ServiceTypeCode;
     startTime: string;
+    startsEveningBefore: boolean;
     isSpecialFeast: boolean;
     feastName: string | null;
   } | null;
-  /** The next liturgy still to open today, for the "nothing open right now" message. */
-  next: { serviceType: ServiceTypeCode; startTime: string; opensAt: string } | null;
+  /** The next liturgy still to open, for the "nothing open right now" message. */
+  next: {
+    serviceType: ServiceTypeCode;
+    startTime: string;
+    startsEveningBefore: boolean;
+    opensAt: string;
+    opensTomorrow: boolean;
+  } | null;
+}
+
+async function windowItemsFor(locationIds: string[], today: string) {
+  const dates = windowDates(today);
+  const [ctx, overrides] = await Promise.all([loadContext(locationIds, dates), loadOverrides(locationIds, dates)]);
+  const byLocation = new Map<string, WindowItem[]>();
+  for (const id of locationIds) {
+    byLocation.set(id, dates.flatMap((d) => toWindowItems(scheduleFrom(ctx, id, d), d, today)));
+  }
+  return { ctx, overrides, byLocation, dates };
 }
 
 export async function getOpenLiturgy(locationId: string): Promise<OpenLiturgyInfo> {
-  const date = churchTodayISO();
-  const [schedules, overrides] = await Promise.all([loadSchedules([locationId], date), loadOverrides([locationId], date)]);
-  const { items, open } = computeOpenStatus(schedules.get(locationId)!, overrides.get(locationId)!, churchNowMinutes());
+  const today = churchTodayISO();
+  const nowAbs = churchNowMinutes();
+  const { ctx, overrides, byLocation } = await windowItemsFor([locationId], today);
+  const { items, openKey } = computeOpenStatus(byLocation.get(locationId)!, overrides.get(locationId)!, nowAbs, ctx.settings);
 
+  const openItem = openKey ? items.find((i) => i.key === openKey)! : null;
   let openInfo: OpenLiturgyInfo["open"] = null;
-  if (open) {
-    const it = items.find((i) => i.serviceType === open)!;
+  if (openItem) {
     const { rows } = await query<{ is_special_feast: boolean; feast_name: string | null }>(
       `select l.is_special_feast, fn.name as feast_name
        from liturgies l left join feast_names fn on fn.id = l.feast_name_id
        where l.date = $1 and l.location_id = $2 and l.service_type = $3`,
-      [date, locationId, open]
+      [openItem.date, locationId, openItem.serviceType]
     );
     openInfo = {
-      serviceType: open,
-      startTime: it.startTime,
+      serviceType: openItem.serviceType,
+      startTime: openItem.startTime!,
+      startsEveningBefore: openItem.startsEveningBefore,
       isSpecialFeast: Boolean(rows[0]?.is_special_feast),
       feastName: rows[0]?.feast_name ?? null,
     };
   }
-  const upcoming = items.find((i) => i.status === "upcoming");
+  const upcoming = items
+    .filter((i) => i.status === "upcoming")
+    .sort((a, b) => a.opensAtAbs! - b.opensAtAbs!)[0];
   return {
-    date,
+    date: openItem?.date ?? today,
     open: openInfo,
-    next: upcoming ? { serviceType: upcoming.serviceType, startTime: upcoming.startTime, opensAt: upcoming.opensAt } : null,
+    next: upcoming
+      ? {
+          serviceType: upcoming.serviceType,
+          startTime: upcoming.startTime!,
+          startsEveningBefore: upcoming.startsEveningBefore,
+          opensAt: wrapMinutesToHHMM(upcoming.opensAtAbs!),
+          opensTomorrow: upcoming.opensAtAbs! >= 1440,
+        }
+      : null,
   };
 }
 
 // ---------------------------------------------------------------------------
-// Admin "Check-in" page: today at every church
+// Admin "Check-in windows" page: today at every church
 // ---------------------------------------------------------------------------
 
 export interface TodayLiturgy {
+  date: string;
+  /** Counts for a day other than today (a liturgy that starts tonight for tomorrow, or one still open after midnight for yesterday). */
+  forAnotherDay: boolean;
   serviceType: ServiceTypeCode;
   label: string;
-  startTime: string;
+  startTime: string | null;
+  startsEveningBefore: boolean;
   isExtra: boolean;
   status: CheckinStatus;
   note: string;
@@ -338,41 +577,49 @@ export interface TodayLocation {
 }
 
 export async function getTodaySnapshot(): Promise<{ date: string; locations: TodayLocation[] }> {
-  const date = churchTodayISO();
+  const today = churchTodayISO();
+  const nowAbs = churchNowMinutes();
   const { rows: locs } = await query<{ id: string; name: string }>(
     `select id, name from locations where status = 'Active' order by name`
   );
   const ids = locs.map((l) => l.id);
-  if (ids.length === 0) return { date, locations: [] };
-  const [schedules, overrides, counts] = await Promise.all([
-    loadSchedules(ids, date),
-    loadOverrides(ids, date),
-    query<{ location_id: string; service_type: ServiceTypeCode; n: string }>(
-      `select l.location_id, l.service_type, count(*) as n
-       from liturgies l join participation p on p.liturgy_id = l.id
-       where l.date = $1 and l.location_id = any($2) and p.activity_id is null
-       group by l.location_id, l.service_type`,
-      [date, ids]
-    ),
-  ]);
-  const nowMin = churchNowMinutes();
+  if (ids.length === 0) return { date: today, locations: [] };
+
+  const { ctx, overrides, byLocation, dates } = await windowItemsFor(ids, today);
+  const counts = await query<{ location_id: string; date: string; service_type: ServiceTypeCode; n: string }>(
+    `select l.location_id, l.date, l.service_type, count(*) as n
+     from liturgies l join participation p on p.liturgy_id = l.id
+     where l.date = any($2::date[]) and l.location_id = any($1) and p.activity_id is null
+     group by l.location_id, l.date, l.service_type`,
+    [ids, dates]
+  );
+
   return {
-    date,
+    date: today,
     locations: locs.map((loc) => {
-      const { items } = computeOpenStatus(schedules.get(loc.id)!, overrides.get(loc.id)!, nowMin);
+      const { items } = computeOpenStatus(byLocation.get(loc.id)!, overrides.get(loc.id)!, nowAbs, ctx.settings);
+      const shown = items.filter(
+        (it) =>
+          it.date === today ||
+          (it.opensAtAbs !== null && it.closesAtAbs !== null && it.opensAtAbs < 1440 && it.closesAtAbs > 0)
+      );
+      shown.sort((a, b) => (a.absStart ?? Infinity) - (b.absStart ?? Infinity));
       return {
         locationId: loc.id,
         name: loc.name,
-        liturgies: items.map((it) => ({
+        liturgies: shown.map((it) => ({
+          date: it.date,
+          forAnotherDay: it.date !== today,
           serviceType: it.serviceType,
           label: SERVICE_LABELS[it.serviceType],
           startTime: it.startTime,
+          startsEveningBefore: it.startsEveningBefore,
           isExtra: it.isExtra,
           status: it.status,
           note: it.note,
           override: it.override,
           attendeeCount: Number(
-            counts.rows.find((c) => c.location_id === loc.id && c.service_type === it.serviceType)?.n ?? 0
+            counts.rows.find((c) => c.location_id === loc.id && c.date === it.date && c.service_type === it.serviceType)?.n ?? 0
           ),
         })),
       };
@@ -380,18 +627,20 @@ export async function getTodaySnapshot(): Promise<{ date: string; locations: Tod
   };
 }
 
-/** Admin override: force a liturgy open or closed for check-in today, or pass null to go back to automatic. */
+/** Admin override: force a liturgy open or closed for check-in, or pass null to go back to automatic. */
 export async function setLockOverride(
   locationId: string,
+  date: string,
   serviceType: ServiceTypeCode,
   state: OverrideState | null,
   userId: string | null
 ): Promise<void> {
-  const date = churchTodayISO();
-  const items = (await loadSchedules([locationId], date)).get(locationId)!;
-  if (!items.some((i) => i.serviceType === serviceType)) {
-    throw new Error("That liturgy isn't on today's schedule");
-  }
+  const today = churchTodayISO();
+  const dates = windowDates(today);
+  const ctx = await loadContext([locationId], dates);
+  const onSchedule = dates.includes(date) && scheduleFrom(ctx, locationId, date).some((i) => i.serviceType === serviceType);
+  if (!onSchedule) throw new Error("That liturgy isn't on the current schedule");
+
   await withTransaction(async (client) => {
     if (state === null) {
       await client.query(
@@ -403,8 +652,10 @@ export async function setLockOverride(
     if (state === "open") {
       // Only one liturgy can be forced open at a church at a time.
       await client.query(
-        `delete from liturgy_lock_overrides where location_id = $1 and date = $2 and state = 'open' and service_type <> $3`,
-        [locationId, date, serviceType]
+        `delete from liturgy_lock_overrides
+         where location_id = $1 and state = 'open' and date = any($4::date[])
+           and not (date = $2 and service_type = $3)`,
+        [locationId, date, serviceType, dates]
       );
     }
     await client.query(
@@ -418,24 +669,30 @@ export async function setLockOverride(
 }
 
 // ---------------------------------------------------------------------------
-// Start times (Settings)
+// Regular start times (Check-in windows)
 // ---------------------------------------------------------------------------
 
 export interface StartTimeCell {
   weekday: number;
-  serviceType: ServiceTypeCode;
+  serviceType: "S1" | "S2";
   time: string;
   /** No admin-saved value yet -- showing the built-in placeholder. */
   isDefault: boolean;
 }
 
+/** Sunday has two regular liturgies; every other day has one. */
 export async function listStartTimes(locationId: string): Promise<StartTimeCell[]> {
   const saved = (await loadStartTimes([locationId])).get(locationId)!;
   const cells: StartTimeCell[] = [];
   for (let weekday = 0; weekday < 7; weekday++) {
-    for (const serviceType of SERVICE_TYPES) {
+    for (const serviceType of weekday === 0 ? (["S1", "S2"] as const) : (["S1"] as const)) {
       const time = saved.get(`${weekday}-${serviceType}`);
-      cells.push({ weekday, serviceType, time: time ?? defaultStartTime(weekday, serviceType), isDefault: time === undefined });
+      cells.push({
+        weekday,
+        serviceType,
+        time: time ?? defaultRegularStartTime(weekday, serviceType)!,
+        isDefault: time === undefined,
+      });
     }
   }
   return cells;
@@ -444,21 +701,22 @@ export async function listStartTimes(locationId: string): Promise<StartTimeCell[
 export async function setStartTimesForDay(
   locationId: string,
   weekday: number,
-  times: Record<ServiceTypeCode, string>
+  times: { S1: string; S2?: string }
 ): Promise<void> {
   if (!Number.isInteger(weekday) || weekday < 0 || weekday > 6) throw new Error("Invalid day");
-  for (const s of SERVICE_TYPES) {
-    if (!isValidTime(times[s])) throw new Error(`Enter a valid time for the ${SERVICE_LABELS[s]}`);
-  }
-  if (!(times.S1 < times.S2 && times.S2 < times.S3)) {
-    throw new Error("The 1st, 2nd and 3rd liturgy times need to be in order, each later than the one before");
+  if (!isValidTime(times.S1)) throw new Error("Enter a valid time for the 1st Liturgy");
+  const writes: [ServiceTypeCode, string][] = [["S1", times.S1]];
+  if (weekday === 0) {
+    if (!times.S2 || !isValidTime(times.S2)) throw new Error("Enter a valid time for the 2nd Liturgy");
+    if (!(times.S1 < times.S2)) throw new Error("The 2nd Liturgy has to start later than the 1st");
+    writes.push(["S2", times.S2]);
   }
   await withTransaction(async (client) => {
-    for (const s of SERVICE_TYPES) {
+    for (const [s, t] of writes) {
       await client.query(
         `insert into liturgy_start_times (location_id, weekday, service_type, start_time) values ($1, $2, $3, $4)
          on conflict (location_id, weekday, service_type) do update set start_time = excluded.start_time`,
-        [locationId, weekday, s, times[s]]
+        [locationId, weekday, s, t]
       );
     }
   });
@@ -473,8 +731,10 @@ export interface ExtraRow {
   locationId: string;
   locationName: string;
   date: string;
+  /** Its position in that day's order (1st/2nd/3rd) -- worked out, not stored. */
   serviceType: ServiceTypeCode;
   startTime: string;
+  startsEveningBefore: boolean;
   seriesId: string | null;
   hasRecord: boolean;
 }
@@ -483,36 +743,52 @@ function assertNotPast(date: string) {
   if (date < churchTodayISO()) throw new Error("Extra liturgies can only be added for today or a later date");
 }
 
-function nextFreeOrdinal(used: Set<ServiceTypeCode>): ServiceTypeCode | null {
-  return SERVICE_TYPES.find((s) => !used.has(s)) ?? null;
+function assertStartTime(startTime: string) {
+  if (!isValidTime(startTime)) throw new Error("Enter the time the liturgy starts");
 }
 
-/** Adds one extra liturgy to a church on a date, taking the next free ordinal (a weekday's extra is its 2nd, a Sunday's its 3rd). */
+/** Adds one extra liturgy to a church on a date. It gets its own start time, and its position (1st/2nd/3rd) follows from the day's order. */
 export async function addExtraLiturgy(
   locationId: string,
   date: string,
-  startTime: string | null,
+  startTime: string,
+  startsEveningBefore: boolean,
   createdBy: string | null
-): Promise<{ serviceType: ServiceTypeCode }> {
+): Promise<{ extraId: string; serviceType: ServiceTypeCode }> {
   assertNotPast(date);
-  if (startTime !== null && !isValidTime(startTime)) throw new Error("Enter a valid start time");
+  assertStartTime(startTime);
+  if (startsEveningBefore && date === churchTodayISO()) {
+    throw new Error("A liturgy that starts the evening before today would already have started");
+  }
   const { rows: loc } = await query<{ id: string }>(`select id from locations where id = $1 and status = 'Active'`, [locationId]);
   if (loc.length === 0) throw new Error("Choose an active church");
 
-  const items = (await loadSchedules([locationId], date)).get(locationId)!;
-  const free = nextFreeOrdinal(new Set(items.map((i) => i.serviceType)));
-  if (!free) throw new Error("That church already has 3 liturgies on that day, which is the most the app allows");
+  const ctx = await loadContext([locationId], [date]);
+  const before = scheduleFrom(ctx, locationId, date);
+  if (before.length >= MAX_LITURGIES_PER_DAY) {
+    throw new Error("That church already has 3 liturgies on that day, which is the most the app allows");
+  }
+  const after = scheduleFrom(ctx, locationId, date, {
+    addExtra: { id: "new", start_time: startTime, starts_evening_before: startsEveningBefore },
+  });
+  assertRecordedOrdinalsStable(before, after);
 
+  let extraId: string;
   try {
-    await query(
-      `insert into extra_liturgies (location_id, date, service_type, start_time, created_by) values ($1, $2, $3, $4, $5)`,
-      [locationId, date, free, startTime, createdBy]
+    const { rows } = await query<{ id: string }>(
+      `insert into extra_liturgies (location_id, date, start_time, starts_evening_before, created_by)
+       values ($1, $2, $3, $4, $5) returning id`,
+      [locationId, date, startTime, startsEveningBefore, createdBy]
     );
+    extraId = rows[0].id;
   } catch (err) {
-    if ((err as { code?: string }).code === "23505") throw new Error("Someone just added a liturgy for that day — please refresh and try again");
+    if ((err as { code?: string }).code === "23505") {
+      throw new Error("That church already has an extra liturgy at that time on that day");
+    }
     throw err;
   }
-  return { serviceType: free };
+  const serviceType = after.find((i) => i.slot === "x:new")!.serviceType;
+  return { extraId, serviceType };
 }
 
 export interface RecurringInput {
@@ -520,71 +796,70 @@ export interface RecurringInput {
   weekdays: number[];
   from: string;
   to: string;
-  startTime: string | null;
+  startTime: string;
+  startsEveningBefore: boolean;
 }
 
 export interface RecurringPlan {
-  planned: { locationId: string; date: string; serviceType: ServiceTypeCode }[];
+  planned: { locationId: string; date: string }[];
   skippedHasExtra: number;
   skippedFull: number;
+  skippedRecorded: number;
 }
 
 const MAX_SERIES_DAYS = 400;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** What a repeating add would do, without writing anything. Days that already have an extra at that church are skipped, so running it twice never doubles up. */
 export async function planRecurringExtras(input: RecurringInput): Promise<RecurringPlan> {
-  const { locationIds, weekdays, from, to, startTime } = input;
+  const { locationIds, weekdays, from, to, startTime, startsEveningBefore } = input;
   if (locationIds.length === 0) throw new Error("Choose at least one church");
   if (weekdays.length === 0 || weekdays.some((d) => !Number.isInteger(d) || d < 0 || d > 6)) {
     throw new Error("Choose at least one day of the week");
   }
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) throw new Error("Enter a start and end date");
+  if (!DATE_RE.test(from) || !DATE_RE.test(to)) throw new Error("Enter a start and end date");
   if (to < from) throw new Error("The end date is before the start date");
   assertNotPast(from);
-  if (startTime !== null && !isValidTime(startTime)) throw new Error("Enter a valid start time");
+  assertStartTime(startTime);
+  if (startsEveningBefore && from <= churchTodayISO()) {
+    throw new Error("A liturgy that starts the evening before can only be repeated from tomorrow onward");
+  }
 
   const dates: string[] = [];
-  for (let d = from; d <= to; d = addDays(d, 1)) {
+  for (let d = from; d <= to; d = addDaysISO(d, 1)) {
     if (dates.length > MAX_SERIES_DAYS) throw new Error(`Please keep a repeating series to ${MAX_SERIES_DAYS} days or fewer`);
     if (weekdays.includes(weekdayOfDateString(d))) dates.push(d);
   }
 
+  const uniqueLocations = [...new Set(locationIds)];
   const { rows: locs } = await query<{ id: string }>(
     `select id from locations where id = any($1) and status = 'Active'`,
-    [locationIds]
+    [uniqueLocations]
   );
-  if (locs.length !== new Set(locationIds).size) throw new Error("One of the chosen churches isn't active");
+  if (locs.length !== uniqueLocations.length) throw new Error("One of the chosen churches isn't active");
 
-  const [startDate, extras, existing] = await Promise.all([
-    getScheduleStartDate(),
-    query<{ location_id: string; date: string }>(
-      `select location_id, date from extra_liturgies where location_id = any($1) and date between $2 and $3`,
-      [locationIds, from, to]
-    ),
-    query<{ location_id: string; date: string; service_type: ServiceTypeCode }>(
-      `select location_id, date, service_type from liturgies where location_id = any($1) and date between $2 and $3`,
-      [locationIds, from, to]
-    ),
-  ]);
-  const hasExtra = new Set(extras.rows.map((e) => `${e.location_id}|${e.date}`));
-  const existingBy = new Map<string, ServiceTypeCode[]>();
-  for (const e of existing.rows) {
-    const k = `${e.location_id}|${e.date}`;
-    existingBy.set(k, [...(existingBy.get(k) ?? []), e.service_type]);
-  }
-
-  const plan: RecurringPlan = { planned: [], skippedHasExtra: 0, skippedFull: 0 };
-  for (const locationId of new Set(locationIds)) {
+  const ctx = dates.length ? await loadContext(uniqueLocations, dates) : null;
+  const plan: RecurringPlan = { planned: [], skippedHasExtra: 0, skippedFull: 0, skippedRecorded: 0 };
+  if (!ctx) return plan;
+  for (const locationId of uniqueLocations) {
     for (const date of dates) {
-      const key = `${locationId}|${date}`;
-      if (hasExtra.has(key)) {
+      if (ctx.extras.some((e) => e.location_id === locationId && e.date === date)) {
         plan.skippedHasExtra++;
         continue;
       }
-      const used = new Set<ServiceTypeCode>([...ruleServices(date, startDate), ...(existingBy.get(key) ?? [])]);
-      const free = nextFreeOrdinal(used);
-      if (!free) plan.skippedFull++;
-      else plan.planned.push({ locationId, date, serviceType: free });
+      const before = scheduleFrom(ctx, locationId, date);
+      if (before.length >= MAX_LITURGIES_PER_DAY) {
+        plan.skippedFull++;
+        continue;
+      }
+      const after = scheduleFrom(ctx, locationId, date, {
+        addExtra: { id: "new", start_time: startTime, starts_evening_before: startsEveningBefore },
+      });
+      if (!isStable(before, after)) {
+        plan.skippedRecorded++;
+        continue;
+      }
+      plan.planned.push({ locationId, date });
     }
   }
   return plan;
@@ -593,88 +868,85 @@ export async function planRecurringExtras(input: RecurringInput): Promise<Recurr
 export async function addRecurringExtras(
   input: RecurringInput,
   createdBy: string | null
-): Promise<{ created: number; skippedHasExtra: number; skippedFull: number }> {
+): Promise<{ created: number; skippedHasExtra: number; skippedFull: number; skippedRecorded: number }> {
   const plan = await planRecurringExtras(input);
-  if (plan.planned.length === 0) return { created: 0, skippedHasExtra: plan.skippedHasExtra, skippedFull: plan.skippedFull };
+  const { skippedHasExtra, skippedFull, skippedRecorded } = plan;
+  if (plan.planned.length === 0) return { created: 0, skippedHasExtra, skippedFull, skippedRecorded };
   const seriesId = crypto.randomUUID();
   const { rowCount } = await query(
-    `insert into extra_liturgies (location_id, date, service_type, start_time, series_id, created_by)
-     select loc, d::date, s, $4, $5::uuid, $6::uuid
-     from unnest($1::uuid[], $2::text[], $3::text[]) as t(loc, d, s)
-     on conflict (location_id, date, service_type) do nothing`,
+    `insert into extra_liturgies (location_id, date, start_time, starts_evening_before, series_id, created_by)
+     select loc, d::date, $3, $4, $5::uuid, $6::uuid
+     from unnest($1::uuid[], $2::text[]) as t(loc, d)
+     on conflict (location_id, date, starts_evening_before, start_time) do nothing`,
     [
       plan.planned.map((p) => p.locationId),
       plan.planned.map((p) => p.date),
-      plan.planned.map((p) => p.serviceType),
       input.startTime,
+      input.startsEveningBefore,
       seriesId,
       createdBy,
     ]
   );
-  return { created: rowCount ?? 0, skippedHasExtra: plan.skippedHasExtra, skippedFull: plan.skippedFull };
+  return { created: rowCount ?? 0, skippedHasExtra, skippedFull, skippedRecorded };
 }
 
+interface ExtraDbRow {
+  id: string;
+  location_id: string;
+  location_name: string;
+  date: string;
+  start_time: string;
+  starts_evening_before: boolean;
+  series_id: string | null;
+}
+
+const EXTRA_SELECT = `select e.id, e.location_id, loc.name as location_name, e.date, e.start_time,
+                             e.starts_evening_before, e.series_id
+                      from extra_liturgies e join locations loc on loc.id = e.location_id`;
+
 export async function listUpcomingExtras(): Promise<ExtraRow[]> {
-  const today = churchTodayISO();
-  const { rows } = await query<{
-    id: string;
-    location_id: string;
-    location_name: string;
-    date: string;
-    service_type: ServiceTypeCode;
-    start_time: string | null;
-    series_id: string | null;
-    has_record: boolean;
-  }>(
-    `select e.id, e.location_id, loc.name as location_name, e.date, e.service_type, e.start_time, e.series_id,
-            exists (select 1 from liturgies l join participation p on p.liturgy_id = l.id
-                    where l.date = e.date and l.location_id = e.location_id and l.service_type = e.service_type) as has_record
-     from extra_liturgies e join locations loc on loc.id = e.location_id
-     where e.date >= $1
-     order by e.date, loc.name, e.service_type`,
-    [today]
-  );
+  const { rows } = await query<ExtraDbRow>(`${EXTRA_SELECT} where e.date >= $1 order by e.date, loc.name, e.start_time`, [churchTodayISO()]);
   if (rows.length === 0) return [];
-  const times = await loadStartTimes([...new Set(rows.map((r) => r.location_id))]);
+  const ctx = await loadContext([...new Set(rows.map((r) => r.location_id))], [...new Set(rows.map((r) => r.date))]);
   return rows.map((r) => {
-    const weekday = weekdayOfDateString(r.date);
+    const item = scheduleFrom(ctx, r.location_id, r.date).find((i) => i.slot === `x:${r.id}`);
     return {
       id: r.id,
       locationId: r.location_id,
       locationName: r.location_name,
       date: r.date,
-      serviceType: r.service_type,
-      startTime: r.start_time ?? times.get(r.location_id)!.get(`${weekday}-${r.service_type}`) ?? defaultStartTime(weekday, r.service_type),
+      serviceType: item?.serviceType ?? "S2",
+      startTime: r.start_time,
+      startsEveningBefore: r.starts_evening_before,
       seriesId: r.series_id,
-      hasRecord: r.has_record,
+      hasRecord: item?.hasRecord ?? false,
     };
   });
 }
 
-const HAS_RECORDS_SQL = `exists (select 1 from liturgies l join participation p on p.liturgy_id = l.id
-  where l.date = e.date and l.location_id = e.location_id and l.service_type = e.service_type)`;
-
 export async function removeExtra(id: string): Promise<void> {
-  const { rows } = await query<{ has_record: boolean }>(
-    `select ${HAS_RECORDS_SQL} as has_record from extra_liturgies e where e.id = $1`,
-    [id]
-  );
+  const { rows } = await query<ExtraDbRow>(`${EXTRA_SELECT} where e.id = $1`, [id]);
   if (rows.length === 0) return;
-  if (rows[0].has_record) throw new Error("That liturgy already has attendance recorded, so it can't be removed");
+  const r = rows[0];
+  const ctx = await loadContext([r.location_id], [r.date]);
+  const before = scheduleFrom(ctx, r.location_id, r.date);
+  const mine = before.find((i) => i.slot === `x:${id}`);
+  if (mine?.hasRecord) throw new Error("That liturgy already has attendance recorded, so it can't be removed");
+  assertRecordedOrdinalsStable(before, scheduleFrom(ctx, r.location_id, r.date, { removeExtraId: id }));
   await query(`delete from extra_liturgies where id = $1`, [id]);
 }
 
-/** Removes every upcoming date in a series that has no attendance yet; returns how many were removed and how many kept. */
+/** Removes every upcoming date in a series that can go (no attendance on it, and removing it wouldn't renumber a recorded liturgy); returns how many were removed and how many kept. */
 export async function removeExtraSeries(seriesId: string): Promise<{ removed: number; kept: number }> {
-  const today = churchTodayISO();
-  const { rowCount: removed } = await query(
-    `delete from extra_liturgies e
-     where e.series_id = $1 and e.date >= $2 and not ${HAS_RECORDS_SQL}`,
-    [seriesId, today]
-  );
-  const { rows } = await query<{ n: string }>(
-    `select count(*) as n from extra_liturgies where series_id = $1 and date >= $2`,
-    [seriesId, today]
-  );
-  return { removed: removed ?? 0, kept: Number(rows[0].n) };
+  const { rows } = await query<ExtraDbRow>(`${EXTRA_SELECT} where e.series_id = $1 and e.date >= $2`, [seriesId, churchTodayISO()]);
+  if (rows.length === 0) return { removed: 0, kept: 0 };
+  const ctx = await loadContext([...new Set(rows.map((r) => r.location_id))], [...new Set(rows.map((r) => r.date))]);
+  const removable: string[] = [];
+  for (const r of rows) {
+    const before = scheduleFrom(ctx, r.location_id, r.date);
+    if (before.find((i) => i.slot === `x:${r.id}`)?.hasRecord) continue;
+    if (isStable(before, scheduleFrom(ctx, r.location_id, r.date, { removeExtraId: r.id }))) removable.push(r.id);
+  }
+  if (removable.length) await query(`delete from extra_liturgies where id = any($1::uuid[])`, [removable]);
+  return { removed: removable.length, kept: rows.length - removable.length };
 }

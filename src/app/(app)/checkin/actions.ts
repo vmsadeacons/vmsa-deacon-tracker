@@ -15,15 +15,16 @@ export async function getTodaySnapshotAction() {
   return getTodaySnapshot();
 }
 
-/** Force a liturgy open or closed for check-in today; null puts it back on the automatic schedule. */
+/** Force a liturgy open or closed for check-in; null puts it back on the automatic schedule. */
 export async function setLockOverrideAction(
   locationId: string,
+  date: string,
   serviceType: ServiceTypeCode,
   state: OverrideState | null
 ) {
   const session = await assertAdmin();
   try {
-    await setLockOverride(locationId, serviceType, state, session.user.id);
+    await setLockOverride(locationId, date, serviceType, state, session.user.id);
     revalidatePath("/checkin");
     return { ok: true as const, snapshot: await getTodaySnapshot() };
   } catch (err) {

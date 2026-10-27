@@ -1,5 +1,6 @@
 "use client";
 
+import AccessNote, { ACCESS } from "./AccessNote";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import ByLiturgyTab from "./reports/ByLiturgyTab";
@@ -55,6 +56,7 @@ export default function ReportsClient({
   return (
     <div>
       <h1>Reports & Analytics</h1>
+      <AccessNote>{ACCESS.adminsView}</AccessNote>
       <div className="tabs">
         {TABS.map((t) => (
           <button key={t.id} className={`tab ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>

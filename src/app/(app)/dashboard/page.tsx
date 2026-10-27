@@ -5,6 +5,7 @@ import { getRecentLiturgiesByLocation } from "@/lib/repo/liturgies";
 import { listLocations } from "@/lib/repo/locations";
 import DashboardStatTiles from "@/components/DashboardStatTiles";
 import RecentActivityTable from "@/components/RecentActivityTable";
+import AccessNote, { ACCESS } from "@/components/AccessNote";
 
 export default async function DashboardPage() {
   await requireAdmin();
@@ -17,6 +18,7 @@ export default async function DashboardPage() {
   return (
     <div>
       <h1>Dashboard</h1>
+      <AccessNote>{ACCESS.adminsView}</AccessNote>
 
       <div className="quick-actions">
         <Link href="/record" className="btn btn-primary">

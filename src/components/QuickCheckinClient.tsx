@@ -552,6 +552,7 @@ export default function QuickCheckinClient() {
                 <p style={{ fontSize: "1.3rem", color: "var(--wine)", marginTop: "0.6rem" }}>{summaryLabel}</p>
                 <p className="muted" style={{ fontSize: "0.95rem", marginTop: "0.3rem" }}>
                   Starts {formatTime12(open.startTime)}
+                  {open.startsEveningBefore ? " the evening before" : ""}
                 </p>
               </>
             ) : (
@@ -562,6 +563,7 @@ export default function QuickCheckinClient() {
                 {liturgy?.next && (
                   <p style={{ fontSize: "1.2rem", color: "var(--wine)", marginTop: "0.6rem" }}>
                     {SERVICE_LABELS[liturgy.next.serviceType]} opens at {formatTime12(liturgy.next.opensAt)}
+                    {liturgy.next.opensTomorrow ? " tomorrow" : ""}
                   </p>
                 )}
               </>

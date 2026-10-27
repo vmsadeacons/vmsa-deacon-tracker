@@ -1,5 +1,6 @@
 "use client";
 
+import AccessNote, { ACCESS } from "./AccessNote";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ChipMultiSelect from "./ChipMultiSelect";
@@ -83,6 +84,7 @@ export default function MyProfileClient({
   return (
     <div>
       <h1>My Profile</h1>
+      <AccessNote>{ACCESS.myProfile}</AccessNote>
       <div className="card">
         <PhotoEditor
           photoSrc={hasPhoto ? `/api/deacons/${deacon.id}/photo?v=${encodeURIComponent(`${deacon.updated_at}.${photoVersion}`)}` : null}

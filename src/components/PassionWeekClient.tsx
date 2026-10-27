@@ -1,5 +1,6 @@
 "use client";
 
+import AccessNote, { ACCESS } from "./AccessNote";
 import { useEffect, useState } from "react";
 import type { LocationRow } from "@/lib/repo/locations";
 import type { DeaconLite } from "@/lib/repo/deacons";
@@ -87,6 +88,7 @@ export default function PassionWeekClient({
   return (
     <div>
       <h1>Passion Week</h1>
+      <AccessNote>{ACCESS.adminsEdit}</AccessNote>
 
       <div className="card">
         <div className="step-header">1 · Which service?</div>

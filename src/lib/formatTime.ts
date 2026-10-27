@@ -13,3 +13,19 @@ export function minutesToHHMM(totalMinutes: number): string {
   const m = clamped % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
+
+/** Minutes on a rolling clock (can be negative or past 24h, e.g. a window that opens the evening before) -> "HH:MM" on the 24-hour wall clock. */
+export function wrapMinutesToHHMM(totalMinutes: number): string {
+  const wrapped = ((totalMinutes % 1440) + 1440) % 1440;
+  return `${String(Math.floor(wrapped / 60)).padStart(2, "0")}:${String(wrapped % 60).padStart(2, "0")}`;
+}
+
+/** 30 -> "30 minutes", 60 -> "1 hour", 90 -> "1 hour 30 minutes", 180 -> "3 hours". */
+export function describeMinutes(total: number): string {
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  const parts: string[] = [];
+  if (h > 0) parts.push(`${h} hour${h === 1 ? "" : "s"}`);
+  if (m > 0 || h === 0) parts.push(`${m} minute${m === 1 ? "" : "s"}`);
+  return parts.join(" ");
+}

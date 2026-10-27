@@ -4,29 +4,29 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { LocationRow } from "@/lib/repo/locations";
 import type { StartTimeCell } from "@/lib/repo/liturgySchedule";
-import { SERVICE_TYPES, SERVICE_LABELS, type ServiceTypeCode } from "@/lib/constants";
 import { WEEKDAY_NAMES } from "@/lib/timezone";
-import { setStartTimesForDayAction } from "@/app/(app)/settings/actions";
+import { describeMinutes } from "@/lib/formatTime";
+import { setStartTimesForDayAction } from "@/lib/actions/schedule";
 
-type DayTimes = Record<ServiceTypeCode, string>;
+type DayTimes = { S1: string; S2?: string };
 
 function draftsFor(cells: StartTimeCell[]): Record<number, DayTimes> {
   const out: Record<number, DayTimes> = {};
   for (const c of cells) {
-    out[c.weekday] = { ...(out[c.weekday] ?? ({} as DayTimes)), [c.serviceType]: c.time };
+    out[c.weekday] = { ...(out[c.weekday] ?? { S1: "" }), [c.serviceType]: c.time };
   }
   return out;
 }
 
-/** The start time of every liturgy, per church and weekday -- check-in opens 30 minutes before each one. */
+/** When each church's regular liturgies start: one on every day, two on Sunday. Extras have their own times (see Extra Liturgies). */
 export default function LiturgyStartTimesCard({
   locations,
   startTimesByLocation,
-  canEdit,
+  openBefore,
 }: {
   locations: LocationRow[];
   startTimesByLocation: Record<string, StartTimeCell[]>;
-  canEdit: boolean;
+  openBefore: number;
 }) {
   const router = useRouter();
   const active = locations.filter((l) => l.status === "Active");
@@ -54,17 +54,16 @@ export default function LiturgyStartTimesCard({
     router.refresh();
   }
 
-  const isDefault = (weekday: number, s: ServiceTypeCode) =>
+  const isDefault = (weekday: number, s: "S1" | "S2") =>
     cells.find((c) => c.weekday === weekday && c.serviceType === s)?.isDefault ?? true;
 
   return (
     <div className="card">
       <h3>Liturgy Start Times</h3>
       <p className="muted" style={{ marginBottom: "1rem" }}>
-        When each liturgy starts, for each church and day of the week. Check-in for a liturgy opens 30 minutes before it
-        starts and closes when the next one opens (or about 3 hours after it starts). A liturgy added as an extra takes
-        the time for its position on that day, so the 3rd Liturgy time is used on days with a third liturgy. Times marked
-        &ldquo;default&rdquo; are placeholders — press Save on a day to confirm its times.
+        When each church&apos;s regular liturgies start: one on every day, and two on Sunday. Check-in for a liturgy opens{" "}
+        {describeMinutes(openBefore)} before it starts. An extra liturgy has its own start time, set when it&apos;s added.
+        Times marked &ldquo;default&rdquo; are placeholders — press Save on a day to confirm its times.
       </p>
       <div className="field" style={{ maxWidth: 320, marginBottom: "1rem" }}>
         <label>Location</label>
@@ -82,9 +81,8 @@ export default function LiturgyStartTimesCard({
           <thead>
             <tr>
               <th>Day</th>
-              {SERVICE_TYPES.map((s) => (
-                <th key={s}>{SERVICE_LABELS[s]}</th>
-              ))}
+              <th>1st Liturgy</th>
+              <th>2nd Liturgy</th>
               <th></th>
             </tr>
           </thead>
@@ -92,27 +90,30 @@ export default function LiturgyStartTimesCard({
             {WEEKDAY_NAMES.map((name, weekday) => (
               <tr key={weekday}>
                 <td>{name}</td>
-                {SERVICE_TYPES.map((s) => (
-                  <td key={s}>
-                    <input
-                      type="time"
-                      value={drafts[weekday]?.[s] ?? ""}
-                      disabled={!canEdit}
-                      onChange={(e) =>
-                        setDrafts((d) => ({ ...d, [weekday]: { ...d[weekday], [s]: e.target.value } }))
-                      }
-                    />
-                    {isDefault(weekday, s) && (
-                      <div className="muted" style={{ fontSize: "0.75rem" }}>default</div>
-                    )}
-                  </td>
-                ))}
                 <td>
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    disabled={!canEdit || savingDay === weekday}
-                    onClick={() => save(weekday)}
-                  >
+                  <input
+                    type="time"
+                    value={drafts[weekday]?.S1 ?? ""}
+                    onChange={(e) => setDrafts((d) => ({ ...d, [weekday]: { ...d[weekday], S1: e.target.value } }))}
+                  />
+                  {isDefault(weekday, "S1") && <div className="muted" style={{ fontSize: "0.75rem" }}>default</div>}
+                </td>
+                <td>
+                  {weekday === 0 ? (
+                    <>
+                      <input
+                        type="time"
+                        value={drafts[weekday]?.S2 ?? ""}
+                        onChange={(e) => setDrafts((d) => ({ ...d, [weekday]: { ...d[weekday], S2: e.target.value } }))}
+                      />
+                      {isDefault(weekday, "S2") && <div className="muted" style={{ fontSize: "0.75rem" }}>default</div>}
+                    </>
+                  ) : (
+                    <span className="muted">—</span>
+                  )}
+                </td>
+                <td>
+                  <button className="btn btn-secondary btn-sm" disabled={savingDay === weekday} onClick={() => save(weekday)}>
                     Save
                   </button>
                 </td>
@@ -121,7 +122,6 @@ export default function LiturgyStartTimesCard({
           </tbody>
         </table>
       </div>
-      {!canEdit && <p className="muted" style={{ marginTop: "0.5rem" }}>Only a System Admin can make changes here.</p>}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import Modal from "./Modal";
 import RosterPicker from "./RosterPicker";
 import SingleRosterPickerModal from "./SingleRosterPickerModal";
 import SpecialFeastControl from "./SpecialFeastControl";
+import AccessNote, { ACCESS } from "./AccessNote";
 import type { LocationRow } from "@/lib/repo/locations";
 import type { ActivityRow } from "@/lib/repo/activities";
 import type { DeaconLite } from "@/lib/repo/deacons";
@@ -58,6 +59,9 @@ export default function RecordLiturgyClient({
   const [locationId, setLocationId] = useState(initialLocationId);
   const [serviceType, setServiceType] = useState(initialServiceType);
   const [liturgyId, setLiturgyId] = useState(initialLiturgyId);
+  // The scheduled liturgies for the chosen date + church (kept up to date by the picker),
+  // used to know which deacon preferences the selected liturgy satisfies.
+  const [serviceOptions, setServiceOptions] = useState(initialServiceOptions);
   const [context, setContext] = useState(initialContext);
   const [showMore, setShowMore] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -111,7 +115,7 @@ export default function RecordLiturgyClient({
 
   const attendeeIds = context?.attendeeIds ?? [];
   const servicePrefCodes = [
-    ...liturgyPrefMatchCodes(date, serviceType),
+    ...(serviceOptions.find((o) => o.serviceType === serviceType)?.prefCodes ?? liturgyPrefMatchCodes(date, serviceType)),
     ...(context?.isSpecialFeast ? ["Feast"] : []),
   ];
   const activeCandidates = deacons.filter(
@@ -249,6 +253,7 @@ export default function RecordLiturgyClient({
   return (
     <div>
       <h1>Record a Liturgy</h1>
+      <AccessNote>{ACCESS.adminsEdit}</AccessNote>
 
       <div className="card">
         <div className="step-header">1 · Which liturgy?</div>
@@ -259,6 +264,7 @@ export default function RecordLiturgyClient({
           locations={locations}
           onChange={handleFieldChange}
           initialOptions={initialServiceOptions}
+          onOptions={setServiceOptions}
           allowAddExtra
         />
         <SpecialFeastControl

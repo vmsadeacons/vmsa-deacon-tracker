@@ -10,13 +10,11 @@ import type { PWActivityRow } from "@/lib/repo/passionWeekActivities";
 import type { RankRow } from "@/lib/repo/ranks";
 import type { FeastNameRow } from "@/lib/repo/feastNames";
 import type { DayFilterOptionRow } from "@/lib/repo/dayFilterOptions";
-import type { StartTimeCell, ExtraRow } from "@/lib/repo/liturgySchedule";
 import type { DeaconLite } from "@/lib/repo/deacons";
 import type { MergeLogRow } from "@/lib/repo/mergeDeacons";
 import { WEEKDAY_NAMES } from "@/lib/timezone";
 import MergeDeaconsCard from "./MergeDeaconsCard";
-import LiturgyStartTimesCard from "./LiturgyStartTimesCard";
-import ExtraLiturgiesCard from "./ExtraLiturgiesCard";
+import AccessNote, { ACCESS } from "./AccessNote";
 import {
   createLocationAction,
   updateLocationAction,
@@ -994,8 +992,6 @@ export default function SettingsClient({
   ranks,
   feastNames,
   dayFilterOptions,
-  startTimesByLocation,
-  upcomingExtras,
   deacons,
   mergeLog,
   canEdit,
@@ -1007,15 +1003,14 @@ export default function SettingsClient({
   ranks: RankRow[];
   feastNames: FeastNameRow[];
   dayFilterOptions: DayFilterOptionRow[];
-  startTimesByLocation: Record<string, StartTimeCell[]>;
-  upcomingExtras: ExtraRow[];
   deacons: DeaconLite[];
   mergeLog: MergeLogRow[];
   canEdit: boolean;
 }) {
   return (
     <div>
-      <h1>Settings</h1>
+      <h1>System Settings</h1>
+      <AccessNote>{ACCESS.settings}</AccessNote>
       <ServiceSuggestionsCard settings={settings} canEdit={canEdit} />
       <AgeGroupsCard settings={settings} canEdit={canEdit} />
       <RanksCard ranks={ranks} canEdit={canEdit} />
@@ -1025,8 +1020,6 @@ export default function SettingsClient({
       <DayFiltersCard dayFilterOptions={dayFilterOptions} canEdit={canEdit} />
       <FeastNamesCard feastNames={feastNames} canEdit={canEdit} />
       <QuickCheckinLocationsCard locations={locations} canEdit={canEdit} />
-      <LiturgyStartTimesCard locations={locations} startTimesByLocation={startTimesByLocation} canEdit={canEdit} />
-      <ExtraLiturgiesCard locations={locations} upcoming={upcomingExtras} />
       <MergeDeaconsCard deacons={deacons} locations={locations} mergeLog={mergeLog} canEdit={canEdit} />
     </div>
   );

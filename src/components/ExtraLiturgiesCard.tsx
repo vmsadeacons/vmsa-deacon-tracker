@@ -26,12 +26,17 @@ function fmtDate(d: string): string {
   });
 }
 
+const timeText = (r: Pick<ExtraRow, "startTime" | "startsEveningBefore">) =>
+  `${formatTime12(r.startTime)}${r.startsEveningBefore ? " the evening before" : ""}`;
+
 interface Group {
   key: string;
   rows: ExtraRow[];
 }
 
-/** Adds extra liturgies on top of the default schedule -- one day, or the same weekdays across a date range in one go. */
+type Preview = { willAdd: number; skippedHasExtra: number; skippedFull: number; skippedRecorded: number };
+
+/** Adds extra liturgies on top of the regular schedule -- one day, or the same weekdays across a date range in one go. Every extra has its own start time. */
 export default function ExtraLiturgiesCard({ locations, upcoming }: { locations: LocationRow[]; upcoming: ExtraRow[] }) {
   const router = useRouter();
   const active = locations.filter((l) => l.status === "Active");
@@ -42,10 +47,11 @@ export default function ExtraLiturgiesCard({ locations, upcoming }: { locations:
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [startTime, setStartTime] = useState("");
+  const [eveningBefore, setEveningBefore] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [preview, setPreview] = useState<{ willAdd: number; skippedHasExtra: number; skippedFull: number } | null>(null);
+  const [preview, setPreview] = useState<Preview | null>(null);
 
   const groups = useMemo<Group[]>(() => {
     const byKey = new Map<string, ExtraRow[]>();
@@ -68,7 +74,8 @@ export default function ExtraLiturgiesCard({ locations, upcoming }: { locations:
     weekdays,
     from,
     to,
-    startTime: startTime || null,
+    startTime,
+    startsEveningBefore: eveningBefore,
   });
 
   async function handlePreview() {
@@ -77,7 +84,14 @@ export default function ExtraLiturgiesCard({ locations, upcoming }: { locations:
     const res = await planRecurringExtrasAction(recurringInput());
     setBusy(false);
     if (!res.ok) setError(res.error);
-    else setPreview({ willAdd: res.willAdd, skippedHasExtra: res.skippedHasExtra, skippedFull: res.skippedFull });
+    else {
+      setPreview({
+        willAdd: res.willAdd,
+        skippedHasExtra: res.skippedHasExtra,
+        skippedFull: res.skippedFull,
+        skippedRecorded: res.skippedRecorded,
+      });
+    }
   }
 
   async function handleAddRepeating() {
@@ -98,11 +112,12 @@ export default function ExtraLiturgiesCard({ locations, upcoming }: { locations:
     resetFeedback();
     if (churchIds.length === 0) return setError("Choose at least one church");
     if (!date) return setError("Choose a date");
+    if (!startTime) return setError("Enter the time the liturgy starts");
     setBusy(true);
     let added = 0;
     const failures: string[] = [];
     for (const id of churchIds) {
-      const res = await addExtraLiturgyAction(id, date, startTime || null);
+      const res = await addExtraLiturgyAction(id, date, startTime, eveningBefore);
       if (res.ok) added++;
       else failures.push(`${active.find((l) => l.id === id)?.name ?? "Church"}: ${res.error}`);
     }
@@ -128,19 +143,27 @@ export default function ExtraLiturgiesCard({ locations, upcoming }: { locations:
     else {
       setMessage(
         `Removed ${res.removed} upcoming extra liturgies.` +
-          (res.kept > 0 ? ` ${res.kept} already have attendance recorded and were kept.` : "")
+          (res.kept > 0 ? ` ${res.kept} could not be removed because attendance is recorded on or after them, and were kept.` : "")
       );
     }
     router.refresh();
   }
+
+  const skippedText = (p: Preview) =>
+    [
+      p.skippedHasExtra > 0 ? `${p.skippedHasExtra} day(s) that already have an extra` : null,
+      p.skippedFull > 0 ? `${p.skippedFull} day(s) that already have 3 liturgies` : null,
+      p.skippedRecorded > 0 ? `${p.skippedRecorded} day(s) where it would renumber a liturgy that already has attendance` : null,
+    ].filter(Boolean);
 
   return (
     <div className="card">
       <h3>Extra Liturgies</h3>
       <p className="muted" style={{ marginBottom: "1rem" }}>
         Every church has 1 liturgy a day, and 2 on Sundays. Add an extra liturgy to one day (Sundays included, up to 3 in
-        a day), or the same days of the week across a stretch of dates in one go. An extra gets that day&apos;s default
-        start time for its position unless you set a time below. You can also add one for today from the Check-in page.
+        a day), or the same days of the week across a stretch of dates in one go. Every extra has its own start time. A
+        midnight liturgy held the night before can be marked &ldquo;starts the evening before&rdquo; so it counts for the
+        day after; it then becomes that day&apos;s 1st liturgy. You can also add one for today at the top of this page.
       </p>
 
       <div style={{ display: "flex", gap: "1.25rem", marginBottom: "1rem", flexWrap: "wrap" }}>
@@ -197,14 +220,24 @@ export default function ExtraLiturgiesCard({ locations, upcoming }: { locations:
           </>
         )}
         <div className="field">
-          <label>Start time (optional)</label>
+          <label>Start time</label>
           <input type="time" value={startTime} onChange={(e) => { setStartTime(e.target.value); setPreview(null); }} />
         </div>
       </div>
 
+      <label style={{ display: "flex", alignItems: "flex-start", gap: "0.45rem", marginBottom: "1rem", fontSize: "0.9rem" }}>
+        <input
+          type="checkbox"
+          style={{ marginTop: "0.2rem" }}
+          checked={eveningBefore}
+          onChange={(e) => { setEveningBefore(e.target.checked); setPreview(null); }}
+        />
+        <span>Starts the evening before (a midnight liturgy that counts for the day after)</span>
+      </label>
+
       {mode === "repeat" && (
         <div className="field" style={{ marginBottom: "1rem" }}>
-          <label>On these days</label>
+          <label>On these days{eveningBefore ? " (the day each liturgy counts for)" : ""}</label>
           <div style={{ display: "flex", gap: "0.4rem 1rem", flexWrap: "wrap" }}>
             {WEEKDAY_NAMES.map((name, i) => (
               <label key={i} style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
@@ -231,8 +264,7 @@ export default function ExtraLiturgiesCard({ locations, upcoming }: { locations:
         <div>
           <p style={{ marginBottom: "0.6rem" }}>
             This will add <strong>{preview.willAdd}</strong> extra liturgies
-            {preview.skippedHasExtra > 0 && <>, skipping {preview.skippedHasExtra} day(s) that already have an extra</>}
-            {preview.skippedFull > 0 && <>, and {preview.skippedFull} day(s) that already have 3 liturgies</>}.
+            {skippedText(preview).length > 0 && <>, skipping {skippedText(preview).join(", and ")}</>}.
           </p>
           <div style={{ display: "flex", gap: "0.6rem" }}>
             <button className="btn btn-primary" disabled={busy || preview.willAdd === 0} onClick={handleAddRepeating}>
@@ -273,7 +305,7 @@ export default function ExtraLiturgiesCard({ locations, upcoming }: { locations:
                   return g.rows.map((r) => (
                     <tr key={r.id}>
                       <td>{r.locationName}</td>
-                      <td>{fmtDate(r.date)} · {formatTime12(r.startTime)}</td>
+                      <td>{fmtDate(r.date)} · {timeText(r)}</td>
                       <td>{SERVICE_LABELS[r.serviceType]}</td>
                       <td>
                         <button className="btn btn-secondary btn-sm" disabled={r.hasRecord} title={r.hasRecord ? "Already has attendance" : ""} onClick={() => removeOne(r.id)}>
@@ -289,7 +321,7 @@ export default function ExtraLiturgiesCard({ locations, upcoming }: { locations:
                     <td>
                       Repeating · {days.map((d) => WEEKDAY_NAMES[d].slice(0, 3)).join(", ")}
                       <div className="muted" style={{ fontSize: "0.8rem" }}>
-                        {fmtDate(first.date)} – {fmtDate(last.date)} · {g.rows.length} dates · {formatTime12(first.startTime)}
+                        {fmtDate(first.date)} – {fmtDate(last.date)} · {g.rows.length} dates · {timeText(first)}
                       </div>
                       <details style={{ marginTop: "0.3rem" }}>
                         <summary className="muted" style={{ cursor: "pointer", fontSize: "0.8rem" }}>Show dates</summary>

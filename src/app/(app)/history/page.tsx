@@ -2,6 +2,7 @@ import { requireSession } from "@/lib/authz";
 import { getDeaconHistory } from "@/lib/repo/reports";
 import { listPWActivities } from "@/lib/repo/passionWeekActivities";
 import HistoryTables from "@/components/HistoryTables";
+import AccessNote, { ACCESS } from "@/components/AccessNote";
 
 export default async function HistoryPage() {
   const session = await requireSession();
@@ -21,6 +22,7 @@ export default async function HistoryPage() {
   return (
     <div>
       <h1>My History</h1>
+      <AccessNote>{ACCESS.myHistory}</AccessNote>
       <div className="card">
         <p className="muted" style={{ marginBottom: 0 }}>
           Name: <strong>{session.user.name}</strong>

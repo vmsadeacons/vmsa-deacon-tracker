@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { TodayLocation } from "@/lib/repo/liturgySchedule";
+import type { TodayLocation, WindowSettings } from "@/lib/repo/liturgySchedule";
 import type { ServiceTypeCode } from "@/lib/constants";
 import { getTodaySnapshotAction, setLockOverrideAction } from "@/app/(app)/checkin/actions";
-import { addExtraLiturgyAction } from "@/lib/actions/schedule";
 import { weekdayLabel } from "@/lib/timezone";
-import { formatTime12 } from "@/lib/formatTime";
+import { formatTime12, describeMinutes } from "@/lib/formatTime";
+import AccessNote, { ACCESS } from "./AccessNote";
+import AddExtraInline from "./AddExtraInline";
 
 type Snapshot = { date: string; locations: TodayLocation[] };
 
@@ -18,7 +19,8 @@ const STATUS_BADGE: Record<string, { className: string; text: string }> = {
   closed: { className: "badge badge-amber", text: "Closed" },
 };
 
-export default function CheckinControlClient({ initial }: { initial: Snapshot }) {
+/** The top of the Check-in windows page: what's open right now at every church, with manual open/close. */
+export default function CheckinControlClient({ initial, windows }: { initial: Snapshot; windows: WindowSettings }) {
   const [snapshot, setSnapshot] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -35,12 +37,17 @@ export default function CheckinControlClient({ initial }: { initial: Snapshot })
     return () => clearInterval(id);
   }, []);
 
-  async function setOverride(locationId: string, serviceType: ServiceTypeCode, state: "open" | "closed" | null) {
-    const key = `${locationId}|${serviceType}`;
+  async function setOverride(
+    locationId: string,
+    date: string,
+    serviceType: ServiceTypeCode,
+    state: "open" | "closed" | null
+  ) {
+    const key = `${locationId}|${date}|${serviceType}`;
     busyRef.current = true;
     setBusyKey(key);
     setError(null);
-    const res = await setLockOverrideAction(locationId, serviceType, state);
+    const res = await setLockOverrideAction(locationId, date, serviceType, state);
     busyRef.current = false;
     setBusyKey(null);
     if (!res.ok) {
@@ -50,41 +57,30 @@ export default function CheckinControlClient({ initial }: { initial: Snapshot })
     setSnapshot(res.snapshot);
   }
 
-  async function addExtra(locationId: string) {
-    const key = `${locationId}|add`;
-    busyRef.current = true;
-    setBusyKey(key);
-    setError(null);
-    const res = await addExtraLiturgyAction(locationId, snapshot.date, null);
-    if (!res.ok) setError(res.error);
-    else setSnapshot(await getTodaySnapshotAction());
-    busyRef.current = false;
-    setBusyKey(null);
-  }
-
   return (
     <div>
-      <h1>Check-in</h1>
+      <h1>Check-in windows</h1>
+      <AccessNote>{ACCESS.adminsEdit}</AccessNote>
       <p className="muted" style={{ marginBottom: "1rem" }}>
         {weekdayLabel(snapshot.date)}, {snapshot.date}. Deacons check in through Agios Check-in, which always puts them
-        into the one liturgy that is open at their church. A liturgy opens 30 minutes before it starts and closes when the
-        next one opens. Use the buttons to open or close one by hand; admins can always record any liturgy in Record a
-        Liturgy regardless.
+        into the one liturgy that is open at their church. A liturgy opens {describeMinutes(windows.openBefore)} before it
+        starts and closes {describeMinutes(windows.closeAfter)} after it starts, or when the next liturgy opens,
+        whichever comes first. Use the buttons to open or close one by hand; admins can always record any liturgy in
+        Record a Liturgy regardless.
       </p>
       {error && <p className="error-text" style={{ marginBottom: "0.75rem" }}>{error}</p>}
 
       {snapshot.locations.map((loc) => (
         <div className="card" key={loc.locationId}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
             <h3 style={{ margin: 0 }}>{loc.name}</h3>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              disabled={loc.liturgies.length >= 3 || busyKey === `${loc.locationId}|add`}
-              onClick={() => addExtra(loc.locationId)}
-            >
-              {busyKey === `${loc.locationId}|add` ? "Adding…" : "+ Add another liturgy today"}
-            </button>
+            <AddExtraInline
+              locationId={loc.locationId}
+              date={snapshot.date}
+              label="+ Add another liturgy today"
+              disabled={loc.liturgies.filter((l) => !l.forAnotherDay).length >= 3}
+              onAdded={async () => setSnapshot(await getTodaySnapshotAction())}
+            />
           </div>
           <div className="table-wrap" style={{ marginTop: "0.75rem" }}>
             <table className="table">
@@ -99,16 +95,22 @@ export default function CheckinControlClient({ initial }: { initial: Snapshot })
               </thead>
               <tbody>
                 {loc.liturgies.map((l) => {
-                  const key = `${loc.locationId}|${l.serviceType}`;
+                  const key = `${loc.locationId}|${l.date}|${l.serviceType}`;
                   const badge = STATUS_BADGE[l.status];
                   const busy = busyKey === key;
                   return (
-                    <tr key={l.serviceType}>
+                    <tr key={key}>
                       <td>
                         {l.label}
                         {l.isExtra && <span className="muted"> (extra)</span>}
+                        {l.forAnotherDay && (
+                          <div className="muted" style={{ fontSize: "0.8rem" }}>for {weekdayLabel(l.date)}</div>
+                        )}
                       </td>
-                      <td>{formatTime12(l.startTime)}</td>
+                      <td>
+                        {l.startTime ? formatTime12(l.startTime) : "—"}
+                        {l.startsEveningBefore && <div className="muted" style={{ fontSize: "0.8rem" }}>the evening before</div>}
+                      </td>
                       <td>
                         <span className={badge.className}>{badge.text}</span>
                         <div className="muted" style={{ fontSize: "0.8rem", marginTop: "0.2rem" }}>{l.note}</div>
@@ -121,7 +123,7 @@ export default function CheckinControlClient({ initial }: { initial: Snapshot })
                               type="button"
                               className="btn btn-primary btn-sm"
                               disabled={busy}
-                              onClick={() => setOverride(loc.locationId, l.serviceType, "open")}
+                              onClick={() => setOverride(loc.locationId, l.date, l.serviceType, "open")}
                             >
                               Open now
                             </button>
@@ -131,7 +133,7 @@ export default function CheckinControlClient({ initial }: { initial: Snapshot })
                               type="button"
                               className="btn btn-secondary btn-sm"
                               disabled={busy}
-                              onClick={() => setOverride(loc.locationId, l.serviceType, "closed")}
+                              onClick={() => setOverride(loc.locationId, l.date, l.serviceType, "closed")}
                             >
                               Close now
                             </button>
@@ -141,7 +143,7 @@ export default function CheckinControlClient({ initial }: { initial: Snapshot })
                               type="button"
                               className="btn btn-secondary btn-sm"
                               disabled={busy}
-                              onClick={() => setOverride(loc.locationId, l.serviceType, null)}
+                              onClick={() => setOverride(loc.locationId, l.date, l.serviceType, null)}
                             >
                               Back to automatic
                             </button>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireAdmin } from "@/lib/authz";
+import AccessNote, { ACCESS } from "@/components/AccessNote";
 import { listProfileUpdates, listOverrideRequests } from "@/lib/repo/publicProfile";
 import MemberUpdatesTable from "@/components/MemberUpdatesTable";
 import OverrideRequestsTable from "@/components/OverrideRequestsTable";
@@ -14,6 +15,7 @@ export default async function MemberUpdatesPage() {
   return (
     <div>
       <h1>Member Updates</h1>
+      <AccessNote>{ACCESS.adminsEdit}</AccessNote>
       <p className="muted" style={{ marginBottom: "1rem" }}>
         Submissions from the public{" "}
         <Link href="/update-profile" target="_blank">

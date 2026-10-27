@@ -43,6 +43,19 @@ export function churchNowMinutes(): number {
   return minutesOfTime(churchNowTimeString());
 }
 
+/** YYYY-MM-DD shifted by n calendar days (pure calendar arithmetic, no timezone involved). */
+export function addDaysISO(dateStr: string, n: number): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+}
+
+/** Whole calendar days from b to a (a - b) for two YYYY-MM-DD dates. */
+export function daysBetweenISO(a: string, b: string): number {
+  const [ay, am, ad] = a.split("-").map(Number);
+  const [by, bm, bd] = b.split("-").map(Number);
+  return Math.round((Date.UTC(ay, am - 1, ad) - Date.UTC(by, bm - 1, bd)) / 86400000);
+}
+
 /** 0 = Sunday ... 6 = Saturday, for a plain YYYY-MM-DD calendar date. */
 export function weekdayOfDateString(dateStr: string): number {
   const [y, m, d] = dateStr.split("-").map(Number);

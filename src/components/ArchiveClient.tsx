@@ -1,5 +1,6 @@
 "use client";
 
+import AccessNote, { ACCESS } from "./AccessNote";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ArchiveLogRow } from "@/lib/repo/archive";
@@ -47,6 +48,7 @@ export default function ArchiveClient({ runs, canEdit }: { runs: ArchiveLogRow[]
   return (
     <div>
       <h1>Archive</h1>
+      <AccessNote>{ACCESS.archive}</AccessNote>
       <div className="card">
         <h3>Move old records to the archive</h3>
         <p className="muted" style={{ marginBottom: "1rem" }}>
