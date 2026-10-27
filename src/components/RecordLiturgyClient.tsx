@@ -7,6 +7,7 @@ import RosterPicker from "./RosterPicker";
 import SingleRosterPickerModal from "./SingleRosterPickerModal";
 import SpecialFeastControl from "./SpecialFeastControl";
 import AccessNote, { ACCESS } from "./AccessNote";
+import ReviewCountTile from "./ReviewCountTile";
 import type { LocationRow } from "@/lib/repo/locations";
 import type { ActivityRow } from "@/lib/repo/activities";
 import type { DeaconLite } from "@/lib/repo/deacons";
@@ -43,6 +44,7 @@ export default function RecordLiturgyClient({
   initialServiceOptions,
   initialLiturgyId,
   initialContext,
+  reviewCount,
 }: {
   locations: LocationRow[];
   activities: ActivityRow[];
@@ -54,6 +56,7 @@ export default function RecordLiturgyClient({
   initialServiceOptions: ScheduleOption[];
   initialLiturgyId: string | null;
   initialContext: LiturgyContext | null;
+  reviewCount: number;
 }) {
   const [date, setDate] = useState(initialDate);
   const [locationId, setLocationId] = useState(initialLocationId);
@@ -254,6 +257,7 @@ export default function RecordLiturgyClient({
     <div>
       <h1>Record a Liturgy</h1>
       <AccessNote>{ACCESS.adminsEdit}</AccessNote>
+      <ReviewCountTile initialCount={reviewCount} />
 
       <div className="card">
         <div className="step-header">1 · Which liturgy?</div>

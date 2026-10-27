@@ -659,28 +659,28 @@ table.table.table-flush-end tbody tr:last-child td {
   border-bottom-color: var(--wine);
 }
 
-/* Printable QR sheet (Check-in windows): hidden on screen, the only thing printed when shown. */
+/*
+ * Printable QR sheet (Check-in windows): rendered straight under <body>, hidden
+ * on screen, and the only thing printed when shown. The rest of the page is
+ * removed (not just made invisible) so it can't spill onto extra pages, and the
+ * sheet is in normal flow -- a fixed element repeats on every printed page.
+ */
 .qr-print-sheet {
   display: none;
 }
 
 @media print {
-  body * {
-    visibility: hidden;
-  }
-  .qr-print-sheet,
-  .qr-print-sheet * {
-    visibility: visible;
+  body > *:not(.qr-print-sheet) {
+    display: none !important;
   }
   .qr-print-sheet {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
     text-align: center;
-    position: fixed;
-    inset: 0;
+    padding-top: 1.2in;
     background: #fff;
     color: #000;
+    break-inside: avoid;
   }
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import QRCode from "qrcode";
 import type { QrChurch } from "@/lib/repo/checkinReview";
@@ -152,7 +153,7 @@ export default function CheckinQrCard({ churches, isProduction }: { churches: Qr
         ))}
       </div>
 
-      {printing && images[printing.locationId] && (
+      {printing && images[printing.locationId] && createPortal(
         <div className="qr-print-sheet">
           <h1 style={{ fontSize: "2.6rem", margin: 0 }}>{printing.name}</h1>
           <p style={{ fontSize: "1.6rem", margin: "0.6rem 0 1.6rem" }}>Scan to check in</p>
@@ -163,7 +164,8 @@ export default function CheckinQrCard({ churches, isProduction }: { churches: Qr
             style={{ width: "min(70vw, 560px)", height: "auto", imageRendering: "pixelated" }}
           />
           <p style={{ fontSize: "1.1rem", marginTop: "1.6rem" }}>Open your phone&apos;s camera and point it at the code.</p>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { assertAdmin } from "@/lib/authz";
 import {
+  countPendingFlags,
   resolveFlag,
   setFlagRecipients,
   savePushSubscription,
@@ -20,6 +21,12 @@ export async function resolveFlagAction(flagId: string, action: "confirm" | "rej
   const res = await resolveFlag(flagId, action, session.user.id);
   revalidatePath("/checkin-review");
   return res;
+}
+
+/** The waiting-for-review count, for tiles on pages that stay open for a long time. */
+export async function getPendingFlagCountAction() {
+  await assertAdmin();
+  return countPendingFlags();
 }
 
 export async function setFlagRecipientsAction(locationId: string, userIds: string[]) {

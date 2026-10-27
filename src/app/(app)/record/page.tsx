@@ -6,17 +6,19 @@ import { listFeastNames } from "@/lib/repo/feastNames";
 import { findLiturgyContext } from "@/lib/repo/liturgies";
 import { setStickyLocation, getUserById } from "@/lib/repo/users";
 import { getScheduleOptions } from "@/lib/repo/liturgySchedule";
+import { countPendingFlags } from "@/lib/repo/checkinReview";
 import { churchTodayISO } from "@/lib/timezone";
 import type { ServiceTypeCode } from "@/lib/constants";
 import RecordLiturgyClient from "@/components/RecordLiturgyClient";
 
 export default async function RecordLiturgyPage() {
   const session = await requireAdmin();
-  const [locations, activities, deacons, feastNames] = await Promise.all([
+  const [locations, activities, deacons, feastNames, reviewCount] = await Promise.all([
     listLocations(false),
     listActivities(false),
     listDeaconsLite(true),
     listFeastNames(true),
+    countPendingFlags(),
   ]);
 
   const date = churchTodayISO();
@@ -55,6 +57,7 @@ export default async function RecordLiturgyPage() {
       initialServiceOptions={schedule.options}
       initialLiturgyId={initialLiturgyId}
       initialContext={initialContext}
+      reviewCount={reviewCount}
     />
   );
 }
