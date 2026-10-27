@@ -41,7 +41,7 @@ export default function ExtraLiturgiesCard({ locations, upcoming }: { locations:
   const router = useRouter();
   const active = locations.filter((l) => l.status === "Active");
   const [mode, setMode] = useState<"one" | "repeat">("one");
-  const [churchIds, setChurchIds] = useState<string[]>(active[0] ? [active[0].id] : []);
+  const [churchIds, setChurchIds] = useState<string[]>([]);
   const [date, setDate] = useState("");
   const [weekdays, setWeekdays] = useState<number[]>([]);
   const [from, setFrom] = useState("");

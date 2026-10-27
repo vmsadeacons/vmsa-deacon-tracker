@@ -61,17 +61,18 @@ export default function CheckinControlClient({ initial, windows }: { initial: Sn
     <div>
       <h1>Check-in windows</h1>
       <AccessNote>{ACCESS.adminsEdit}</AccessNote>
-      <p className="muted" style={{ marginBottom: "1rem" }}>
-        {weekdayLabel(snapshot.date)}, {snapshot.date}. Deacons check in through Agios Check-in, which always puts them
-        into the one liturgy that is open at their church. A liturgy opens {describeMinutes(windows.openBefore)} before it
-        starts and closes {describeMinutes(windows.closeAfter)} after it starts, or when the next liturgy opens,
-        whichever comes first. Use the buttons to open or close one by hand; admins can always record any liturgy in
-        Record a Liturgy regardless.
-      </p>
       {error && <p className="error-text" style={{ marginBottom: "0.75rem" }}>{error}</p>}
 
+      <div className="card">
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+          <h3 style={{ margin: 0 }}>Today</h3>
+          <span className="muted">{weekdayLabel(snapshot.date)}, {snapshot.date}</span>
+        </div>
       {snapshot.locations.map((loc) => (
-        <div className="card" key={loc.locationId}>
+        <div
+          key={loc.locationId}
+          style={{ borderTop: "2px solid var(--border)", marginTop: "1.1rem", paddingTop: "1.1rem" }}
+        >
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
             <h3 style={{ margin: 0 }}>{loc.name}</h3>
             <AddExtraInline
@@ -158,6 +159,7 @@ export default function CheckinControlClient({ initial, windows }: { initial: Sn
           </div>
         </div>
       ))}
+      </div>
       {snapshot.locations.length === 0 && <p className="muted">There are no active churches.</p>}
     </div>
   );

@@ -67,7 +67,7 @@ export default function AddExtraInline({
   return (
     <div
       style={{
-        border: "1px solid var(--line, #ddd)",
+        border: "1px solid var(--border)",
         borderRadius: 10,
         padding: "0.75rem",
         marginTop: "0.25rem",
