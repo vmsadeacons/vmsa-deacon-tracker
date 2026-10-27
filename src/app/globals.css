@@ -537,6 +537,11 @@ table.table tbody tr:hover {
   background: var(--ivory);
 }
 
+/* For a table that already sits above a divider of its own: no light line under the last row. */
+table.table.table-flush-end tbody tr:last-child td {
+  border-bottom: none;
+}
+
 .table-wrap {
   overflow-x: auto;
 }

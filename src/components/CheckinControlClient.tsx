@@ -84,7 +84,7 @@ export default function CheckinControlClient({ initial }: { initial: Snapshot })
             />
           </div>
           <div className="table-wrap" style={{ marginTop: "0.75rem" }}>
-            <table className="table">
+            <table className="table table-flush-end">
               <thead>
                 <tr>
                   <th>Liturgy</th>
