@@ -658,3 +658,29 @@ table.table.table-flush-end tbody tr:last-child td {
   color: var(--wine);
   border-bottom-color: var(--wine);
 }
+
+/* Printable QR sheet (Check-in windows): hidden on screen, the only thing printed when shown. */
+.qr-print-sheet {
+  display: none;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .qr-print-sheet,
+  .qr-print-sheet * {
+    visibility: visible;
+  }
+  .qr-print-sheet {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    position: fixed;
+    inset: 0;
+    background: #fff;
+    color: #000;
+  }
+}

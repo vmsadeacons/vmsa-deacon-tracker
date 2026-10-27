@@ -11,12 +11,15 @@ export default function Sidebar({
   role,
   name,
   appVersion,
+  reviewCount,
   open,
   onNavigate,
 }: {
   role: Role;
   name: string;
   appVersion: string;
+  /** Pending items on the Check-in review list (admins only). */
+  reviewCount: number;
   open: boolean;
   onNavigate: () => void;
 }) {
@@ -34,16 +37,27 @@ export default function Sidebar({
           <div key={group.label}>
             <div className="navsection-label">{group.label}</div>
             <div className="navgroup">
-              {group.items.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={onNavigate}
-                  className={`navlink ${pathname?.startsWith(item.href) ? "active" : ""}`}
-                >
-                  {item.label}
-                </Link>
-              ))}
+              {group.items.map((item) => {
+                // "/checkin" must not also light up for "/checkin-review".
+                const active = pathname === item.href || pathname?.startsWith(item.href + "/");
+                const badge = item.href === "/checkin-review" ? reviewCount : 0;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={onNavigate}
+                    className={`navlink ${active ? "active" : ""}`}
+                    style={badge > 0 ? { display: "flex", alignItems: "center", justifyContent: "space-between" } : undefined}
+                  >
+                    {item.label}
+                    {badge > 0 && (
+                      <span className="badge badge-amber" aria-label={`${badge} to review`}>
+                        {badge}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
             </div>
           </div>
         ))}

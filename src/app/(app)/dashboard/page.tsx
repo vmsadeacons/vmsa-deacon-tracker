@@ -3,16 +3,18 @@ import { requireAdmin } from "@/lib/authz";
 import { getDashboardStats } from "@/lib/repo/dashboard";
 import { getRecentLiturgiesByLocation } from "@/lib/repo/liturgies";
 import { listLocations } from "@/lib/repo/locations";
+import { countPendingFlags } from "@/lib/repo/checkinReview";
 import DashboardStatTiles from "@/components/DashboardStatTiles";
 import RecentActivityTable from "@/components/RecentActivityTable";
 import AccessNote, { ACCESS } from "@/components/AccessNote";
 
 export default async function DashboardPage() {
   await requireAdmin();
-  const [stats, recent, locations] = await Promise.all([
+  const [stats, recent, locations, reviewCount] = await Promise.all([
     getDashboardStats(),
     getRecentLiturgiesByLocation(),
     listLocations(false),
+    countPendingFlags(),
   ]);
 
   return (
@@ -40,6 +42,7 @@ export default async function DashboardPage() {
         absencePeriodUnit={stats.absencePeriodUnit}
         missingPhoneCount={stats.missingPhoneCount}
         missingEmailCount={stats.missingEmailCount}
+        reviewCount={reviewCount}
         locations={locations}
       />
 

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { DeaconContact, AbsencePeriodUnit } from "@/lib/repo/dashboard";
 import type { LocationRow } from "@/lib/repo/locations";
@@ -49,6 +50,7 @@ export default function DashboardStatTiles({
   absencePeriodUnit,
   missingPhoneCount,
   missingEmailCount,
+  reviewCount,
   locations,
 }: {
   activeCount: number;
@@ -58,6 +60,7 @@ export default function DashboardStatTiles({
   absencePeriodUnit: AbsencePeriodUnit;
   missingPhoneCount: number;
   missingEmailCount: number;
+  reviewCount: number;
   locations: LocationRow[];
 }) {
   const [open, setOpen] = useState<OpenTile | null>(null);
@@ -158,7 +161,7 @@ export default function DashboardStatTiles({
 
   return (
     <div>
-      <div className="stat-row">
+      <div className="stat-row stat-row-3">
         <button className="stat-tile clickable" onClick={() => toggleOpen("active")}>
           <div className="stat-value">{activeCount}</div>
           <div className="stat-label">{activeLabel}</div>
@@ -169,6 +172,10 @@ export default function DashboardStatTiles({
             Absent &gt; {period.value}{unitAbbrev}
           </div>
         </button>
+        <Link href="/checkin-review" className="stat-tile clickable" style={{ textDecoration: "none" }}>
+          <div className="stat-value">{reviewCount}</div>
+          <div className="stat-label">check-ins to review</div>
+        </Link>
       </div>
       <div className="stat-group-label">Missing Information</div>
       <div className="stat-row">

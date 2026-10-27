@@ -340,6 +340,17 @@ export async function mergeDeacons(
     );
     await client.query(`delete from passion_week_participation where deacon_id = $1`, [mergedId]);
 
+    // (An open flag for a liturgy the survivor already has one for would
+    // break checkin_flags_one_pending; that duplicate goes with the deleted record.)
+    await client.query(
+      `update checkin_flags set deacon_id = $1
+       where deacon_id = $2
+         and not (status = 'pending' and liturgy_id is not null and exists (
+           select 1 from checkin_flags x
+           where x.deacon_id = $1 and x.liturgy_id = checkin_flags.liturgy_id and x.status = 'pending'
+         ))`,
+      [survivorId, mergedId]
+    );
     await client.query(`update archive_participation set deacon_id = $1 where deacon_id = $2`, [
       survivorId,
       mergedId,

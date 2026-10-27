@@ -40,6 +40,11 @@ That connection string is your `DATABASE_URL`.
    | `GOOGLE_CLIENT_SECRET` | from step 2.4 |
    | `AUTH_SECRET` | run `npx auth secret` locally and paste the generated value |
    | `CHURCH_TIMEZONE` | `America/New_York` (or your church's IANA timezone) |
+   | `VAPID_PUBLIC_KEY` | phone-alert key pair, public half (optional — without the three `VAPID_*` values the Check-in review list still works, it just can't send phone alerts) |
+   | `VAPID_PRIVATE_KEY` | the private half of the same pair — keep it secret |
+   | `VAPID_SUBJECT` | the site's address, e.g. `https://vmsa-deacon-tracker.vercel.app` |
+
+   Make the alert key pair once with `npx web-push generate-vapid-keys`. Changing it later turns alerts off on every device (each admin has to turn them back on).
 
 4. Click **Deploy**. Vercel builds and gives you a `https://<something>.vercel.app` URL.
 5. Go back to Google Cloud Console and add `https://<something>.vercel.app/api/auth/callback/google` as an authorized redirect URI (step 2.3).

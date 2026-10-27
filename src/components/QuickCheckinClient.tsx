@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { NameMatch } from "@/lib/repo/publicProfile";
-import type { CheckinLocationMatch, CheckinLocationOption } from "@/lib/repo/quickCheckin";
+import type { CheckinLocationMatch, CheckinLocationOption, GpsFix } from "@/lib/repo/quickCheckin";
 import type { OpenLiturgyInfo } from "@/lib/repo/liturgySchedule";
 import { SERVICE_LABELS } from "@/lib/constants";
 import { weekdayLabel } from "@/lib/timezone";
@@ -61,6 +61,10 @@ export default function QuickCheckinClient() {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<CheckinLocationMatch[]>([]);
   const [location, setLocation] = useState<CheckinLocationMatch | null>(null);
+  // The phone's last reported position (null when it couldn't give one). It's
+  // sent with the check-in so the server can verify the deacon is at the
+  // church they chose -- a check-in it can't verify is recorded but flagged.
+  const [fix, setFix] = useState<GpsFix | null>(null);
 
   // Manual location override -- geolocation (automatic or ambiguous-among-
   // candidates) is a convenience, never the only way to pick a church.
@@ -73,6 +77,7 @@ export default function QuickCheckinClient() {
   const [liturgy, setLiturgy] = useState<OpenLiturgyInfo | null>(null);
   const [checkingAgain, setCheckingAgain] = useState(false);
   const [doneLabel, setDoneLabel] = useState("");
+  const [doneFlagged, setDoneFlagged] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   // When the confirmed location was last (re-)resolved, and how -- "detected"
@@ -114,6 +119,7 @@ export default function QuickCheckinClient() {
   async function locate() {
     setLocationError(null);
     setCandidates([]);
+    setFix(null);
     if (!navigator.geolocation) {
       setLocationError("This device doesn't support location detection, so we can't confirm you're at the church.");
       setLastCheckedAt(Date.now());
@@ -123,6 +129,7 @@ export default function QuickCheckinClient() {
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         const { latitude, longitude, accuracy } = pos.coords;
+        setFix({ lat: latitude, lng: longitude, accuracyMeters: accuracy });
         const found = await resolveCheckinLocationsAction(latitude, longitude, accuracy);
         if (found.length === 0) {
           setLocationError("No church was detected near you!");
@@ -299,7 +306,12 @@ export default function QuickCheckinClient() {
     if (!identity || !location) return;
     setSubmitting(true);
     setSubmitError(null);
-    const result = await submitQuickCheckinAction(identity.id, location.locationId);
+    const result = await submitQuickCheckinAction(
+      identity.id,
+      location.locationId,
+      locationResolvedAt?.source ?? "detected",
+      fix
+    );
     setSubmitting(false);
     if (!result.ok) {
       setSubmitError(result.error ?? "Couldn't check in — please try again.");
@@ -309,6 +321,7 @@ export default function QuickCheckinClient() {
       return;
     }
     setDoneLabel(result.label);
+    setDoneFlagged(result.flagged);
     setStep("done");
   }
 
@@ -684,6 +697,11 @@ export default function QuickCheckinClient() {
             {doneLabel && location && (
               <p style={{ fontSize: "1.2rem", marginTop: "0.6rem" }}>
                 {location.locationName} · {doneLabel}
+              </p>
+            )}
+            {doneFlagged && (
+              <p className="muted" style={{ fontSize: "1rem", marginTop: "0.75rem", textWrap: "balance" }}>
+                We couldn&apos;t confirm your location, so an admin will take a quick look at this check-in.
               </p>
             )}
             <p className="muted" style={{ fontSize: "1.3rem", marginTop: "0.75rem" }}>

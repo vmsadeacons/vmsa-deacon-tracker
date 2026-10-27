@@ -10,8 +10,9 @@ export interface NavGroup {
 }
 
 // Exact order per spec §9. "Check-in windows" is an admin page (which liturgy is
-// open right now, plus start times, extras and window timing); deacons check in
-// through Agios Check-in, not this app.
+// open right now, plus start times, extras, window timing, alert recipients and
+// the QR codes); "Check-in review" lists self check-ins that couldn't be verified.
+// Deacons check in through Agios Check-in or a church's QR code, not this app.
 export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Records",
@@ -31,6 +32,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/member-updates", label: "Member Updates" },
       { href: "/access", label: "Access & Roles" },
       { href: "/archive", label: "Archive" },
+      { href: "/checkin-review", label: "Check-in review" },
       { href: "/checkin", label: "Check-in windows" },
       { href: "/settings", label: "System Settings" },
     ],

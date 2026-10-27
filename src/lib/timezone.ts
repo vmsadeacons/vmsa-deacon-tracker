@@ -126,3 +126,11 @@ export function passionWeekYearOverlapsRange(
   const to = toDate ?? "9999-12-31";
   return from <= windowEnd && to >= windowStart;
 }
+
+/** A moment (an ISO timestamp from the database) as church-local "Sun, Oct 25 · 9:12 AM". */
+export function formatChurchDateTime(iso: string): string {
+  const d = new Date(iso);
+  const day = d.toLocaleDateString("en-US", { timeZone: TZ, weekday: "short", month: "short", day: "numeric" });
+  const time = d.toLocaleTimeString("en-US", { timeZone: TZ, hour: "numeric", minute: "2-digit" });
+  return `${day} · ${time}`;
+}
