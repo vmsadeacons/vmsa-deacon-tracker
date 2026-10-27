@@ -670,6 +670,16 @@ table.table.table-flush-end tbody tr:last-child td {
 }
 
 @media print {
+  @page {
+    margin: 0.5in;
+  }
+  html,
+  body {
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
   body > *:not(.qr-print-sheet) {
     display: none !important;
   }
@@ -678,7 +688,7 @@ table.table.table-flush-end tbody tr:last-child td {
     flex-direction: column;
     align-items: center;
     text-align: center;
-    padding-top: 1.2in;
+    padding-top: 0.5in;
     background: #fff;
     color: #000;
     break-inside: avoid;

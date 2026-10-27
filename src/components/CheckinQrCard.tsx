@@ -155,15 +155,15 @@ export default function CheckinQrCard({ churches, isProduction }: { churches: Qr
 
       {printing && images[printing.locationId] && createPortal(
         <div className="qr-print-sheet">
-          <h1 style={{ fontSize: "2.6rem", margin: 0 }}>{printing.name}</h1>
-          <p style={{ fontSize: "1.6rem", margin: "0.6rem 0 1.6rem" }}>Scan to check in</p>
+          <h1 style={{ fontSize: "2.4rem", margin: 0 }}>{printing.name}</h1>
+          <p style={{ fontSize: "1.5rem", margin: "0.4rem 0 1rem" }}>Scan to check in</p>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={images[printing.locationId]}
             alt=""
-            style={{ width: "min(70vw, 560px)", height: "auto", imageRendering: "pixelated" }}
+            style={{ width: "4.5in", height: "4.5in", imageRendering: "pixelated" }}
           />
-          <p style={{ fontSize: "1.1rem", marginTop: "1.6rem" }}>Open your phone&apos;s camera and point it at the code.</p>
+          <p style={{ fontSize: "1.1rem", marginTop: "1rem" }}>Open your phone&apos;s camera and point it at the code.</p>
         </div>,
         document.body
       )}
