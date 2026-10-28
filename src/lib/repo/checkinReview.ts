@@ -134,6 +134,19 @@ export async function resolveFlag(
   });
 }
 
+/** Removes one already-reviewed record for good. Pending ones can't be removed -- they have to be confirmed or rejected first. */
+export async function deleteReviewedFlag(flagId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const { rows } = await query<{ status: string }>(
+    `delete from checkin_flags where id = $1 and status <> 'pending' returning status`,
+    [flagId]
+  );
+  if (rows.length > 0) return { ok: true };
+  const { rows: still } = await query(`select 1 from checkin_flags where id = $1`, [flagId]);
+  return still.length > 0
+    ? { ok: false, error: "That check-in is still waiting for review. Confirm or reject it first" }
+    : { ok: false, error: "That record was already removed" };
+}
+
 // ---------------------------------------------------------------------------
 // Who gets the phone alert for which church
 // ---------------------------------------------------------------------------

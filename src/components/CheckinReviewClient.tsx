@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { FlagRow } from "@/lib/repo/checkinReview";
 import { describeFlag, methodLabel } from "@/lib/flagReasons";
 import { weekdayLabel } from "@/lib/timezone";
-import { resolveFlagAction } from "@/lib/actions/checkinReview";
+import { deleteReviewedFlagAction, resolveFlagAction } from "@/lib/actions/checkinReview";
 
 /** The pending flagged check-ins, each with Confirm / Reject, and the most recently reviewed ones below. */
 export default function CheckinReviewClient({ pending, reviewed }: { pending: FlagRow[]; reviewed: FlagRow[] }) {
@@ -28,9 +28,25 @@ export default function CheckinReviewClient({ pending, reviewed }: { pending: Fl
     router.refresh();
   }
 
+  async function remove(flag: FlagRow) {
+    if (
+      !window.confirm(
+        `Remove this record for good? ${flag.deaconName}'s ${flag.status} check-in at ${flag.locationName} will disappear from this list. This can't be undone.`
+      )
+    ) {
+      return;
+    }
+    setBusyId(flag.id);
+    setError(null);
+    const res = await deleteReviewedFlagAction(flag.id);
+    setBusyId(null);
+    if (!res.ok) setError(res.error);
+    router.refresh();
+  }
+
   return (
     <div>
-      {error && <p className="error-text" style={{ marginBottom: "0.75rem" }}>{error}</p>}
+      {error &&<p className="error-text" style={{ marginBottom: "0.75rem" }}>{error}</p>}
 
       <div className="card">
         <h3 style={{ marginTop: 0 }}>
@@ -112,6 +128,7 @@ export default function CheckinReviewClient({ pending, reviewed }: { pending: Fl
                   <th>Liturgy</th>
                   <th>Why it was flagged</th>
                   <th>Decision</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
@@ -133,6 +150,16 @@ export default function CheckinReviewClient({ pending, reviewed }: { pending: Fl
                         {f.resolvedByName ? `${f.resolvedByName} · ` : ""}
                         {f.resolvedLabel}
                       </div>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        disabled={busyId === f.id}
+                        onClick={() => remove(f)}
+                      >
+                        Remove
+                      </button>
                     </td>
                   </tr>
                 ))}

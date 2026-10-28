@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { assertAdmin } from "@/lib/authz";
 import {
   countPendingFlags,
+  deleteReviewedFlag,
   resolveFlag,
   setFlagRecipients,
   savePushSubscription,
@@ -19,6 +20,13 @@ import { getVapidPublicKey, sendTestAlert } from "@/lib/push";
 export async function resolveFlagAction(flagId: string, action: "confirm" | "reject") {
   const session = await assertAdmin();
   const res = await resolveFlag(flagId, action, session.user.id);
+  revalidatePath("/checkin-review");
+  return res;
+}
+
+export async function deleteReviewedFlagAction(flagId: string) {
+  await assertAdmin();
+  const res = await deleteReviewedFlag(flagId);
   revalidatePath("/checkin-review");
   return res;
 }
