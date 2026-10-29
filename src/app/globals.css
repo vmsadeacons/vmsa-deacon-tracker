@@ -633,6 +633,100 @@ table.table.table-flush-end tbody tr:last-child td {
   }
 }
 
+/* Check-in windows "Today" rows on a phone, three short lines:
+     1st Liturgy                  starts 9:00 AM
+     CHECK-IN  [Open]                  [Close now]
+     CHECKED IN                                 6  */
+@media (max-width: 700px) {
+  table.table-stack.table-compact tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    column-gap: 0.75rem;
+    align-items: start;
+    padding: 0.55rem 0.9rem;
+  }
+
+  table.table-stack.table-compact td {
+    width: auto;
+    min-width: 0;
+    padding: 0.2rem 0;
+  }
+
+  table.table-stack.table-compact td.c-title {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  table.table-stack.table-compact td.c-starts {
+    grid-column: 2;
+    grid-row: 1;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  table.table-stack.table-compact td.c-starts::before {
+    display: inline;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 0.85rem;
+    margin: 0 0.25rem 0 0;
+  }
+
+  table.table-stack.table-compact td.c-checkin {
+    grid-column: 1;
+    grid-row: 2;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.15rem 0.6rem;
+  }
+
+  table.table-stack.table-compact td.c-checkin::before {
+    margin: 0;
+  }
+
+  table.table-stack.table-compact td.c-checkin .c-note {
+    flex-basis: 100%;
+    margin-top: 0;
+  }
+
+  table.table-stack.table-compact td.c-count {
+    grid-column: 1 / -1;
+    grid-row: 3;
+  }
+
+  /* The cell and its wrapper step aside so each button can sit in the grid itself. */
+  table.table-stack.table-compact td.c-actions,
+  table.table-stack.table-compact td.c-actions > div {
+    display: contents !important;
+  }
+
+  table.table-stack.table-compact .act-main {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: start;
+    flex: none;
+    width: auto;
+    min-height: 2.2rem;
+    padding: 0.3rem 1rem;
+  }
+
+  table.table-stack.table-compact .act-reset {
+    grid-column: 1 / -1;
+    grid-row: 4;
+    justify-self: start;
+    flex: none;
+    min-height: 0;
+    padding: 0.2rem 0;
+    border: none;
+    background: none;
+    color: var(--muted);
+    text-decoration: underline;
+    font-size: 0.8rem;
+    font-weight: 500;
+  }
+}
+
 /* Cards marked .roomy (the Check-in review and Check-in windows screens): bigger
    buttons and fields on a phone, with 16px text so iPhones don't zoom the page
    when a field is tapped. */

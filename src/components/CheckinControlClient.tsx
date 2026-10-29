@@ -84,7 +84,7 @@ export default function CheckinControlClient({ initial }: { initial: Snapshot })
             />
           </div>
           <div className="table-wrap" style={{ marginTop: "0.75rem" }}>
-            <table className="table table-flush-end table-stack">
+            <table className="table table-flush-end table-stack table-compact">
               <thead>
                 <tr>
                   <th>Liturgy</th>
@@ -101,28 +101,28 @@ export default function CheckinControlClient({ initial }: { initial: Snapshot })
                   const busy = busyKey === key;
                   return (
                     <tr key={key}>
-                      <td className="stack-title">
+                      <td className="stack-title c-title">
                         {l.label}
                         {l.isExtra && <span className="muted" style={{ fontWeight: 400 }}> (extra)</span>}
                         {l.forAnotherDay && (
                           <div className="muted" style={{ fontSize: "0.8rem", fontWeight: 400 }}>for {weekdayLabel(l.date)}</div>
                         )}
                       </td>
-                      <td data-label="Starts" className="stack-inline">
+                      <td data-label="starts" className="c-starts">
                         {l.startTime ? formatTime12(l.startTime) : "—"}
                         {l.startsEveningBefore && <div className="muted" style={{ fontSize: "0.8rem" }}>the evening before</div>}
                       </td>
-                      <td data-label="Check-in">
+                      <td data-label="Check-in" className="c-checkin">
                         <span className={badge.className}>{badge.text}</span>
-                        <div className="muted" style={{ fontSize: "0.8rem", marginTop: "0.2rem" }}>{l.note}</div>
+                        <div className="muted c-note" style={{ fontSize: "0.8rem", marginTop: "0.2rem" }}>{l.note}</div>
                       </td>
-                      <td data-label="Checked in" className="stack-inline">{l.attendeeCount}</td>
-                      <td className="stack-actions">
+                      <td data-label="Checked in" className="stack-inline c-count">{l.attendeeCount}</td>
+                      <td className="c-actions">
                         <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
                           {l.status !== "open" && (
                             <button
                               type="button"
-                              className="btn btn-primary btn-sm"
+                              className="btn btn-primary btn-sm act-main"
                               disabled={busy}
                               onClick={() => setOverride(loc.locationId, l.date, l.serviceType, "open")}
                             >
@@ -132,7 +132,7 @@ export default function CheckinControlClient({ initial }: { initial: Snapshot })
                           {l.status === "open" && (
                             <button
                               type="button"
-                              className="btn btn-secondary btn-sm"
+                              className="btn btn-secondary btn-sm act-main"
                               disabled={busy}
                               onClick={() => setOverride(loc.locationId, l.date, l.serviceType, "closed")}
                             >
@@ -142,7 +142,7 @@ export default function CheckinControlClient({ initial }: { initial: Snapshot })
                           {l.override !== null && (
                             <button
                               type="button"
-                              className="btn btn-secondary btn-sm"
+                              className="btn btn-secondary btn-sm act-reset"
                               disabled={busy}
                               onClick={() => setOverride(loc.locationId, l.date, l.serviceType, null)}
                             >
