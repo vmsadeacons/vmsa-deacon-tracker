@@ -90,7 +90,7 @@ export default function CheckinQrCard({ churches, isProduction }: { churches: Qr
   const printing = churches.find((c) => c.locationId === printId);
 
   return (
-    <div className="card">
+    <div className="card roomy">
       <h3>Check-in QR codes</h3>
       <p className="muted" style={{ marginBottom: "1rem" }}>
         One code per church, good for any day and any liturgy — the app checks the person into whichever liturgy is open

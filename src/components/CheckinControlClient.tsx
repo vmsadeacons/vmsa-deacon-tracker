@@ -63,7 +63,7 @@ export default function CheckinControlClient({ initial }: { initial: Snapshot })
       <AccessNote>{ACCESS.adminsEdit}</AccessNote>
       {error && <p className="error-text" style={{ marginBottom: "0.75rem" }}>{error}</p>}
 
-      <div className="card">
+      <div className="card roomy">
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
           <h3 style={{ margin: 0 }}>Today</h3>
           <span className="muted">{weekdayLabel(snapshot.date)}, {snapshot.date}</span>
@@ -84,7 +84,7 @@ export default function CheckinControlClient({ initial }: { initial: Snapshot })
             />
           </div>
           <div className="table-wrap" style={{ marginTop: "0.75rem" }}>
-            <table className="table table-flush-end">
+            <table className="table table-flush-end table-stack">
               <thead>
                 <tr>
                   <th>Liturgy</th>
@@ -101,23 +101,23 @@ export default function CheckinControlClient({ initial }: { initial: Snapshot })
                   const busy = busyKey === key;
                   return (
                     <tr key={key}>
-                      <td>
+                      <td className="stack-title">
                         {l.label}
-                        {l.isExtra && <span className="muted"> (extra)</span>}
+                        {l.isExtra && <span className="muted" style={{ fontWeight: 400 }}> (extra)</span>}
                         {l.forAnotherDay && (
-                          <div className="muted" style={{ fontSize: "0.8rem" }}>for {weekdayLabel(l.date)}</div>
+                          <div className="muted" style={{ fontSize: "0.8rem", fontWeight: 400 }}>for {weekdayLabel(l.date)}</div>
                         )}
                       </td>
-                      <td>
+                      <td data-label="Starts" className="stack-inline">
                         {l.startTime ? formatTime12(l.startTime) : "—"}
                         {l.startsEveningBefore && <div className="muted" style={{ fontSize: "0.8rem" }}>the evening before</div>}
                       </td>
-                      <td>
+                      <td data-label="Check-in">
                         <span className={badge.className}>{badge.text}</span>
                         <div className="muted" style={{ fontSize: "0.8rem", marginTop: "0.2rem" }}>{l.note}</div>
                       </td>
-                      <td>{l.attendeeCount}</td>
-                      <td>
+                      <td data-label="Checked in" className="stack-inline">{l.attendeeCount}</td>
+                      <td className="stack-actions">
                         <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
                           {l.status !== "open" && (
                             <button

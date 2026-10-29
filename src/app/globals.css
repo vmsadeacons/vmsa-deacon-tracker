@@ -546,6 +546,134 @@ table.table.table-flush-end tbody tr:last-child td {
   overflow-x: auto;
 }
 
+/* On a phone a wide table turns into one card per row. Each cell that has a
+   data-label shows it above (or, with .stack-inline, beside) its value. */
+@media (max-width: 700px) {
+  table.table-stack,
+  table.table-stack tbody,
+  table.table-stack tr,
+  table.table-stack td {
+    display: block;
+    width: 100%;
+  }
+
+  table.table-stack thead {
+    display: none;
+  }
+
+  table.table-stack tr {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 0.5rem 0.9rem;
+    margin-bottom: 0.8rem;
+  }
+
+  table.table-stack tbody tr:hover {
+    background: transparent;
+  }
+
+  table.table-stack td,
+  table.table.table-flush-end.table-stack tbody tr:last-child td {
+    border-bottom: none;
+    padding: 0.4rem 0;
+  }
+
+  table.table-stack td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted-2);
+    margin-bottom: 0.1rem;
+  }
+
+  table.table-stack td.stack-inline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+
+  table.table-stack td.stack-inline::before {
+    margin-bottom: 0;
+  }
+
+  table.table-stack td.stack-title {
+    font-weight: 600;
+    font-size: 1rem;
+  }
+
+  table.table-stack td.stack-hide {
+    display: none;
+  }
+
+  /* The row's buttons: a full-width strip along the bottom of the card. */
+  table.table-stack td.stack-actions {
+    border-top: 1px solid var(--border);
+    margin-top: 0.4rem;
+    padding-top: 0.7rem;
+  }
+
+  table.table-stack td.stack-actions > div {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  table.table-stack td.stack-actions .btn {
+    flex: 1 1 0;
+    min-height: 2.6rem;
+    font-size: 0.9rem;
+  }
+
+  /* A lone button sitting straight in the cell (no wrapper) fills the strip too. */
+  table.table-stack td.stack-actions > .btn {
+    width: 100%;
+  }
+}
+
+/* Cards marked .roomy (the Check-in review and Check-in windows screens): bigger
+   buttons and fields on a phone, with 16px text so iPhones don't zoom the page
+   when a field is tapped. */
+@media (max-width: 700px) {
+  .roomy .btn {
+    min-height: 2.6rem;
+  }
+
+  .roomy input[type="text"],
+  .roomy input[type="number"],
+  .roomy input[type="time"],
+  .roomy input[type="date"],
+  .roomy select {
+    font-size: 1rem;
+    min-height: 2.6rem;
+  }
+
+  .roomy input[type="checkbox"],
+  .roomy input[type="radio"] {
+    width: 1.2rem;
+    height: 1.2rem;
+  }
+
+  /* A check-box list becomes one tappable line per option. */
+  .roomy .check-list {
+    flex-direction: column;
+    gap: 0 !important;
+  }
+
+  .roomy .check-list > label {
+    padding: 0.5rem 0;
+    gap: 0.65rem !important;
+  }
+
+  /* The seven weekdays are short, so they stay in a wrapping row. */
+  .roomy .check-list.check-list-grid {
+    flex-direction: row;
+    gap: 0 1.1rem !important;
+  }
+}
+
 /* ---------------------------------------------------------------------- */
 /* Stat tiles                                                             */
 /* ---------------------------------------------------------------------- */

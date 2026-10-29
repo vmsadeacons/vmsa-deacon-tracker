@@ -34,7 +34,7 @@ export default function CheckinWindowSettingsCard({ settings }: { settings: Wind
   }
 
   return (
-    <div className="card">
+    <div className="card roomy">
       <h3>Check-in window timing</h3>
       <p className="muted" style={{ marginBottom: "1rem" }}>
         When check-in opens and closes, relative to each liturgy&apos;s start time. This applies to every church and

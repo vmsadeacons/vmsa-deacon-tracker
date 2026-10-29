@@ -58,7 +58,7 @@ export default function LiturgyStartTimesCard({
     cells.find((c) => c.weekday === weekday && c.serviceType === s)?.isDefault ?? true;
 
   return (
-    <div className="card">
+    <div className="card roomy">
       <h3>Liturgy Start Times</h3>
       <p className="muted" style={{ marginBottom: "1rem" }}>
         When each church&apos;s regular liturgies start: one on every day, and two on Sunday. Check-in for a liturgy opens{" "}
@@ -77,7 +77,7 @@ export default function LiturgyStartTimesCard({
       </div>
       {error && <p className="error-text" style={{ marginBottom: "0.75rem" }}>{error}</p>}
       <div className="table-wrap">
-        <table className="table">
+        <table className="table table-stack">
           <thead>
             <tr>
               <th>Day</th>
@@ -89,30 +89,32 @@ export default function LiturgyStartTimesCard({
           <tbody>
             {WEEKDAY_NAMES.map((name, weekday) => (
               <tr key={weekday}>
-                <td>{name}</td>
-                <td>
+                <td className="stack-title">{name}</td>
+                <td data-label="1st Liturgy" className="stack-inline">
+                  <div>
                   <input
                     type="time"
                     value={drafts[weekday]?.S1 ?? ""}
                     onChange={(e) => setDrafts((d) => ({ ...d, [weekday]: { ...d[weekday], S1: e.target.value } }))}
                   />
                   {isDefault(weekday, "S1") && <div className="muted" style={{ fontSize: "0.75rem" }}>default</div>}
+                  </div>
                 </td>
-                <td>
+                <td data-label="2nd Liturgy" className={weekday === 0 ? "stack-inline" : "stack-hide"}>
                   {weekday === 0 ? (
-                    <>
+                    <div>
                       <input
                         type="time"
                         value={drafts[weekday]?.S2 ?? ""}
                         onChange={(e) => setDrafts((d) => ({ ...d, [weekday]: { ...d[weekday], S2: e.target.value } }))}
                       />
                       {isDefault(weekday, "S2") && <div className="muted" style={{ fontSize: "0.75rem" }}>default</div>}
-                    </>
+                    </div>
                   ) : (
                     <span className="muted">—</span>
                   )}
                 </td>
-                <td>
+                <td className="stack-actions">
                   <button className="btn btn-secondary btn-sm" disabled={savingDay === weekday} onClick={() => save(weekday)}>
                     Save
                   </button>

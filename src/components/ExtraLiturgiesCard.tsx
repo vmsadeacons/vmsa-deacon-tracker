@@ -157,7 +157,7 @@ export default function ExtraLiturgiesCard({ locations, upcoming }: { locations:
     ].filter(Boolean);
 
   return (
-    <div className="card">
+    <div className="card roomy">
       <h3>Extra Liturgies</h3>
       <p className="muted" style={{ marginBottom: "1rem" }}>
         Every church has 1 liturgy a day, and 2 on Sundays. Add an extra liturgy to one day (Sundays included, up to 3 in
@@ -179,7 +179,7 @@ export default function ExtraLiturgiesCard({ locations, upcoming }: { locations:
 
       <div className="field" style={{ marginBottom: "1rem" }}>
         <label>Church{active.length > 1 ? "es" : ""}</label>
-        <div style={{ display: "flex", gap: "0.4rem 1rem", flexWrap: "wrap" }}>
+        <div className="check-list" style={{ display: "flex", gap: "0.4rem 1rem", flexWrap: "wrap" }}>
           <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontWeight: 600 }}>
             <input
               type="checkbox"
@@ -238,7 +238,7 @@ export default function ExtraLiturgiesCard({ locations, upcoming }: { locations:
       {mode === "repeat" && (
         <div className="field" style={{ marginBottom: "1rem" }}>
           <label>On these days{eveningBefore ? " (the day each liturgy counts for)" : ""}</label>
-          <div style={{ display: "flex", gap: "0.4rem 1rem", flexWrap: "wrap" }}>
+          <div className="check-list check-list-grid" style={{ display: "flex", gap: "0.4rem 1rem", flexWrap: "wrap" }}>
             {WEEKDAY_NAMES.map((name, i) => (
               <label key={i} style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
                 <input
@@ -266,7 +266,7 @@ export default function ExtraLiturgiesCard({ locations, upcoming }: { locations:
             This will add <strong>{preview.willAdd}</strong> extra liturgies
             {skippedText(preview).length > 0 && <>, skipping {skippedText(preview).join(", and ")}</>}.
           </p>
-          <div style={{ display: "flex", gap: "0.6rem" }}>
+          <div className="btn-pair" style={{ display: "flex", gap: "0.6rem" }}>
             <button className="btn btn-primary" disabled={busy || preview.willAdd === 0} onClick={handleAddRepeating}>
               {busy ? "Adding…" : `Add ${preview.willAdd}`}
             </button>
@@ -286,7 +286,7 @@ export default function ExtraLiturgiesCard({ locations, upcoming }: { locations:
         <p className="muted">None yet.</p>
       ) : (
         <div className="table-wrap">
-          <table className="table">
+          <table className="table table-stack">
             <thead>
               <tr>
                 <th>Church</th>
@@ -304,10 +304,10 @@ export default function ExtraLiturgiesCard({ locations, upcoming }: { locations:
                 if (!isSeries) {
                   return g.rows.map((r) => (
                     <tr key={r.id}>
-                      <td>{r.locationName}</td>
-                      <td>{fmtDate(r.date)} · {timeText(r)}</td>
-                      <td>{SERVICE_LABELS[r.serviceType]}</td>
-                      <td>
+                      <td className="stack-title">{r.locationName}</td>
+                      <td data-label="When">{fmtDate(r.date)} · {timeText(r)}</td>
+                      <td data-label="Liturgy">{SERVICE_LABELS[r.serviceType]}</td>
+                      <td className="stack-actions">
                         <button className="btn btn-secondary btn-sm" disabled={r.hasRecord} title={r.hasRecord ? "Already has attendance" : ""} onClick={() => removeOne(r.id)}>
                           Remove
                         </button>
@@ -317,8 +317,8 @@ export default function ExtraLiturgiesCard({ locations, upcoming }: { locations:
                 }
                 return (
                   <tr key={g.key}>
-                    <td>{first.locationName}</td>
-                    <td>
+                    <td className="stack-title">{first.locationName}</td>
+                    <td data-label="When">
                       Repeating · {days.map((d) => WEEKDAY_NAMES[d].slice(0, 3)).join(", ")}
                       <div className="muted" style={{ fontSize: "0.8rem" }}>
                         {fmtDate(first.date)} – {fmtDate(last.date)} · {g.rows.length} dates · {timeText(first)}
@@ -343,8 +343,8 @@ export default function ExtraLiturgiesCard({ locations, upcoming }: { locations:
                         </ul>
                       </details>
                     </td>
-                    <td>{SERVICE_LABELS[first.serviceType]}{g.rows.some((r) => r.serviceType !== first.serviceType) ? " (varies)" : ""}</td>
-                    <td>
+                    <td data-label="Liturgy">{SERVICE_LABELS[first.serviceType]}{g.rows.some((r) => r.serviceType !== first.serviceType) ? " (varies)" : ""}</td>
+                    <td className="stack-actions">
                       <button className="btn btn-secondary btn-sm" onClick={() => removeSeries(first.seriesId!)}>
                         Remove all
                       </button>

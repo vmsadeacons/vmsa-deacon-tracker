@@ -147,7 +147,7 @@ export default function CheckinAlertsCard({
   }
 
   return (
-    <div className="card">
+    <div className="card roomy">
       <h3>Check-in review alerts</h3>
       <p className="muted" style={{ marginBottom: "1rem" }}>
         When a check-in can&apos;t be confirmed, the admins chosen for that church get an alert on their phone or
@@ -210,7 +210,7 @@ export default function CheckinAlertsCard({
             {church.name}
             {savingChurch === church.id && <span className="muted" style={{ fontWeight: 400 }}> · saving…</span>}
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem 1.2rem", flex: 1 }}>
+          <div className="check-list" style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem 1.2rem", flex: "1 1 16rem" }}>
             {admins.map((a) => (
               <label key={a.userId} style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.92rem" }}>
                 <input
