@@ -2,6 +2,7 @@
 
 import AccessNote, { ACCESS } from "./AccessNote";
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Modal from "./Modal";
 import DeaconForm from "./DeaconForm";
@@ -37,6 +38,9 @@ export default function DeaconsClient({
   );
   const [viewing, setViewing] = useState<DeaconWithAgeGroup | null>(null);
   const [adding, setAdding] = useState(searchParams.get("add") === "1");
+  // Arrived from Record a Liturgy's "Add a Deacon" button: offer a clear way back.
+  const fromRecord = searchParams.get("from") === "record";
+  const [justAdded, setJustAdded] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -74,7 +78,13 @@ export default function DeaconsClient({
         await setDeaconPhotoAction(result.deacon.id, pendingPhotoDataUrl);
       }
       setAdding(false);
-      router.replace("/deacons");
+      if (fromRecord) {
+        setJustAdded(result.deacon.name);
+        window.scrollTo(0, 0);
+        router.replace("/deacons?from=record");
+      } else {
+        router.replace("/deacons");
+      }
       router.refresh();
     } else {
       setFormError(result.error);
@@ -106,6 +116,11 @@ export default function DeaconsClient({
 
   return (
     <div>
+      {fromRecord && (
+        <Link href="/record" style={{ display: "inline-block", marginBottom: "0.75rem", fontSize: "0.9rem", fontWeight: 600 }}>
+          ← Back to Record a Liturgy
+        </Link>
+      )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
         <div>
           <h1 style={{ margin: 0 }}>Deacons</h1>
@@ -123,6 +138,30 @@ export default function DeaconsClient({
       </div>
 
       {error && <p className="error-text" style={{ marginBottom: "1rem" }}>{error}</p>}
+
+      {fromRecord && justAdded && (
+        <div className="card">
+          <p style={{ margin: "0 0 0.75rem", color: "var(--green)", fontWeight: 600 }}>
+            {justAdded} was added to the roster.
+          </p>
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+            <Link href="/record" className="btn btn-primary">
+              Back to Record a Liturgy
+            </Link>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                setFormError(null);
+                setJustAdded(null);
+                setAdding(true);
+              }}
+            >
+              Add another deacon
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <NameSearchBox
@@ -274,6 +313,7 @@ export default function DeaconsClient({
           onCancel={() => {
             setAdding(false);
             setFormError(null);
+            if (fromRecord) router.push("/record");
           }}
           onSave={handleCreate}
         />

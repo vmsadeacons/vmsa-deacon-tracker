@@ -1098,6 +1098,31 @@ table.table.table-flush-end tbody tr:last-child td {
   font-size: 0.76rem;
 }
 
+/* The two tiles at the top of Record a Liturgy (review count, Add a Deacon): same size, side by side. */
+.record-tiles {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.record-tiles > .record-tile {
+  flex: 1 1 0;
+  max-width: 16rem;
+  min-width: 0;
+}
+
+.record-tile {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  text-decoration: none;
+}
+
+.record-add .stat-label {
+  color: var(--ink);
+  font-weight: 600;
+}
+
 .stat-group-label {
   font-size: 0.85rem;
   font-weight: 600;

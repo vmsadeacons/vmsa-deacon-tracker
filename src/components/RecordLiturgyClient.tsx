@@ -7,6 +7,7 @@ import RosterPicker from "./RosterPicker";
 import SingleRosterPickerModal from "./SingleRosterPickerModal";
 import SpecialFeastControl from "./SpecialFeastControl";
 import AccessNote, { ACCESS } from "./AccessNote";
+import Link from "next/link";
 import ReviewCountTile from "./ReviewCountTile";
 import type { LocationRow } from "@/lib/repo/locations";
 import type { ActivityRow } from "@/lib/repo/activities";
@@ -257,7 +258,13 @@ export default function RecordLiturgyClient({
     <div>
       <h1>Record a Liturgy</h1>
       <AccessNote>{ACCESS.adminsEdit}</AccessNote>
-      <ReviewCountTile initialCount={reviewCount} />
+      <div className="record-tiles">
+        <ReviewCountTile initialCount={reviewCount} />
+        <Link href="/deacons?add=1&from=record" className="stat-tile small clickable record-tile record-add">
+          <span className="stat-value">+</span>
+          <span className="stat-label">Add a Deacon</span>
+        </Link>
+      </div>
 
       <div className="card">
         <div className="step-header">1 · Which liturgy?</div>

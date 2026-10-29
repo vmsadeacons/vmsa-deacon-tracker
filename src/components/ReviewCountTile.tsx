@@ -39,15 +39,8 @@ export default function ReviewCountTile({ initialCount }: { initialCount: number
   return (
     <Link
       href="/checkin-review"
-      className="stat-tile small clickable"
-      style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: "0.75rem",
-        textDecoration: "none",
-        marginBottom: "1rem",
-        ...(waiting ? { background: "var(--amber-bg)" } : {}),
-      }}
+      className="stat-tile small clickable record-tile"
+      style={waiting ? { background: "var(--amber-bg)" } : undefined}
     >
       <span className="stat-value" style={waiting ? { color: "var(--amber)" } : undefined}>
         {count}
