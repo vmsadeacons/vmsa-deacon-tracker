@@ -74,11 +74,11 @@ export default function CheckinControlClient({ initial }: { initial: Snapshot })
           style={{ borderTop: "2px solid var(--border)", marginTop: "1.1rem", paddingTop: "1.1rem" }}
         >
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
-            <h3 style={{ margin: 0 }}>{loc.name}</h3>
+            <h3 style={{ margin: 0, flex: "1 1 8rem", minWidth: 0 }}>{loc.name}</h3>
             <AddExtraInline
               locationId={loc.locationId}
               date={snapshot.date}
-              label="+ Add another liturgy today"
+              label="+ Add liturgy today"
               disabled={loc.liturgies.filter((l) => !l.forAnotherDay).length >= 3}
               onAdded={async () => setSnapshot(await getTodaySnapshotAction())}
             />

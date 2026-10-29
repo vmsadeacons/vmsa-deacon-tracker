@@ -727,6 +727,65 @@ table.table.table-flush-end tbody tr:last-child td {
   }
 }
 
+/* Check-in review rows on a phone. Labels drop away (the content explains itself)
+   and the method / decision sits on one line under the name:
+     Mina Tadros
+     2 flagged in the last 90 days
+     QR code  Sun, Oct 25, 7:41 AM
+     St. Athanasius
+     Sunday, 2026-10-25 · 1st Liturgy
+     Was about 1.0 mi from St. Athanasius.
+     [Confirm] [Reject]  */
+@media (max-width: 700px) {
+  table.table-stack.table-review tr {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: start;
+    padding: 0.55rem 0.9rem;
+  }
+
+  table.table-stack.table-review td {
+    width: auto;
+    min-width: 0;
+    padding: 0.2rem 0;
+  }
+
+  table.table-stack.table-review td[data-label]::before {
+    display: none;
+  }
+
+  table.table-stack.table-review td.r-who {
+    grid-row: 1;
+  }
+
+  table.table-stack.table-review td.r-side {
+    grid-row: 2;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.1rem 0.6rem;
+    font-size: 0.9rem;
+  }
+
+  table.table-stack.table-review td.r-side > div {
+    margin-top: 0 !important;
+  }
+
+  table.table-stack.table-review td.r-where {
+    grid-row: 3;
+  }
+
+  table.table-stack.table-review td.r-why {
+    grid-row: 4;
+  }
+
+  table.table-stack.table-review td.stack-actions {
+    grid-row: 5;
+    margin-top: 0.3rem;
+    padding-top: 0.6rem;
+  }
+}
+
 /* Cards marked .roomy (the Check-in review and Check-in windows screens): bigger
    buttons and fields on a phone, with 16px text so iPhones don't zoom the page
    when a field is tapped. */

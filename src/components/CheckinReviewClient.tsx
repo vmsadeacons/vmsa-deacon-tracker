@@ -59,7 +59,7 @@ export default function CheckinReviewClient({ pending, reviewed }: { pending: Fl
           <p className="muted">Nothing to review — every check-in was confirmed to be at the church.</p>
         ) : (
           <div className="table-wrap">
-            <table className="table table-flush-end table-stack">
+            <table className="table table-flush-end table-stack table-review">
               <thead>
                 <tr>
                   <th>Deacon</th>
@@ -72,23 +72,23 @@ export default function CheckinReviewClient({ pending, reviewed }: { pending: Fl
               <tbody>
                 {pending.map((f) => (
                   <tr key={f.id}>
-                    <td className="stack-title">
+                    <td className="stack-title r-who">
                       {f.deaconName}
                       <div className="muted" style={{ fontSize: "0.8rem", fontWeight: 400 }}>
                         {f.recentCount} flagged in the last 90 days
                       </div>
                     </td>
-                    <td data-label="Liturgy">
+                    <td data-label="Liturgy" className="r-where">
                       {f.locationName}
                       <div className="muted" style={{ fontSize: "0.8rem" }}>
                         {weekdayLabel(f.date)}, {f.date} · {f.serviceLabel}
                       </div>
                     </td>
-                    <td data-label="How">
+                    <td data-label="How" className="r-side">
                       {methodLabel(f.method)}
                       <div className="muted" style={{ fontSize: "0.8rem" }}>{f.createdLabel}</div>
                     </td>
-                    <td data-label="Why it's here">{describeFlag(f)}</td>
+                    <td data-label="Why it's here" className="r-why">{describeFlag(f)}</td>
                     <td className="stack-actions">
                       <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
                         <button
@@ -121,7 +121,7 @@ export default function CheckinReviewClient({ pending, reviewed }: { pending: Fl
         <div className="card roomy">
           <h3 style={{ marginTop: 0 }}>Recently reviewed</h3>
           <div className="table-wrap">
-            <table className="table table-flush-end table-stack">
+            <table className="table table-flush-end table-stack table-review">
               <thead>
                 <tr>
                   <th>Deacon</th>
@@ -134,15 +134,15 @@ export default function CheckinReviewClient({ pending, reviewed }: { pending: Fl
               <tbody>
                 {reviewed.map((f) => (
                   <tr key={f.id}>
-                    <td className="stack-title">{f.deaconName}</td>
-                    <td data-label="Liturgy">
+                    <td className="stack-title r-who">{f.deaconName}</td>
+                    <td data-label="Liturgy" className="r-where">
                       {f.locationName}
                       <div className="muted" style={{ fontSize: "0.8rem" }}>
                         {weekdayLabel(f.date)}, {f.date} · {f.serviceLabel} · {methodLabel(f.method)}
                       </div>
                     </td>
-                    <td data-label="Why it was flagged">{describeFlag(f)}</td>
-                    <td data-label="Decision">
+                    <td data-label="Why it was flagged" className="r-why">{describeFlag(f)}</td>
+                    <td data-label="Decision" className="r-side">
                       <span className={f.status === "confirmed" ? "badge badge-green" : "badge badge-grey"}>
                         {f.status === "confirmed" ? "Confirmed" : "Rejected"}
                       </span>
