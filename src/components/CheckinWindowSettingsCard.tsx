@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { WindowSettings } from "@/lib/repo/liturgySchedule";
-import { describeMinutes } from "@/lib/formatTime";
 import { setCheckinWindowSettingsAction } from "@/lib/actions/schedule";
+import InfoHeading from "./InfoHeading";
 
 /** How long before a liturgy's start check-in opens, and how long after it starts it closes -- one setting for every church and liturgy. */
 export default function CheckinWindowSettingsCard({ settings }: { settings: WindowSettings }) {
@@ -35,15 +35,16 @@ export default function CheckinWindowSettingsCard({ settings }: { settings: Wind
 
   return (
     <div className="card roomy">
-      <h3>Check-in window timing</h3>
-      <p className="muted" style={{ marginBottom: "1rem" }}>
-        When check-in opens and closes, relative to each liturgy&apos;s start time. This applies to every church and
-        every liturgy, including extras. A liturgy also closes as soon as the next one&apos;s window opens, so only one is
-        ever open at a time.
-      </p>
-      <div className="fieldrow" style={{ marginBottom: "1rem" }}>
+      <InfoHeading title="Check-in window timing">
+        <p className="muted" style={{ marginBottom: "1rem" }}>
+          When check-in opens and closes, relative to each liturgy&apos;s start time. This applies to every church and
+          every liturgy, including extras. A liturgy also closes as soon as the next one&apos;s window opens, so only one
+          is ever open at a time.
+        </p>
+      </InfoHeading>
+      <div className="fieldrow fieldrow-pair" style={{ marginBottom: "1rem" }}>
         <div className="field">
-          <label>Opens (minutes before the start)</label>
+          <label>Opens</label>
           <input
             type="number"
             min={0}
@@ -52,10 +53,10 @@ export default function CheckinWindowSettingsCard({ settings }: { settings: Wind
             value={openBefore}
             onChange={(e) => { setOpenBefore(e.target.value); setSaved(false); }}
           />
-          {valid && <span className="muted" style={{ fontSize: "0.8rem" }}>{describeMinutes(openN)} before</span>}
+          <span className="muted" style={{ fontSize: "0.8rem" }}>minutes before the start</span>
         </div>
         <div className="field">
-          <label>Closes (minutes after the start)</label>
+          <label>Closes</label>
           <input
             type="number"
             min={30}
@@ -64,7 +65,7 @@ export default function CheckinWindowSettingsCard({ settings }: { settings: Wind
             value={closeAfter}
             onChange={(e) => { setCloseAfter(e.target.value); setSaved(false); }}
           />
-          {valid && <span className="muted" style={{ fontSize: "0.8rem" }}>{describeMinutes(closeN)} after</span>}
+          <span className="muted" style={{ fontSize: "0.8rem" }}>minutes after the start</span>
         </div>
       </div>
       {error && <p className="error-text" style={{ marginBottom: "0.75rem" }}>{error}</p>}

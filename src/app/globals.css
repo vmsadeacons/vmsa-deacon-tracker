@@ -727,19 +727,19 @@ table.table.table-flush-end tbody tr:last-child td {
   }
 }
 
-/* Check-in review rows on a phone. Labels drop away (the content explains itself)
-   and the method / decision sits on one line under the name:
-     Mina Tadros
+/* Check-in review rows on a phone. Labels drop away (the content explains itself),
+   the row's buttons sit beside the name, and the method / decision is one line below:
+     Mina Tadros              [Confirm] [Reject]
      2 flagged in the last 90 days
      QR code  Sun, Oct 25, 7:41 AM
      St. Athanasius
      Sunday, 2026-10-25 · 1st Liturgy
-     Was about 1.0 mi from St. Athanasius.
-     [Confirm] [Reject]  */
+     Was about 1.0 mi from St. Athanasius.  */
 @media (max-width: 700px) {
   table.table-stack.table-review tr {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr auto;
+    column-gap: 0.6rem;
     align-items: start;
     padding: 0.55rem 0.9rem;
   }
@@ -755,10 +755,40 @@ table.table.table-flush-end tbody tr:last-child td {
   }
 
   table.table-stack.table-review td.r-who {
+    grid-column: 1;
     grid-row: 1;
   }
 
+  table.table-stack.table-review td.stack-actions {
+    grid-column: 2;
+    grid-row: 1;
+    margin: 0;
+    padding: 0.2rem 0;
+    border-top: none;
+  }
+
+  table.table-stack.table-review td.stack-actions > div {
+    flex-wrap: nowrap;
+    gap: 0.4rem;
+  }
+
+  table.table-stack.table-review td.stack-actions .btn {
+    flex: none;
+    width: auto;
+    min-height: 2.1rem;
+    padding: 0.25rem 0.7rem;
+    font-size: 0.8rem;
+  }
+
+  /* Remove (a lone button in the cell) is the quietest action, so it's smaller still. */
+  table.table-stack.table-review td.stack-actions > .btn {
+    min-height: 1.9rem;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.75rem;
+  }
+
   table.table-stack.table-review td.r-side {
+    grid-column: 1 / -1;
     grid-row: 2;
     display: flex;
     flex-wrap: wrap;
@@ -772,17 +802,13 @@ table.table.table-flush-end tbody tr:last-child td {
   }
 
   table.table-stack.table-review td.r-where {
+    grid-column: 1 / -1;
     grid-row: 3;
   }
 
   table.table-stack.table-review td.r-why {
+    grid-column: 1 / -1;
     grid-row: 4;
-  }
-
-  table.table-stack.table-review td.stack-actions {
-    grid-row: 5;
-    margin-top: 0.3rem;
-    padding-top: 0.6rem;
   }
 }
 
@@ -879,8 +905,11 @@ table.table.table-flush-end tbody tr:last-child td {
     grid-template-columns: 4.8rem 1fr auto;
     column-gap: 0.5rem;
     align-items: center;
-    padding: 0.4rem 0.8rem;
-    margin-bottom: 0.6rem;
+    padding: 0.4rem 0;
+    margin-bottom: 0;
+    border: none;
+    border-radius: 0;
+    border-bottom: 1px solid var(--border);
   }
 
   table.table-stack.table-times td {
