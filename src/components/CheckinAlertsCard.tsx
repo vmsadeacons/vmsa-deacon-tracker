@@ -9,6 +9,7 @@ import {
   sendTestAlertAction,
   setFlagRecipientsAction,
 } from "@/lib/actions/checkinReview";
+import InfoHeading from "./InfoHeading";
 
 type Device =
   | { state: "checking" }
@@ -146,13 +147,29 @@ export default function CheckinAlertsCard({
     setSavingChurch(null);
   }
 
+  const whoNote = (
+    <p className="muted" style={{ marginBottom: "0.75rem", fontSize: "0.9rem" }}>
+      If nobody is chosen for a church, every admin who has alerts on is alerted instead. An admin only receives alerts
+      once they&apos;ve turned them on from their own device.
+    </p>
+  );
+
   return (
     <div className="card roomy">
-      <h3>Check-in review alerts</h3>
-      <p className="muted" style={{ marginBottom: "1rem" }}>
-        When a check-in can&apos;t be confirmed, the admins chosen for that church get an alert on their phone or
-        computer. Everyone sees every item on the Check-in review page either way.
-      </p>
+      <InfoHeading
+        title="Check-in review alerts"
+        phoneOnly={
+          <>
+              <h4 style={{ margin: "1rem 0 0.4rem" }}>Who is alerted for each church</h4>
+              {whoNote}
+            </>
+          }
+        >
+        <p className="muted" style={{ marginBottom: "1rem" }}>
+          When a check-in can&apos;t be confirmed, the admins chosen for that church get an alert on their phone or
+          computer. Everyone sees every item on the Check-in review page either way.
+        </p>
+      </InfoHeading>
 
       <h4 style={{ margin: "0 0 0.4rem" }}>This device</h4>
       {device.state === "checking" && <p className="muted">Checking…</p>}
@@ -197,10 +214,7 @@ export default function CheckinAlertsCard({
       {error && <p className="error-text" style={{ marginTop: "0.6rem" }}>{error}</p>}
 
       <h4 style={{ margin: "1.4rem 0 0.4rem" }}>Who is alerted for each church</h4>
-      <p className="muted" style={{ marginBottom: "0.75rem", fontSize: "0.9rem" }}>
-        If nobody is chosen for a church, every admin who has alerts on is alerted instead. An admin only receives
-        alerts once they&apos;ve turned them on from their own device.
-      </p>
+      <div className="info-inline">{whoNote}</div>
       {churches.map((church) => (
         <div
           key={church.id}

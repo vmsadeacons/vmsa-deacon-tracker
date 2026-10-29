@@ -786,6 +786,181 @@ table.table.table-flush-end tbody tr:last-child td {
   }
 }
 
+/* A card's title with its explanation: shown as text on a computer, behind a
+   small "i" icon on a phone (see InfoHeading). */
+.info-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.info-head h3 {
+  margin: 0;
+}
+
+.info-btn {
+  display: none;
+  position: relative;
+  align-items: center;
+  justify-content: center;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  border: 1.5px solid var(--muted);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 700;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* A bigger area to tap than the icon itself. */
+.info-btn::after {
+  content: "";
+  position: absolute;
+  inset: -0.4rem;
+}
+
+/* Each church's QR code: the buttons sit under it on a computer. */
+.qr-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem;
+}
+
+@media (max-width: 700px) {
+  .info-btn {
+    display: inline-flex;
+  }
+
+  .info-inline {
+    display: none;
+  }
+
+  /* QR code on the left, its three buttons in one equal-width column on the right. */
+  .qr-body {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+  }
+
+  .qr-pic {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .qr-actions {
+    flex: 0 0 6.5rem;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+  }
+
+  .qr-actions .btn {
+    width: 100%;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+}
+
+/* Liturgy Start Times on a phone: one short row per weekday.
+     Monday     [09:00 AM]   [Save]
+     Sunday  1st [07:30 AM]  [Save]
+             2nd [10:00 AM]          */
+@media (max-width: 700px) {
+  table.table-stack.table-times tr {
+    display: grid;
+    grid-template-columns: 4.8rem 1fr auto;
+    column-gap: 0.5rem;
+    align-items: center;
+    padding: 0.4rem 0.8rem;
+    margin-bottom: 0.6rem;
+  }
+
+  table.table-stack.table-times td {
+    width: auto;
+    min-width: 0;
+    padding: 0.15rem 0;
+  }
+
+  table.table-stack.table-times td.t-day {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    font-size: 0.9rem;
+  }
+
+  table.table-stack.table-times td.t-first {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  table.table-stack.table-times td.t-second {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  table.table-stack.table-times td.t-save {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+  }
+
+  table.table-stack.table-times td[data-label] {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  table.table-stack.table-times td[data-label]::before {
+    min-width: 1.7rem;
+    margin: 0;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 0.75rem;
+  }
+
+  table.table-stack.table-times td > div {
+    flex: 1;
+    min-width: 0;
+  }
+
+  table.table-stack.table-times input {
+    width: 100%;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+}
+
+/* Date and time fields share a line and stay inside the card (iPhones size
+   these fields on their own unless told not to). */
+@media (max-width: 700px) {
+  .roomy .fieldrow-pair {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  /* Tapping the field opens the picker, so the little icon only takes room. */
+  .roomy input[type="date"]::-webkit-calendar-picker-indicator,
+  .roomy input[type="time"]::-webkit-calendar-picker-indicator {
+    display: none;
+  }
+
+  .roomy input[type="date"],
+  .roomy input[type="time"] {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+}
+
 /* Cards marked .roomy (the Check-in review and Check-in windows screens): bigger
    buttons and fields on a phone, with 16px text so iPhones don't zoom the page
    when a field is tapped. */

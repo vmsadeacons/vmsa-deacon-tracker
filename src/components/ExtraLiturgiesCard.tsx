@@ -14,6 +14,7 @@ import {
   removeExtraAction,
   removeExtraSeriesAction,
 } from "@/lib/actions/schedule";
+import InfoHeading from "./InfoHeading";
 
 function fmtDate(d: string): string {
   const [y, m, day] = d.split("-").map(Number);
@@ -158,13 +159,14 @@ export default function ExtraLiturgiesCard({ locations, upcoming }: { locations:
 
   return (
     <div className="card roomy">
-      <h3>Extra Liturgies</h3>
+      <InfoHeading title="Extra Liturgies">
       <p className="muted" style={{ marginBottom: "1rem" }}>
         Every church has 1 liturgy a day, and 2 on Sundays. Add an extra liturgy to one day (Sundays included, up to 3 in
         a day), or the same days of the week across a stretch of dates in one go. Every extra has its own start time. A
         midnight liturgy held the night before can be marked &ldquo;starts the evening before&rdquo; so it counts for the
         day after; it then becomes that day&apos;s 1st liturgy. You can also add one for today at the top of this page.
       </p>
+      </InfoHeading>
 
       <div style={{ display: "flex", gap: "1.25rem", marginBottom: "1rem", flexWrap: "wrap" }}>
         <label style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
@@ -201,7 +203,7 @@ export default function ExtraLiturgiesCard({ locations, upcoming }: { locations:
         </div>
       </div>
 
-      <div className="fieldrow" style={{ marginBottom: "1rem" }}>
+      <div className="fieldrow fieldrow-pair" style={{ marginBottom: "1rem" }}>
         {mode === "one" ? (
           <div className="field">
             <label>Date</label>

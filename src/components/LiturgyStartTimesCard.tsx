@@ -7,6 +7,7 @@ import type { StartTimeCell } from "@/lib/repo/liturgySchedule";
 import { WEEKDAY_NAMES } from "@/lib/timezone";
 import { describeMinutes } from "@/lib/formatTime";
 import { setStartTimesForDayAction } from "@/lib/actions/schedule";
+import InfoHeading from "./InfoHeading";
 
 type DayTimes = { S1: string; S2?: string };
 
@@ -59,12 +60,13 @@ export default function LiturgyStartTimesCard({
 
   return (
     <div className="card roomy">
-      <h3>Liturgy Start Times</h3>
+      <InfoHeading title="Liturgy Start Times">
       <p className="muted" style={{ marginBottom: "1rem" }}>
         When each church&apos;s regular liturgies start: one on every day, and two on Sunday. Check-in for a liturgy opens{" "}
         {describeMinutes(openBefore)} before it starts. An extra liturgy has its own start time, set when it&apos;s added.
         Times marked &ldquo;default&rdquo; are placeholders — press Save on a day to confirm its times.
       </p>
+      </InfoHeading>
       <div className="field" style={{ maxWidth: 320, marginBottom: "1rem" }}>
         <label>Location</label>
         <select value={locationId} onChange={(e) => selectLocation(e.target.value)}>
@@ -77,7 +79,7 @@ export default function LiturgyStartTimesCard({
       </div>
       {error && <p className="error-text" style={{ marginBottom: "0.75rem" }}>{error}</p>}
       <div className="table-wrap">
-        <table className="table table-stack">
+        <table className="table table-stack table-times">
           <thead>
             <tr>
               <th>Day</th>
@@ -89,8 +91,8 @@ export default function LiturgyStartTimesCard({
           <tbody>
             {WEEKDAY_NAMES.map((name, weekday) => (
               <tr key={weekday}>
-                <td className="stack-title">{name}</td>
-                <td data-label="1st Liturgy" className="stack-inline">
+                <td className="stack-title t-day">{name}</td>
+                <td data-label={weekday === 0 ? "1st" : undefined} className="t-first">
                   <div>
                   <input
                     type="time"
@@ -100,7 +102,7 @@ export default function LiturgyStartTimesCard({
                   {isDefault(weekday, "S1") && <div className="muted" style={{ fontSize: "0.75rem" }}>default</div>}
                   </div>
                 </td>
-                <td data-label="2nd Liturgy" className={weekday === 0 ? "stack-inline" : "stack-hide"}>
+                <td data-label={weekday === 0 ? "2nd" : undefined} className={weekday === 0 ? "t-second" : "stack-hide"}>
                   {weekday === 0 ? (
                     <div>
                       <input
@@ -114,7 +116,7 @@ export default function LiturgyStartTimesCard({
                     <span className="muted">—</span>
                   )}
                 </td>
-                <td className="stack-actions">
+                <td className="t-save">
                   <button className="btn btn-secondary btn-sm" disabled={savingDay === weekday} onClick={() => save(weekday)}>
                     Save
                   </button>
